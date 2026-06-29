@@ -19,16 +19,16 @@ import {
 import LottiePlayer from "@/components/ui/LottiePlayer";
 
 const navItems = [
-  { href: "/superadmin",              icon: LayoutDashboard, label: "Dashboard"   },
-  { href: "/superadmin/bolimlar",     icon: Building2,       label: "Bo'limlar"   },
-  { href: "/superadmin/xodimlar",     icon: Users,           label: "Xodimlar"    },
-  { href: "/superadmin/kpi",          icon: Target,          label: "KPI"         },
-  { href: "/superadmin/ball-berish",  icon: Star,            label: "Ball berish" },
-  { href: "/superadmin/hisobotlar",   icon: BarChart3,       label: "Hisobotlar"  },
-  { href: "/superadmin/davomat",      icon: ClipboardCheck,  label: "Davomat"     },
-  { href: "/superadmin/kalendar",     icon: CalendarDays,    label: "Kalendar"    },
-  { href: "/superadmin/moliya",       icon: Wallet,          label: "Moliya"      },
-  { href: "/superadmin/sozlamalar",   icon: Settings,        label: "Sozlamalar"  },
+  { href: "/superadmin",              icon: LayoutDashboard, label: "Dashboard",   enabled: true  },
+  { href: "/superadmin/bolimlar",     icon: Building2,       label: "Bo'limlar",   enabled: true  },
+  { href: "/superadmin/xodimlar",     icon: Users,           label: "Xodimlar",    enabled: false },
+  { href: "/superadmin/kpi",          icon: Target,          label: "KPI",         enabled: false },
+  { href: "/superadmin/ball-berish",  icon: Star,            label: "Ball berish", enabled: true  },
+  { href: "/superadmin/hisobotlar",   icon: BarChart3,       label: "Hisobotlar",  enabled: false },
+  { href: "/superadmin/davomat",      icon: ClipboardCheck,  label: "Davomat",     enabled: true  },
+  { href: "/superadmin/kalendar",     icon: CalendarDays,    label: "Kalendar",    enabled: false },
+  { href: "/superadmin/moliya",       icon: Wallet,          label: "Moliya",      enabled: false },
+  { href: "/superadmin/sozlamalar",   icon: Settings,        label: "Sozlamalar",  enabled: true  },
 ];
 
 export default function Sidebar() {
@@ -75,8 +75,33 @@ export default function Sidebar() {
       {/* Navigation */}
       <nav className="flex-1 px-4 overflow-y-auto">
         <ul className="flex flex-col gap-1">
-          {navItems.map(({ href, icon: Icon, label }) => {
+          {navItems.map(({ href, icon: Icon, label, enabled }) => {
             const active = isActive(href);
+            if (!enabled) {
+              return (
+                <li key={href} className="relative">
+                  <span
+                    className="flex items-center gap-3 px-3 py-3 rounded-[10px] cursor-not-allowed select-none"
+                    title="Tez kunda ishga tushiriladi"
+                    style={{
+                      color: "#C4CBD6",
+                      fontWeight: 600,
+                      fontSize: 15,
+                      opacity: 0.6,
+                    }}
+                  >
+                    <Icon size={20} style={{ color: "#C4CBD6" }} />
+                    {label}
+                    <span
+                      className="ml-auto text-[10px] font-bold px-1.5 py-0.5"
+                      style={{ background: "#F4F9FD", color: "#C4CBD6", borderRadius: 6 }}
+                    >
+                      Tez kunda
+                    </span>
+                  </span>
+                </li>
+              );
+            }
             return (
               <li key={href} className="relative">
                 <Link
