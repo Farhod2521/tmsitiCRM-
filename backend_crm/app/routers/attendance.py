@@ -150,13 +150,21 @@ def today_status(
     return _to_out(rec) if rec else None
 
 
+_DAVOMAT_ADMIN_ROLES = {
+    models.RoleEnum.superadmin,
+    models.RoleEnum.direktor,
+    models.RoleEnum.zamdirektor,
+}
+
 @router.get("/admin/day", response_model=List[schemas.AdminDavomatRow])
 def admin_day(
     date: str = None,
     db: Session = Depends(get_db),
-    _: models.Employee = Depends(require_superadmin),
+    current: models.Employee = Depends(get_current_employee),
 ):
-    """Superadmin: berilgan sanada barcha xodimlarning davomat holati."""
+    """Superadmin / Direktor: berilgan sanada barcha xodimlarning davomat holati."""
+    if current.role not in _DAVOMAT_ADMIN_ROLES:
+        raise HTTPException(status_code=403, detail="Ruxsat yo'q")
     from typing import Optional as Opt
     if not date:
         date = datetime.now(TZ_UZ).strftime("%Y-%m-%d")

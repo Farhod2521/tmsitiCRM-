@@ -21,14 +21,14 @@ import LottiePlayer from "@/components/ui/LottiePlayer";
 const navItems = [
   { href: "/superadmin",              icon: LayoutDashboard, label: "Dashboard",   enabled: true  },
   { href: "/superadmin/bolimlar",     icon: Building2,       label: "Bo'limlar",   enabled: true  },
+  { href: "/superadmin/ball-berish",  icon: Star,            label: "Ball berish", enabled: true  },
+  { href: "/superadmin/davomat",      icon: ClipboardCheck,  label: "Davomat",     enabled: true  },
+  { href: "/superadmin/sozlamalar",   icon: Settings,        label: "Sozlamalar",  enabled: true  },
   { href: "/superadmin/xodimlar",     icon: Users,           label: "Xodimlar",    enabled: false },
   { href: "/superadmin/kpi",          icon: Target,          label: "KPI",         enabled: false },
-  { href: "/superadmin/ball-berish",  icon: Star,            label: "Ball berish", enabled: true  },
   { href: "/superadmin/hisobotlar",   icon: BarChart3,       label: "Hisobotlar",  enabled: false },
-  { href: "/superadmin/davomat",      icon: ClipboardCheck,  label: "Davomat",     enabled: true  },
   { href: "/superadmin/kalendar",     icon: CalendarDays,    label: "Kalendar",    enabled: false },
   { href: "/superadmin/moliya",       icon: Wallet,          label: "Moliya",      enabled: false },
-  { href: "/superadmin/sozlamalar",   icon: Settings,        label: "Sozlamalar",  enabled: true  },
 ];
 
 export default function Sidebar() {
