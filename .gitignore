@@ -1,0 +1,41 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.env
+.env.*
+*.egg-info/
+dist/
+build/
+*.log
+venv/
+.venv/
+
+# Node / Next.js
+node_modules/
+tmsiticrm/.next/
+tmsiticrm/out/
+tmsiticrm/.vercel/
+*.tsbuildinfo
+tmsiticrm/next-env.d.ts
+
+# Docker
+.dockerignore
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Secrets / Keys
+*.pem
+*.key
+*.crt
+secrets.json

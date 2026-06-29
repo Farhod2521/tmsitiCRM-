@@ -1,0 +1,58 @@
+version: "3.9"
+
+services:
+
+  # ── PostgreSQL ─────────────────────────────────────────────────────────────
+  db:
+    image: postgres:16-alpine
+    container_name: crm_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: crm_user
+      POSTGRES_PASSWORD: crm_pass
+      POSTGRES_DB: crm_db
+    volumes:
+      - crm_postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5433:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U crm_user -d crm_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # ── FastAPI Backend ────────────────────────────────────────────────────────
+  backend:
+    build:
+      context: ./backend_crm
+      dockerfile: Dockerfile
+    container_name: crm_backend
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql://crm_user:crm_pass@db:5432/crm_db
+      SECRET_KEY: tmsiti-crm-super-secret-key-2026-keltechnik
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+    # Birinchi seed, keyin server
+    command: >
+      sh -c "python seed.py && uvicorn app.main:app --host 0.0.0.0 --port 8000"
+
+  # ── Next.js Frontend ───────────────────────────────────────────────────────
+  frontend:
+    build:
+      context: ./tmsiticrm
+      dockerfile: Dockerfile
+    container_name: crm_frontend
+    restart: unless-stopped
+    environment:
+      NEXT_PUBLIC_API_URL: http://192.168.20.3:8000
+    ports:
+      - "3500:3000"
+    depends_on:
+      - backend
+
+volumes:
+  crm_postgres_data:
