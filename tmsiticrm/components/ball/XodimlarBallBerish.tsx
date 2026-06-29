@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import {
   ChevronLeft, ChevronRight, ChevronDown, ChevronUp,
-  Loader2, Save, RefreshCw, Users, CheckCircle2, Download, FileText,
+  Loader2, Save, RefreshCw, Users, CheckCircle2, Download, FileText, Info, X,
 } from "lucide-react";
 import { apiFetch } from "@/lib/api";
 
@@ -81,8 +81,18 @@ export default function XodimlarBallBerish({ mode }: Props) {
   const [loading,  setLoading]  = useState(true);
   const [saving,   setSaving]   = useState(false);
   const [saved,    setSaved]    = useState(false);
-  const [openDepts, setOpenDepts] = useState<Set<string>>(new Set());
+  const [openDepts,  setOpenDepts]  = useState<Set<string>>(new Set());
+  const [kpiModal,   setKpiModal]   = useState(false);
   const fields = FIELD_CONFIG[mode];
+
+  const KPI_RANGES = [
+    { from: 70,  to: 75,  foiz: "50%",  color: "#FF5C5C", bg: "rgba(255,92,92,0.10)"   },
+    { from: 76,  to: 80,  foiz: "75%",  color: "#FF8C42", bg: "rgba(255,140,66,0.12)"  },
+    { from: 81,  to: 85,  foiz: "100%", color: "#FFBD21", bg: "rgba(255,189,33,0.12)"  },
+    { from: 86,  to: 90,  foiz: "125%", color: "#00C48C", bg: "rgba(0,196,140,0.10)"   },
+    { from: 91,  to: 95,  foiz: "150%", color: "#3F8CFF", bg: "rgba(63,140,255,0.10)"  },
+    { from: 96,  to: 100, foiz: "200%", color: "#6D5DD3", bg: "rgba(109,93,211,0.12)"  },
+  ];
 
   /* ── Load ── */
   const loadData = useCallback(async (y: number, m: number) => {
@@ -317,7 +327,15 @@ export default function XodimlarBallBerish({ mode }: Props) {
                           </span>
                         ))}
                         <span className="text-center" style={{ color:"#0A1629" }}>JAMI</span>
-                        <span className="text-center" style={{ color:"#6D5DD3" }}>KPI FOIZ</span>
+                        <span className="flex items-center justify-center gap-1" style={{ color:"#6D5DD3" }}>
+                          KPI FOIZ
+                          <button
+                            onClick={() => setKpiModal(true)}
+                            className="hover:opacity-70 transition-opacity"
+                            title="KPI foiz jadvalini ko'rish">
+                            <Info size={13} style={{ color:"#6D5DD3" }}/>
+                          </button>
+                        </span>
                         {mode === "direktor" && (
                           <span className="text-center" style={{ color:"#3F8CFF" }}>Hisobot</span>
                         )}
@@ -434,6 +452,64 @@ export default function XodimlarBallBerish({ mode }: Props) {
         )}
         <div className="pb-2"/>
       </div>
+      {/* ── KPI Foiz modal ── */}
+      {kpiModal && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center"
+          style={{ background: "rgba(10,22,41,0.45)" }}
+          onClick={() => setKpiModal(false)}>
+          <div
+            className="relative flex flex-col gap-0 overflow-hidden"
+            style={{
+              background: "#FFFFFF",
+              borderRadius: 20,
+              boxShadow: "0px 20px 60px rgba(10,22,41,0.25)",
+              minWidth: 320,
+            }}
+            onClick={e => e.stopPropagation()}>
+
+            {/* Header */}
+            <div className="flex items-center justify-between px-5 py-4"
+              style={{ borderBottom: "1px solid #F4F9FD" }}>
+              <div>
+                <p className="font-bold text-sm" style={{ color:"#0A1629" }}>KPI Foiz Jadval</p>
+                <p className="text-xs mt-0.5" style={{ color:"#91929E" }}>Ball oralig'iga qarab KPI ulushi</p>
+              </div>
+              <button onClick={() => setKpiModal(false)}
+                className="w-7 h-7 flex items-center justify-center hover:bg-[#F4F9FD] rounded-lg transition-colors">
+                <X size={15} style={{ color:"#91929E" }}/>
+              </button>
+            </div>
+
+            {/* Ranges */}
+            <div className="flex flex-col gap-0">
+              {KPI_RANGES.map((r, i) => (
+                <div key={i}
+                  className="flex items-center justify-between px-5 py-3"
+                  style={{ borderBottom: i < KPI_RANGES.length - 1 ? "1px solid #F4F9FD" : "none" }}>
+                  <div className="flex items-center gap-2">
+                    <div className="w-2 h-2 rounded-full" style={{ background: r.color }}/>
+                    <span className="text-sm font-medium" style={{ color:"#0A1629" }}>
+                      {r.from} – {r.to} ball
+                    </span>
+                  </div>
+                  <span className="px-3 py-1 text-sm font-bold"
+                    style={{ background: r.bg, color: r.color, borderRadius: 8 }}>
+                    {r.foiz}
+                  </span>
+                </div>
+              ))}
+            </div>
+
+            {/* Footer note */}
+            <div className="px-5 py-3" style={{ background:"#F8FAFF", borderTop:"1px solid #F4F9FD" }}>
+              <p className="text-xs" style={{ color:"#91929E" }}>
+                70 balldan past — KPI hisoblanmaydi
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
