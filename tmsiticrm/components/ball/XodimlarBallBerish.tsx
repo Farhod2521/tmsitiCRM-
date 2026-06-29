@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import {
   ChevronLeft, ChevronRight, ChevronDown, ChevronUp,
-  Loader2, Save, RefreshCw, Users, CheckCircle2,
+  Loader2, Save, RefreshCw, Users, CheckCircle2, Download, FileText,
 } from "lucide-react";
 import { apiFetch } from "@/lib/api";
 
@@ -139,6 +139,21 @@ export default function XodimlarBallBerish({ mode }: Props) {
     }
   }
 
+  /* ── Fayl yuklab olish (direktor) ── */
+  async function downloadFile(empId: number) {
+    try {
+      const d = await apiFetch<{ file_name: string; file_b64: string }>(
+        `/ball/report/${empId}/${year}/${month}`
+      );
+      const a = document.createElement("a");
+      a.href = d.file_b64;
+      a.download = d.file_name;
+      a.click();
+    } catch {
+      alert("Fayl topilmadi");
+    }
+  }
+
   /* ── Group by dept ── */
   const grouped = new Map<string, EmpScoreRow[]>();
   for (const r of rows) {
@@ -267,7 +282,7 @@ export default function XodimlarBallBerish({ mode }: Props) {
                       {/* Table header */}
                       <div className="grid px-6 py-2 text-xs font-bold uppercase tracking-wide"
                         style={{
-                          gridTemplateColumns: `50px 2fr ${fields.map(()=>"100px").join(" ")}`,
+                          gridTemplateColumns: `50px 2fr ${fields.map(()=>"100px").join(" ")}${mode==="direktor"?" 120px":""}`,
                           color:"#91929E", letterSpacing:"0.05em",
                           background:"#F8FAFF",
                         }}>
@@ -278,6 +293,9 @@ export default function XodimlarBallBerish({ mode }: Props) {
                             {f.label} <span className="font-normal">/{f.max}</span>
                           </span>
                         ))}
+                        {mode === "direktor" && (
+                          <span className="text-center" style={{ color:"#6D5DD3" }}>Hisobot</span>
+                        )}
                       </div>
 
                       {deptRows.map((r, idx) => {
@@ -286,7 +304,7 @@ export default function XodimlarBallBerish({ mode }: Props) {
                           <div key={r.employee_id}
                             className="grid items-center px-6 py-3 hover:bg-[#FAFCFF] transition-colors"
                             style={{
-                              gridTemplateColumns: `50px 2fr ${fields.map(()=>"100px").join(" ")}`,
+                              gridTemplateColumns: `50px 2fr ${fields.map(()=>"100px").join(" ")}${mode==="direktor"?" 120px":""}`,
                               borderTop: "1px solid #F4F9FD",
                             }}>
                             <span className="text-xs font-bold" style={{ color:"#91929E" }}>{idx+1}</span>
@@ -333,6 +351,27 @@ export default function XodimlarBallBerish({ mode }: Props) {
                                 </div>
                               );
                             })}
+                            {/* Hisobot ustuni — faqat direktor */}
+                            {mode === "direktor" && (
+                              <div className="flex justify-center">
+                                {r.report_file_name ? (
+                                  <button
+                                    onClick={() => downloadFile(r.employee_id)}
+                                    title={r.report_file_name}
+                                    className="flex items-center gap-1.5 px-3 py-2 text-xs font-bold hover:opacity-80 transition-opacity"
+                                    style={{ background:"rgba(109,93,211,0.1)", borderRadius:10, color:"#6D5DD3" }}>
+                                    <Download size={12}/>
+                                    Yuklab ol
+                                  </button>
+                                ) : (
+                                  <div className="flex items-center gap-1.5 px-3 py-2"
+                                    style={{ background:"#F4F9FD", borderRadius:10 }}>
+                                    <FileText size={12} style={{ color:"#C4CBD6" }}/>
+                                    <span className="text-xs" style={{ color:"#C4CBD6" }}>Yo'q</span>
+                                  </div>
+                                )}
+                              </div>
+                            )}
                           </div>
                         );
                       })}
