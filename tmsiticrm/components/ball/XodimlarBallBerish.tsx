@@ -93,12 +93,14 @@ export default function XodimlarBallBerish({ mode }: Props) {
       setRows(data);
 
       // Initialize ball states from existing scores
+      // direktor mode: faqat DB dagi qiymat, bo'sh bo'lsa null (avtomatik to'ldirmaslik)
+      // kadr/ijro mode: bo'sh bo'lsa maksimum bilan to'ldirish
       const init: Record<number, BallState> = {};
       for (const r of data) {
         const def: BallState = {};
         for (const f of fields) {
           const cur = r[f.key as keyof EmpScoreRow] as number | null;
-          def[f.key] = cur ?? f.max; // default to max if no score yet
+          def[f.key] = cur ?? (mode === "direktor" ? null : f.max);
         }
         init[r.employee_id] = def;
       }
@@ -229,11 +231,13 @@ export default function XodimlarBallBerish({ mode }: Props) {
 
         {/* Buttons */}
         <div className="flex gap-2">
-          <button onClick={setAllDefault}
-            className="flex items-center gap-1.5 px-4 py-2.5 text-sm font-bold"
-            style={{ background:"#F4F9FD", borderRadius:12, color:"#7D8592" }}>
-            <RefreshCw size={14}/> Default
-          </button>
+          {mode !== "direktor" && (
+            <button onClick={setAllDefault}
+              className="flex items-center gap-1.5 px-4 py-2.5 text-sm font-bold"
+              style={{ background:"#F4F9FD", borderRadius:12, color:"#7D8592" }}>
+              <RefreshCw size={14}/> Default
+            </button>
+          )}
           <button onClick={handleSave} disabled={saving || loading}
             className="flex items-center gap-2 px-5 py-2.5 text-sm font-bold text-white disabled:opacity-40 transition-all"
             style={{
