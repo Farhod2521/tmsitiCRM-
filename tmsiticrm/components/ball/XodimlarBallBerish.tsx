@@ -21,6 +21,7 @@ interface EmpScoreRow {
   kadr_ball:        number | null;
   direktor_ball:    number | null;
   ijro_ball:        number | null;
+  report_file_name: string | null;
 }
 
 interface BallState {
@@ -37,15 +38,33 @@ const MON_NAMES = [
 const DEPT_COLORS = ["#3F8CFF","#00C48C","#FFBD21","#6D5DD3","#15C0E6","#FF5C5C","#FF8C42","#9B59B6"];
 
 const FIELD_CONFIG: Record<BallMode, {key: keyof BallState; max: number; label: string; color: string}[]> = {
-  kadr:     [{ key:"kadr_ball",     max:25,  label:"Kadr bali",     color:"#FF8C42" }],
-  ijro:     [{ key:"ijro_ball",     max:10,  label:"Ijro bali",     color:"#00C48C" }],
+  kadr:     [{ key:"kadr_ball",  max:25, label:"KADR",   color:"#FF8C42" }],
+  ijro:     [{ key:"ijro_ball",  max:10, label:"IJRO",   color:"#00C48C" }],
   direktor: [
-    { key:"bolim_ball",    max:65,  label:"Bo'lim",    color:"#3F8CFF" },
-    { key:"kadr_ball",     max:25,  label:"Kadr",      color:"#FF8C42" },
-    { key:"direktor_ball", max:100, label:"Direktor",  color:"#6D5DD3" },
-    { key:"ijro_ball",     max:10,  label:"Ijro",      color:"#00C48C" },
+    { key:"bolim_ball", max:65, label:"BO'LIM", color:"#3F8CFF" },
+    { key:"kadr_ball",  max:25, label:"KADR",   color:"#FF8C42" },
+    { key:"ijro_ball",  max:10, label:"IJRO",   color:"#00C48C" },
   ],
 };
+
+function calcJami(r: EmpScoreRow, b: BallState): number | null {
+  const bolim = b.bolim_ball !== undefined ? b.bolim_ball : r.bolim_ball;
+  const kadr  = b.kadr_ball  !== undefined ? b.kadr_ball  : r.kadr_ball;
+  const ijro  = b.ijro_ball  !== undefined ? b.ijro_ball  : r.ijro_ball;
+  if (bolim == null && kadr == null && ijro == null) return null;
+  return (bolim ?? 0) + (kadr ?? 0) + (ijro ?? 0);
+}
+
+function getKpiLabel(total: number | null): { text: string; color: string; bg: string } {
+  if (total == null) return { text: "—", color: "#C4CBD6", bg: "#F4F9FD" };
+  if (total >= 96)   return { text: "200%", color: "#6D5DD3", bg: "rgba(109,93,211,0.12)" };
+  if (total >= 91)   return { text: "150%", color: "#3F8CFF", bg: "rgba(63,140,255,0.10)" };
+  if (total >= 86)   return { text: "125%", color: "#00C48C", bg: "rgba(0,196,140,0.10)" };
+  if (total >= 81)   return { text: "100%", color: "#FFBD21", bg: "rgba(255,189,33,0.12)" };
+  if (total >= 76)   return { text: "75%",  color: "#FF8C42", bg: "rgba(255,140,66,0.12)" };
+  if (total >= 70)   return { text: "50%",  color: "#FF5C5C", bg: "rgba(255,92,92,0.10)" };
+  return { text: "—", color: "#C4CBD6", bg: "#F4F9FD" };
+}
 
 function mkAvatar(n: string) {
   return n.split(" ").filter(Boolean).map(w=>w[0]).join("").toUpperCase().slice(0,2);
@@ -282,7 +301,7 @@ export default function XodimlarBallBerish({ mode }: Props) {
                       {/* Table header */}
                       <div className="grid px-6 py-2 text-xs font-bold uppercase tracking-wide"
                         style={{
-                          gridTemplateColumns: `50px 2fr ${fields.map(()=>"100px").join(" ")}${mode==="direktor"?" 120px":""}`,
+                          gridTemplateColumns: `50px 2fr ${fields.map(()=>"100px").join(" ")} 90px 100px${mode==="direktor"?" 120px":""}`,
                           color:"#91929E", letterSpacing:"0.05em",
                           background:"#F8FAFF",
                         }}>
@@ -293,18 +312,22 @@ export default function XodimlarBallBerish({ mode }: Props) {
                             {f.label} <span className="font-normal">/{f.max}</span>
                           </span>
                         ))}
+                        <span className="text-center" style={{ color:"#0A1629" }}>JAMI</span>
+                        <span className="text-center" style={{ color:"#6D5DD3" }}>KPI FOIZ</span>
                         {mode === "direktor" && (
-                          <span className="text-center" style={{ color:"#6D5DD3" }}>Hisobot</span>
+                          <span className="text-center" style={{ color:"#3F8CFF" }}>Hisobot</span>
                         )}
                       </div>
 
                       {deptRows.map((r, idx) => {
                         const b = balls[r.employee_id] ?? {};
+                        const jami = calcJami(r, b);
+                        const kpi  = getKpiLabel(jami);
                         return (
                           <div key={r.employee_id}
                             className="grid items-center px-6 py-3 hover:bg-[#FAFCFF] transition-colors"
                             style={{
-                              gridTemplateColumns: `50px 2fr ${fields.map(()=>"100px").join(" ")}${mode==="direktor"?" 120px":""}`,
+                              gridTemplateColumns: `50px 2fr ${fields.map(()=>"100px").join(" ")} 90px 100px${mode==="direktor"?" 120px":""}`,
                               borderTop: "1px solid #F4F9FD",
                             }}>
                             <span className="text-xs font-bold" style={{ color:"#91929E" }}>{idx+1}</span>
@@ -351,6 +374,22 @@ export default function XodimlarBallBerish({ mode }: Props) {
                                 </div>
                               );
                             })}
+                            {/* JAMI */}
+                            <div className="flex flex-col items-center justify-center gap-1">
+                              <span className="font-bold text-sm" style={{ color: jami != null ? "#0A1629" : "#C4CBD6" }}>
+                                {jami != null ? jami : "—"}
+                              </span>
+                              <span className="text-xs" style={{ color:"#C4CBD6" }}>/100</span>
+                            </div>
+
+                            {/* KPI FOIZ */}
+                            <div className="flex justify-center">
+                              <span className="px-2.5 py-1 text-xs font-bold"
+                                style={{ background: kpi.bg, color: kpi.color, borderRadius: 8 }}>
+                                {kpi.text}
+                              </span>
+                            </div>
+
                             {/* Hisobot ustuni — faqat direktor */}
                             {mode === "direktor" && (
                               <div className="flex justify-center">
