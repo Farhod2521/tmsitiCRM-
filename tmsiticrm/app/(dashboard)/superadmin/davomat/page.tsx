@@ -115,7 +115,7 @@ export default function DavomatPage() {
       <Header title="Davomat" subtitle="Xodimlarning bugungi kelish holati" />
 
       {/* Stats */}
-      <div className="grid grid-cols-5 gap-4 mb-6">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4 mb-6">
         {statCards.map((s) => {
           const Icon = s.icon;
           return (

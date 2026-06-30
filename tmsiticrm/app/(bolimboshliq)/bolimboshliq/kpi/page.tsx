@@ -259,7 +259,7 @@ export default function BolimKpiPage() {
       {tab==="ball" && (
         <>
           {/* Stats */}
-          <div className="grid grid-cols-4 gap-4 mb-5">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-5">
             {[
               {label:"Jami xodimlar",    value:empRows.length,    icon:Users,        color:"#3F8CFF",bg:"rgba(63,140,255,0.1)"},
               {label:"Baholangan",        value:empRowsRated,      icon:CheckCircle2, color:"#00C48C",bg:"rgba(0,196,140,0.1)"},
@@ -340,7 +340,8 @@ export default function BolimKpiPage() {
                   <span className="ml-2 text-sm font-bold" style={{color:"#3F8CFF"}}>Yuklanmoqda…</span>
                 </div>
               ) : (
-                <div className="px-6 py-5">
+                <div className="px-6 py-5 overflow-x-auto">
+                <div style={{ minWidth: 900 }}>
 
                   {/* Column headers */}
                   <div className="grid px-5 py-2.5 mb-1 text-xs font-bold uppercase tracking-wide items-center"
@@ -511,13 +512,14 @@ export default function BolimKpiPage() {
                     )}
                   </div>
                 </div>
+                </div>
               )
             )}
             <div className="pb-2"/>
           </div>
 
           {/* ── Info cards ── */}
-          <div className="mt-4 grid grid-cols-3 gap-4">
+          <div className="mt-4 grid grid-cols-1 sm:grid-cols-3 gap-4">
             {[
               {label:"Bo'lim boshlig'i",max:MAX_BOLIM,color:"#3F8CFF",desc:"Bevosita rahbar qo'yadi"},
               {label:"Kadrlar bo'limi", max:MAX_KADR, color:"#FF8C42",desc:"Kadrlar bo'limi belgilaydi"},
@@ -590,7 +592,7 @@ export default function BolimKpiPage() {
                 const hasFile=!!sc.report_file_name;
                 return (
                   <div key={sc.id}
-                    className="flex items-center gap-5 px-5 py-4 hover:shadow-md transition-shadow"
+                    className="flex items-center flex-wrap gap-3 sm:gap-5 px-4 sm:px-5 py-4 hover:shadow-md transition-shadow"
                     style={{background:"#FAFCFF",borderRadius:18,border:"1.5px solid #EEF2FF"}}>
 
                     {/* Month badge */}

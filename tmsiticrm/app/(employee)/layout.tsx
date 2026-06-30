@@ -5,11 +5,9 @@ export default function EmployeeLayout({ children }: { children: React.ReactNode
     <div style={{ background: "#F4F9FD", minHeight: "100vh" }}>
       <SidebarXodim />
       <main
+        className="lg:ml-[260px] lg:w-[calc(100%-260px)] pt-20 px-4 pb-6 lg:p-6"
         style={{
-          marginLeft: 260,
-          width: "calc(100% - 260px)",
           minHeight: "100vh",
-          padding: "24px",
           boxSizing: "border-box",
         }}
       >

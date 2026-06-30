@@ -541,7 +541,7 @@ function MapModal({ office, onClose }: { office: Office; onClose: () => void }) 
         </div>
 
         {/* Masofa / vaqt / holat */}
-        <div className="grid grid-cols-3 gap-2.5 px-6 pt-4">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 px-4 sm:px-6 pt-4">
           <div className="px-3 py-2.5" style={{ background: "#F4F9FD", borderRadius: 12 }}>
             <p className="text-xs mb-0.5" style={{ color: "#91929E" }}>Masofa</p>
             <p className="font-bold text-sm" style={{ color: dist == null ? "#91929E" : inside ? "#00A578" : "#FF5C5C" }}>

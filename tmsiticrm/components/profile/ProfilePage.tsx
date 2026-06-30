@@ -193,7 +193,7 @@ export default function ProfilePage() {
     <div className="relative">
       <Header title="Mening profilim" subtitle="Shaxsiy ma'lumotlar" />
 
-      <div className="grid grid-cols-3 gap-5">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
 
         {/* ── Left: Profile card ── */}
         <div className="p-6 flex flex-col items-center text-center"
@@ -270,10 +270,10 @@ export default function ProfilePage() {
         </div>
 
         {/* ── Right ── */}
-        <div className="col-span-2 flex flex-col gap-5">
+        <div className="lg:col-span-2 flex flex-col gap-5">
 
           {/* Stats cards */}
-          <div className="grid grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             {[
               { label: "Ish stavkasi", value: `${emp.work_rate}`,   icon: Briefcase, color: "#3F8CFF", bg: "rgba(63,140,255,0.1)" },
               { label: "Ish staji",    value: stajiVal,              icon: Calendar,  color: "#6D5DD3", bg: "rgba(109,93,211,0.1)" },

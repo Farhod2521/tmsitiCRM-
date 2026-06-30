@@ -179,7 +179,7 @@ export default function BallBerishPage() {
       <Header title="Ball berish" subtitle="Xodimlarga oylik ball qo'yish va baholash" />
 
       {/* ── Stats ── */}
-      <div className="grid grid-cols-4 gap-4 mb-5">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-5">
         {[
           {label:"Jami xodimlar", value:rows.length,  icon:Users,        color:"#3F8CFF", bg:"rgba(63,140,255,0.1)"},
           {label:"Baholangan",    value:baholangan,   icon:CheckCircle2, color:"#00C48C", bg:"rgba(0,196,140,0.1)"},
@@ -204,7 +204,7 @@ export default function BallBerishPage() {
       <div style={{background:"#FFFFFF",boxShadow:"0px 6px 58px rgba(196,203,214,0.103611)",borderRadius:24}}>
 
         {/* Toolbar */}
-        <div className="flex items-center justify-between px-6 py-5"
+        <div className="flex items-center justify-between flex-wrap gap-3 px-4 sm:px-6 py-5"
           style={{borderBottom:"1px solid #F4F9FD"}}>
           <div>
             <h2 className="font-bold text-base" style={{color:"#0A1629"}}>
@@ -215,12 +215,12 @@ export default function BallBerishPage() {
               <strong style={{color:"#3F8CFF"}}>{avgTotal}</strong> / {MAX_TOTAL}
             </p>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 flex-wrap">
             {/* Search */}
-            <div className="flex items-center gap-2 px-4 py-2.5"
-              style={{background:"#F4F9FD",borderRadius:13,width:220}}>
+            <div className="flex items-center gap-2 px-4 py-2.5 w-full sm:w-[220px]"
+              style={{background:"#F4F9FD",borderRadius:13}}>
               <Search size={15} style={{color:"#91929E"}}/>
-              <input className="bg-transparent outline-none text-sm flex-1" style={{color:"#0A1629"}}
+              <input className="bg-transparent outline-none text-sm flex-1 min-w-0" style={{color:"#0A1629"}}
                 placeholder="Xodim qidirish..." value={search}
                 onChange={e=>setSearch(e.target.value)}/>
             </div>
@@ -241,6 +241,10 @@ export default function BallBerishPage() {
             </div>
           </div>
         </div>
+
+        {/* ── Scroll wrapper ── */}
+        <div className="overflow-x-auto">
+        <div style={{ minWidth: 880 }}>
 
         {/* Column headers */}
         <div className="grid px-6 py-3 text-xs font-bold uppercase tracking-wide items-center"
@@ -319,11 +323,13 @@ export default function BallBerishPage() {
             )}
           </div>
         )}
+        </div>
+        </div>
         <div className="pb-2"/>
       </div>
 
       {/* ── Info cards ── */}
-      <div className="mt-4 grid grid-cols-4 gap-4">
+      <div className="mt-4 grid grid-cols-2 lg:grid-cols-4 gap-4">
         {[
           {label:"Bo'lim boshlig'i", max:MAX_BOLIM,    color:"#3F8CFF", desc:"Bevosita rahbar qo'yadi"},
           {label:"Kadrlar bo'limi",  max:MAX_KADR,     color:"#FF8C42", desc:"Kadrlar bo'limi belgilaydi"},

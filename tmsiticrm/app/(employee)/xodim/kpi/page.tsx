@@ -79,7 +79,7 @@ export default function XodimKpiPage() {
       <Header title="Mening KPI" subtitle="Oylik hisobotlar va ko'rsatkichlar" />
 
       {/* ── Stats ── */}
-      <div className="grid grid-cols-4 gap-4 mb-5">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-5">
         {[
           { label: "O'rtacha KPI", value: reports.length ? `${avgKpi}%` : "—", icon: Target, color: "#3F8CFF", bg: "rgba(63,140,255,0.1)", trend: avgKpi >= 85 },
           { label: "Yuborilgan", value: reports.length, icon: FileText, color: "#6D5DD3", bg: "rgba(109,93,211,0.1)", trend: true },

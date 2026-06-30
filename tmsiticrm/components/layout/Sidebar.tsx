@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
+import { useState } from "react";
 import { clearAuth } from "@/lib/auth";
 import {
   LayoutDashboard,
@@ -15,8 +16,10 @@ import {
   Settings,
   ClipboardCheck,
   Star,
+  X,
 } from "lucide-react";
 import LottiePlayer from "@/components/ui/LottiePlayer";
+import MobileTopBar from "@/components/layout/MobileTopBar";
 
 const navItems = [
   { href: "/superadmin",              icon: LayoutDashboard, label: "Dashboard",   enabled: true  },
@@ -34,6 +37,7 @@ const navItems = [
 export default function Sidebar() {
   const pathname = usePathname();
   const router   = useRouter();
+  const [mobileOpen, setMobileOpen] = useState(false);
 
   const isActive = (href: string) => {
     if (href === "/superadmin") return pathname === "/superadmin";
@@ -46,34 +50,50 @@ export default function Sidebar() {
   }
 
   return (
-    <aside
-      className="fixed left-0 top-0 bottom-0 flex flex-col"
-      style={{
-        width: 260,
-        background: "#FFFFFF",
-        boxShadow: "4px 0 24px rgba(196, 203, 214, 0.2)",
-      }}
-    >
-      {/* Logo */}
-      <div className="flex items-center gap-3 px-6 pt-8 pb-6">
-        <div
-          className="w-[50px] h-[50px] flex items-center justify-center text-white font-bold text-lg"
-          style={{ background: "#3F8CFF", borderRadius: 12 }}
-        >
-          T
-        </div>
-        <div>
-          <p className="font-bold text-sm" style={{ color: "#0A1629" }}>
-            TMSITI
-          </p>
-          <p className="text-xs" style={{ color: "#91929E" }}>
-            CRM
-          </p>
-        </div>
-      </div>
+    <>
+      <MobileTopBar accent="#3F8CFF" letter="T" onOpen={() => setMobileOpen(true)} />
 
-      {/* Navigation */}
-      <nav className="flex-1 px-4 overflow-y-auto">
+      {mobileOpen && (
+        <div className="lg:hidden fixed inset-0 z-40" style={{ background: "rgba(10,22,41,0.5)" }}
+          onClick={() => setMobileOpen(false)} />
+      )}
+
+      <aside
+        className={`fixed left-0 top-0 bottom-0 flex flex-col z-50 transition-transform duration-300 lg:translate-x-0 ${mobileOpen ? "translate-x-0" : "-translate-x-full"}`}
+        style={{
+          width: 260,
+          background: "#FFFFFF",
+          boxShadow: "4px 0 24px rgba(196, 203, 214, 0.2)",
+        }}
+      >
+        <button
+          onClick={() => setMobileOpen(false)}
+          className="lg:hidden absolute top-4 right-4 w-8 h-8 flex items-center justify-center"
+          style={{ background: "#F4F9FD", borderRadius: 8 }}
+        >
+          <X size={16} style={{ color: "#7D8592" }} />
+        </button>
+
+        {/* Logo */}
+        <div className="flex items-center gap-3 px-6 pt-8 pb-6">
+          <div
+            className="w-[50px] h-[50px] flex items-center justify-center text-white font-bold text-lg"
+            style={{ background: "#3F8CFF", borderRadius: 12 }}
+          >
+            T
+          </div>
+          <div>
+            <p className="font-bold text-sm" style={{ color: "#0A1629" }}>
+              TMSITI
+            </p>
+            <p className="text-xs" style={{ color: "#91929E" }}>
+              CRM
+            </p>
+          </div>
+        </div>
+
+        {/* Navigation */}
+        <nav className="flex-1 px-4 overflow-y-auto" onClick={() => setMobileOpen(false)}>
         <ul className="flex flex-col gap-1">
           {navItems.map(({ href, icon: Icon, label, enabled }) => {
             const active = isActive(href);
@@ -170,17 +190,18 @@ export default function Sidebar() {
         </div>
       </div>
 
-      {/* Logout */}
-      <div className="px-4 pb-6">
-        <button
-          onClick={handleLogout}
-          className="flex items-center gap-3 w-full px-3 py-2 rounded-[10px] transition-all hover:bg-red-50"
-          style={{ color: "#7D8592", fontWeight: 600, fontSize: 15 }}
-        >
-          <LogOut size={20} />
-          Chiqish
-        </button>
-      </div>
-    </aside>
+        {/* Logout */}
+        <div className="px-4 pb-6">
+          <button
+            onClick={handleLogout}
+            className="flex items-center gap-3 w-full px-3 py-2 rounded-[10px] transition-all hover:bg-red-50"
+            style={{ color: "#7D8592", fontWeight: 600, fontSize: 15 }}
+          >
+            <LogOut size={20} />
+            Chiqish
+          </button>
+        </div>
+      </aside>
+    </>
   );
 }

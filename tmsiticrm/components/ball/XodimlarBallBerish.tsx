@@ -639,7 +639,8 @@ export default function XodimlarBallBerish({ mode }: Props) {
 
                   {/* Employee rows */}
                   {isOpen && (
-                    <div>
+                    <div className="overflow-x-auto">
+                    <div style={{ minWidth: mode==="direktor" ? 920 : 700 }}>
                       {/* Table header */}
                       <div className="grid px-6 py-2 text-xs font-bold uppercase tracking-wide"
                         style={{
@@ -764,6 +765,7 @@ export default function XodimlarBallBerish({ mode }: Props) {
                           </div>
                         );
                       })}
+                    </div>
                     </div>
                   )}
                 </div>

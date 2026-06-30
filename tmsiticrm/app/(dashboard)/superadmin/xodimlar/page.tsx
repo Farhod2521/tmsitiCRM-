@@ -43,7 +43,7 @@ export default function XodimlarPage() {
       <Header title="Xodimlar" subtitle="Barcha xodimlar ro'yxati va ma'lumotlari" />
 
       {/* Stats */}
-      <div className="grid grid-cols-4 gap-5 mb-6">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-5 mb-6">
         {[
           { label: "Jami xodimlar", value: "248", color: "#3F8CFF", bg: "rgba(63,140,255,0.1)" },
           { label: "Faol xodimlar", value: "231", color: "#00C48C", bg: "rgba(0,196,140,0.1)" },

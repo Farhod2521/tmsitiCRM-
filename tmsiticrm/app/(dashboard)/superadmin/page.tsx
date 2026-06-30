@@ -91,14 +91,14 @@ export default function SuperadminDashboard() {
       />
 
       {/* Stats Row */}
-      <div className="grid grid-cols-4 gap-5 mb-6">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-5 mb-6">
         {stats.map((s) => (
           <StatCard key={s.title} {...s} />
         ))}
       </div>
 
       {/* Main Content Grid */}
-      <div className="grid grid-cols-3 gap-5">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
         {/* Top Departments - spans 2 cols */}
         <div
           className="col-span-2 p-6"

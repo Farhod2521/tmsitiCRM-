@@ -175,10 +175,10 @@ export default function BolimlarPage() {
   return (
     <div>
       <Header title="Bo'limlar" subtitle="Bo'lim va xodimlarni boshqarish"/>
-      <div className="flex gap-5" style={{height:"calc(100vh - 160px)"}}>
+      <div className="flex flex-col lg:flex-row gap-5 lg:h-[calc(100vh-160px)]">
 
         {/* ── Left: dept list ── */}
-        <div className="w-[280px] flex-shrink-0 flex flex-col"
+        <div className="w-full lg:w-[280px] flex-shrink-0 flex flex-col max-h-72 lg:max-h-none"
           style={{background:"#FFFFFF",boxShadow:"0px 6px 58px rgba(196,203,214,0.103611)",borderRadius:24,overflow:"hidden"}}>
           <div className="flex items-center justify-between px-5 py-4 border-b" style={{borderColor:"#F4F9FD"}}>
             <span className="font-bold text-sm" style={{color:"#0A1629"}}>Barcha bo'limlar</span>
@@ -218,16 +218,16 @@ export default function BolimlarPage() {
           style={{background:"#FFFFFF",boxShadow:"0px 6px 58px rgba(196,203,214,0.103611)",borderRadius:24}}>
 
           {/* Panel header */}
-          <div className="flex items-center justify-between px-6 py-4 border-b flex-shrink-0" style={{borderColor:"#F4F9FD"}}>
-            <div className="flex items-center gap-3">
-              <div className="w-9 h-9 flex items-center justify-center font-bold text-white text-sm"
+          <div className="flex items-center justify-between flex-wrap gap-3 px-4 sm:px-6 py-4 border-b flex-shrink-0" style={{borderColor:"#F4F9FD"}}>
+            <div className="flex items-center gap-3 min-w-0">
+              <div className="w-9 h-9 flex-shrink-0 flex items-center justify-center font-bold text-white text-sm"
                 style={{background:color,borderRadius:11}}>{selected?mkAvatar(selected.name):"?"}</div>
-              <div>
-                <h2 className="font-bold text-base" style={{color:"#0A1629"}}>{selected?.name||"Bo'lim tanlang"}</h2>
-                <p className="text-xs" style={{color:"#91929E"}}>Rahbar: {selected?deptHead(selected.id):"—"} · {deptEmps.length} xodim</p>
+              <div className="min-w-0">
+                <h2 className="font-bold text-base truncate" style={{color:"#0A1629"}}>{selected?.name||"Bo'lim tanlang"}</h2>
+                <p className="text-xs truncate" style={{color:"#91929E"}}>Rahbar: {selected?deptHead(selected.id):"—"} · {deptEmps.length} xodim</p>
               </div>
             </div>
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-3 flex-wrap">
               <div className="flex items-center gap-1 p-1" style={{background:"#F4F9FD",borderRadius:12}}>
                 {([["list",List],["table",Table2],["card",LayoutGrid]] as const).map(([mode,Icon])=>(
                   <button key={mode} onClick={()=>setViewMode(mode)}
@@ -239,9 +239,9 @@ export default function BolimlarPage() {
                   </button>
                 ))}
               </div>
-              <div className="flex items-center gap-2 px-3 py-2" style={{background:"#F4F9FD",borderRadius:10,width:200}}>
+              <div className="flex items-center gap-2 px-3 py-2 w-full sm:w-[200px]" style={{background:"#F4F9FD",borderRadius:10}}>
                 <Search size={15} style={{color:"#91929E"}}/>
-                <input className="bg-transparent outline-none text-sm flex-1" style={{color:"#0A1629"}}
+                <input className="bg-transparent outline-none text-sm flex-1 min-w-0" style={{color:"#0A1629"}}
                   placeholder="Xodim qidirish..." value={search} onChange={e=>setSearch(e.target.value)}/>
               </div>
             </div>
@@ -307,7 +307,8 @@ export default function BolimlarPage() {
                 {viewMode==="table"&&(
                   <div>
                     <SectionLabel text="Xodimlar ro'yxati"/>
-                    <table className="w-full mt-3">
+                    <div className="overflow-x-auto">
+                    <table className="w-full mt-3" style={{minWidth:600}}>
                       <thead>
                         <tr style={{borderBottom:"2px solid #F4F9FD"}}>
                           {["#","Xodim","Lavozim","Telefon","Stavka","Rol",""].map(h=>(
@@ -343,6 +344,7 @@ export default function BolimlarPage() {
                         ))}
                       </tbody>
                     </table>
+                    </div>
                   </div>
                 )}
 
@@ -350,7 +352,7 @@ export default function BolimlarPage() {
                 {viewMode==="card"&&(
                   <div>
                     <SectionLabel text="Xodimlar"/>
-                    <div className="grid grid-cols-3 gap-4 mt-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mt-3">
                       {filtered.map(emp=>(
                         <div key={emp.id} className="p-4"
                           style={{background:"#FAFCFF",borderRadius:16,border:"2px solid #E8F0FF"}}>

@@ -101,7 +101,7 @@ export default function HisobotlarPage() {
       <Header title="Hisobotlar" subtitle="Tashkilot hisobotlari va tahlillar" />
 
       {/* Summary Stats */}
-      <div className="grid grid-cols-4 gap-5 mb-6">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-5 mb-6">
         {summaryData.map((s) => (
           <div
             key={s.label}
@@ -193,7 +193,8 @@ export default function HisobotlarPage() {
           borderRadius: 24,
         }}
       >
-        <table className="w-full">
+        <div className="overflow-x-auto">
+        <table className="w-full" style={{ minWidth: 760 }}>
           <thead>
             <tr style={{ borderBottom: "2px solid #F4F9FD" }}>
               {["Hisobot nomi", "Turi", "Davr", "Muallif", "Sana", "Hajm", "Holat", "Amallar"].map((h) => (
@@ -290,9 +291,10 @@ export default function HisobotlarPage() {
             ))}
           </tbody>
         </table>
+        </div>
 
         {/* Pagination */}
-        <div className="flex items-center justify-between mt-5">
+        <div className="flex items-center justify-between flex-wrap gap-3 mt-5">
           <p className="text-sm" style={{ color: "#91929E" }}>
             Jami 84 hisobotdan 1-6 ko'rsatilmoqda
           </p>
@@ -315,7 +317,7 @@ export default function HisobotlarPage() {
       </div>
 
       {/* Recent Analytics */}
-      <div className="grid grid-cols-2 gap-5 mt-5">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 mt-5">
         <div
           className="p-6"
           style={{

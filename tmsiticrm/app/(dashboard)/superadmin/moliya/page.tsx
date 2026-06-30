@@ -20,7 +20,7 @@ export default function MoliyaPage() {
     <div>
       <Header title="Moliya" subtitle="Moliyaviy ko'rsatkichlar va tranzaksiyalar" />
 
-      <div className="grid grid-cols-4 gap-5 mb-6">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-5 mb-6">
         {[
           { label: "Jami daromad", value: "1,240 mln", trend: "+8%", up: true, color: "#00C48C", bg: "rgba(0,196,140,0.1)" },
           { label: "Jami xarajat", value: "890 mln", trend: "+3%", up: false, color: "#FF5C5C", bg: "rgba(255,92,92,0.1)" },
@@ -73,7 +73,8 @@ export default function MoliyaPage() {
           <h3 className="font-bold" style={{ color: "#0A1629" }}>So'nggi tranzaksiyalar</h3>
           <button style={{ color: "#91929E" }}><MoreHorizontal size={20} /></button>
         </div>
-        <table className="w-full">
+        <div className="overflow-x-auto">
+        <table className="w-full" style={{ minWidth: 640 }}>
           <thead>
             <tr style={{ borderBottom: "2px solid #F4F9FD" }}>
               {["ID", "Tavsif", "Bo'lim", "Summa", "Sana", "Holat", ""].map((h) => (
@@ -108,6 +109,7 @@ export default function MoliyaPage() {
             ))}
           </tbody>
         </table>
+        </div>
       </div>
     </div>
   );
