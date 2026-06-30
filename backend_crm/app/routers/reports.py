@@ -5,7 +5,7 @@ from typing import List
 from .. import models, schemas
 from ..database import get_db
 from ..deps import get_current_employee
-from ..utils_weeks import get_month_weeks, weekly_max
+from ..utils_weeks import get_month_weeks, weekly_max, is_current_week
 
 router = APIRouter(prefix="/reports", tags=["Haftalik hisobot"])
 
@@ -92,7 +92,10 @@ def list_weeks(
     """Berilgan oydagi haftalar va ularning sana oraliqlari."""
     wmax = weekly_max(year, month)
     return [
-        schemas.WeekInfo(week=w["week"], start=w["start"], end=w["end"], label=w["label"], max_ball=wmax)
+        schemas.WeekInfo(
+            week=w["week"], start=w["start"], end=w["end"], label=w["label"], max_ball=wmax,
+            is_current=is_current_week(w["start"], w["end"]),
+        )
         for w in get_month_weeks(year, month)
     ]
 
@@ -103,10 +106,14 @@ def upload_weekly_report(
     db: Session = Depends(get_db),
     current: models.Employee = Depends(get_current_employee),
 ):
-    """Joriy foydalanuvchi o'zining haftalik hisobot faylini yuklaydi."""
+    """Joriy foydalanuvchi o'zining haftalik hisobot faylini yuklaydi — faqat joriy hafta uchun."""
     weeks = _week_info_map(payload.year, payload.month)
     if payload.week not in weeks:
         raise HTTPException(status_code=422, detail="Noto'g'ri hafta raqami")
+
+    w_info = weeks[payload.week]
+    if not is_current_week(w_info["start"], w_info["end"]):
+        raise HTTPException(status_code=400, detail="Faqat joriy hafta uchun hisobot yuklash mumkin")
 
     rep = db.query(models.WeeklyReport).filter(
         models.WeeklyReport.employee_id == current.id,
@@ -131,9 +138,9 @@ def upload_weekly_report(
     db.refresh(rep)
 
     out = schemas.WeeklyReportOut.model_validate(rep)
-    w = weeks[payload.week]
-    out.week_label = w["label"]
+    out.week_label = w_info["label"]
     out.max_ball = weekly_max(payload.year, payload.month)
+    out.is_current = True
     out.employee_name = current.full_name
     return out
 
@@ -167,6 +174,7 @@ def my_weekly_reports(
             )
         out.week_label = w["label"]
         out.max_ball = wmax
+        out.is_current = is_current_week(w["start"], w["end"])
         out.employee_name = current.full_name
         result.append(out)
     return result
@@ -219,6 +227,7 @@ def team_weekly_reports(
                 out = schemas.WeeklyReportOut(id=0, employee_id=emp.id, year=year, month=month, week=w["week"])
             out.week_label = w["label"]
             out.max_ball = wmax
+            out.is_current = is_current_week(w["start"], w["end"])
             week_outs.append(out)
         dept = dept_map.get(emp.department_id) if emp.department_id else None
         rows.append(schemas.WeeklyTeamRowOut(
@@ -270,6 +279,7 @@ def score_weekly_report(
     w = weeks.get(rep.week)
     if w:
         out.week_label = w["label"]
+        out.is_current = is_current_week(w["start"], w["end"])
     out.max_ball = wmax
     out.employee_name = target.full_name
     return out

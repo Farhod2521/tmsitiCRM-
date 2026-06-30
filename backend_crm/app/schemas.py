@@ -209,6 +209,7 @@ class WeekInfo(BaseModel):
     end: date
     label: str
     max_ball: float
+    is_current: bool = False
 
 class WeeklyReportUploadIn(BaseModel):
     year: int
@@ -229,6 +230,7 @@ class WeeklyReportOut(BaseModel):
     week: int
     week_label: Optional[str] = None
     max_ball: Optional[float] = None
+    is_current: bool = False
     file_name: Optional[str] = None
     uploaded_at: Optional[datetime] = None
     ball: Optional[float] = None

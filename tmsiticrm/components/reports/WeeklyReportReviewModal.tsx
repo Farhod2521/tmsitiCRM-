@@ -11,6 +11,7 @@ export interface WeekRow {
   week: number;
   week_label: string | null;
   max_ball: number | null;
+  is_current: boolean;
   file_name: string | null;
   uploaded_at: string | null;
   ball: number | null;

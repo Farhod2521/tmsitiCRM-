@@ -1,6 +1,8 @@
 """Oyni taqvim haftalariga (Dushanba-Yakshanba) bo'lish — haftalik hisobot tizimi uchun."""
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta, timezone
 from calendar import monthrange
+
+TZ_UZ = timezone(timedelta(hours=5))
 
 WEEKLY_MAX_TOTAL = 65  # bo'lim_ball oylik maksimumi — haftalar orasida taqsimlanadi
 
@@ -56,3 +58,12 @@ def weekly_max(year: int, month: int) -> float:
     """Shu oy uchun bitta haftaning maksimal balli (65 / haftalar soni)."""
     n = len(get_month_weeks(year, month))
     return round(WEEKLY_MAX_TOTAL / n, 2) if n else 0.0
+
+
+def today_uz() -> date:
+    return datetime.now(TZ_UZ).date()
+
+
+def is_current_week(start: date, end: date) -> bool:
+    """Berilgan hafta oralig'i bugungi sanani o'z ichiga oladimi (faqat shu haftaga hisobot yuklash mumkin)."""
+    return start <= today_uz() <= end

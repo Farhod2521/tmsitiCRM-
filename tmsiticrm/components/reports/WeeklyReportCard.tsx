@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import {
   ChevronLeft, ChevronRight, Calendar, Upload, FileText,
-  CheckCircle2, Clock, Download, Loader2,
+  CheckCircle2, Clock, Download, Loader2, Lock,
 } from "lucide-react";
 import { apiFetch } from "@/lib/api";
 import LottiePlayer from "@/components/ui/LottiePlayer";
@@ -20,6 +20,7 @@ interface WeeklyReportRow {
   week: number;
   week_label: string | null;
   max_ball: number | null;
+  is_current: boolean;
   file_name: string | null;
   uploaded_at: string | null;
   ball: number | null;
@@ -98,6 +99,18 @@ export default function WeeklyReportCard() {
 
   const hasAnyData = rows.some(r => r.id !== 0);
 
+  const isPastMonth   = year < now.getFullYear() || (year === now.getFullYear() && month < now.getMonth()+1);
+  const isFutureMonth = year > now.getFullYear() || (year === now.getFullYear() && month > now.getMonth()+1);
+  const currentWeekIdx = rows.findIndex(r => r.is_current);
+
+  function lockedState(row: WeeklyReportRow, idx: number): "past" | "future" | null {
+    if (row.is_current) return null;
+    if (isPastMonth) return "past";
+    if (isFutureMonth) return "future";
+    if (currentWeekIdx === -1) return "past";
+    return idx < currentWeekIdx ? "past" : "future";
+  }
+
   return (
     <div style={{ background: "#FFFFFF", boxShadow: "0px 6px 58px rgba(196,203,214,0.103611)", borderRadius: 24 }}>
       {/* Header */}
@@ -138,16 +151,16 @@ export default function WeeklyReportCard() {
           <p className="font-bold text-base" style={{ color: "#0A1629" }}>Bu oy uchun hisobot yo'q</p>
           <p className="text-sm mt-1" style={{ color: "#91929E" }}>Quyidagi haftalardan birini tanlab fayl yuklang</p>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 px-6 mt-6 w-full">
-            {rows.map(r => (
-              <WeekCell key={r.week} row={r} uploading={uploadingWeek === r.week}
+            {rows.map((r,idx) => (
+              <WeekCell key={r.week} row={r} uploading={uploadingWeek === r.week} locked={lockedState(r,idx)}
                 onUpload={() => triggerUpload(r.week)} onDownload={() => downloadFile(r.id, r.file_name || "fayl")}/>
             ))}
           </div>
         </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 p-6">
-          {rows.map(r => (
-            <WeekCell key={r.week} row={r} uploading={uploadingWeek === r.week}
+          {rows.map((r,idx) => (
+            <WeekCell key={r.week} row={r} uploading={uploadingWeek === r.week} locked={lockedState(r,idx)}
               onUpload={() => triggerUpload(r.week)} onDownload={() => downloadFile(r.id, r.file_name || "fayl")}/>
           ))}
         </div>
@@ -156,20 +169,35 @@ export default function WeeklyReportCard() {
   );
 }
 
-function WeekCell({ row, uploading, onUpload, onDownload }: {
-  row: WeeklyReportRow; uploading: boolean; onUpload: () => void; onDownload: () => void;
+function WeekCell({ row, uploading, locked, onUpload, onDownload }: {
+  row: WeeklyReportRow; uploading: boolean; locked: "past" | "future" | null;
+  onUpload: () => void; onDownload: () => void;
 }) {
   const hasFile = !!row.file_name;
   const isConfirmed = !!row.confirmed_at;
 
   return (
     <div className="p-4" style={{ background: "#FAFCFF", borderRadius: 16, border: "1.5px solid #EEF2FF" }}>
-      <div className="flex items-center gap-2 mb-3">
-        <Calendar size={14} style={{ color: "#91929E" }}/>
-        <span className="text-xs font-bold" style={{ color: "#91929E" }}>{row.week_label || `${row.week}-hafta`}</span>
+      <div className="flex items-center justify-between mb-3">
+        <span className="flex items-center gap-2 text-xs font-bold" style={{ color: "#91929E" }}>
+          <Calendar size={14}/> {row.week_label || `${row.week}-hafta`}
+        </span>
+        {row.is_current && !hasFile && (
+          <span className="text-[10px] font-bold px-1.5 py-0.5" style={{ background:"rgba(63,140,255,0.1)", color:"#3F8CFF", borderRadius:6 }}>
+            Joriy
+          </span>
+        )}
       </div>
 
-      {!hasFile ? (
+      {!hasFile && locked ? (
+        <div className="w-full flex flex-col items-center justify-center gap-1.5 py-5"
+          style={{ background: "#F4F9FD", borderRadius: 12, border: "1.5px dashed #E0E6F0" }}>
+          <Lock size={16} style={{ color: "#C4CBD6" }}/>
+          <span className="text-xs font-bold" style={{ color: "#C4CBD6" }}>
+            {locked === "past" ? "Muddati o'tgan" : "Hali boshlanmagan"}
+          </span>
+        </div>
+      ) : !hasFile ? (
         <button onClick={onUpload} disabled={uploading}
           className="w-full flex flex-col items-center justify-center gap-1.5 py-5 disabled:opacity-50"
           style={{ background: "rgba(63,140,255,0.06)", borderRadius: 12, border: "1.5px dashed rgba(63,140,255,0.3)" }}>
