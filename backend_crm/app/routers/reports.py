@@ -5,7 +5,8 @@ from typing import List
 from .. import models, schemas
 from ..database import get_db
 from ..deps import get_current_employee
-from ..utils_weeks import get_month_weeks, weekly_max, is_current_week
+from ..utils_weeks import get_month_weeks, weekly_max, is_current_week, today_uz
+from ..telegram import send_telegram_message
 
 router = APIRouter(prefix="/reports", tags=["Haftalik hisobot"])
 
@@ -325,3 +326,62 @@ def download_weekly_file(
             raise HTTPException(status_code=403, detail="Ruxsat yo'q")
 
     return {"file_name": rep.file_name, "file_b64": rep.file_b64}
+
+
+def _generate_pending_message(targets: List[models.Employee], db: Session) -> tuple[str, int]:
+    """Joriy hafta uchun hisobot yuklamaganlar ro'yxatidan Telegram xabari matnini tayyorlaydi."""
+    today = today_uz()
+    weeks = get_month_weeks(today.year, today.month)
+    current_week = next((w for w in weeks if is_current_week(w["start"], w["end"])), None)
+    if not current_week or not targets:
+        return "", 0
+
+    target_ids = [t.id for t in targets]
+    uploaded_ids = {
+        r.employee_id for r in db.query(models.WeeklyReport.employee_id).filter(
+            models.WeeklyReport.employee_id.in_(target_ids),
+            models.WeeklyReport.year == today.year,
+            models.WeeklyReport.month == today.month,
+            models.WeeklyReport.week == current_week["week"],
+            models.WeeklyReport.file_name.isnot(None),
+        ).all()
+    }
+    pending = [t for t in targets if t.id not in uploaded_ids]
+    if not pending:
+        return "", 0
+
+    lines = [f"\U0001F4CC {current_week['label']} haftasi uchun hisobot topshirmaganlar:", ""]
+    lines += [f"{i}) {p.full_name}" for i, p in enumerate(pending, 1)]
+    lines += ["", "Hisobotlarni bugun kechqurun soat 23:59 gacha topshirishingiz so'raladi."]
+    return "\n".join(lines), len(pending)
+
+
+@router.get("/weekly/pending-message", response_model=schemas.PendingMessageOut)
+def get_pending_message(
+    db: Session = Depends(get_db),
+    current: models.Employee = Depends(get_current_employee),
+):
+    """Joriy foydalanuvchi nazorat qiladigan xodimlardan joriy hafta hisobot
+    topshirmaganlar ro'yxatidan tayyor xabar matnini qaytaradi."""
+    targets = _reviewer_targets(current, db)
+    text, count = _generate_pending_message(targets, db)
+    return schemas.PendingMessageOut(text=text, count=count)
+
+
+@router.post("/weekly/send-telegram")
+def send_weekly_telegram(
+    payload: schemas.TelegramMessageIn,
+    current: models.Employee = Depends(get_current_employee),
+):
+    """Telegram guruhiga xabar yuborish (faqat rahbar rollar uchun)."""
+    if current.role not in (_ADMIN_ROLES | _HEAD_ROLES):
+        raise HTTPException(status_code=403, detail="Ruxsat yo'q")
+    if not payload.text.strip():
+        raise HTTPException(status_code=422, detail="Xabar matni bo'sh bo'lishi mumkin emas")
+    try:
+        ok = send_telegram_message(payload.text)
+    except RuntimeError as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    if not ok:
+        raise HTTPException(status_code=502, detail="Telegram xabarini yuborib bo'lmadi")
+    return {"ok": True}

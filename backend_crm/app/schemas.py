@@ -246,3 +246,10 @@ class WeeklyTeamRowOut(BaseModel):
     department_name: Optional[str] = None
     weeks: List[WeeklyReportOut]
     bolim_ball: Optional[float] = None
+
+class PendingMessageOut(BaseModel):
+    text: str
+    count: int
+
+class TelegramMessageIn(BaseModel):
+    text: str

@@ -5,7 +5,7 @@ import Header from "@/components/layout/Header";
 import Badge from "@/components/ui/Badge";
 import {
   ChevronLeft, ChevronRight, ClipboardCheck, Loader2,
-  Users, CheckCircle2, Clock, FileText,
+  Users, CheckCircle2, Clock, FileText, Send, X, CheckCheck,
 } from "lucide-react";
 import { apiFetch } from "@/lib/api";
 import { WeekRow } from "@/components/reports/WeeklyReportReviewModal";
@@ -43,6 +43,14 @@ export default function HisobotlarPage() {
   const [loading, setLoading] = useState(true);
   const [reviewTarget, setReviewTarget] = useState<ApiTeamRow|null>(null);
 
+  /* ── Telegram xabar yuborish ── */
+  const [notifyOpen, setNotifyOpen] = useState(false);
+  const [notifyLoading, setNotifyLoading] = useState(false);
+  const [notifySending, setNotifySending] = useState(false);
+  const [notifyText, setNotifyText] = useState("");
+  const [notifyCount, setNotifyCount] = useState(0);
+  const [notifySent, setNotifySent] = useState(false);
+
   const load = useCallback(async (y:number, m:number) => {
     setLoading(true);
     try {
@@ -64,6 +72,38 @@ export default function HisobotlarPage() {
   async function refreshAfterScore() {
     const next = await load(year, month);
     setReviewTarget(prev => prev ? next.find(r=>r.employee_id===prev.employee_id) ?? null : null);
+  }
+
+  async function openNotify() {
+    setNotifyOpen(true);
+    setNotifySent(false);
+    setNotifyLoading(true);
+    try {
+      const d = await apiFetch<{ text: string; count: number }>("/reports/weekly/pending-message");
+      setNotifyText(d.text);
+      setNotifyCount(d.count);
+    } catch (e) {
+      alert(e instanceof Error ? e.message : "Xabarni tayyorlashda xato");
+      setNotifyOpen(false);
+    } finally {
+      setNotifyLoading(false);
+    }
+  }
+
+  async function sendNotify() {
+    if (!notifyText.trim()) return;
+    setNotifySending(true);
+    try {
+      await apiFetch("/reports/weekly/send-telegram", {
+        method: "POST",
+        body: JSON.stringify({ text: notifyText }),
+      });
+      setNotifySent(true);
+    } catch (e) {
+      alert(e instanceof Error ? e.message : "Yuborishda xato");
+    } finally {
+      setNotifySending(false);
+    }
   }
 
   const total      = rows.length;
@@ -105,16 +145,23 @@ export default function HisobotlarPage() {
             <h2 className="font-bold text-base" style={{ color:"#0A1629" }}>Bo'lim boshliqlari</h2>
             <p className="text-xs mt-0.5" style={{ color:"#91929E" }}>Haftalik hisobotlarni ko'rib, ball qo'ying</p>
           </div>
-          <div className="flex items-center gap-1 p-1" style={{ background:"#F4F9FD", borderRadius:12 }}>
-            <button onClick={()=>chMonth(-1)} className="w-8 h-8 flex items-center justify-center rounded hover:bg-white transition-colors">
-              <ChevronLeft size={15} style={{ color:"#3F8CFF" }}/>
+          <div className="flex items-center gap-3 flex-wrap">
+            <button onClick={openNotify}
+              className="flex items-center gap-2 px-4 py-2.5 text-sm font-bold text-white hover:opacity-90 transition-opacity"
+              style={{ background:"#0088CC", borderRadius:12, boxShadow:"0px 6px 12px rgba(0,136,204,0.3)" }}>
+              <Send size={15}/> Xabar yuborish
             </button>
-            <span className="px-3 font-bold text-sm" style={{ color:"#0A1629", minWidth:110, textAlign:"center" }}>
-              {MON_NAMES[month-1]} {year}
-            </span>
-            <button onClick={()=>chMonth(1)} className="w-8 h-8 flex items-center justify-center rounded hover:bg-white transition-colors">
-              <ChevronRight size={15} style={{ color:"#3F8CFF" }}/>
-            </button>
+            <div className="flex items-center gap-1 p-1" style={{ background:"#F4F9FD", borderRadius:12 }}>
+              <button onClick={()=>chMonth(-1)} className="w-8 h-8 flex items-center justify-center rounded hover:bg-white transition-colors">
+                <ChevronLeft size={15} style={{ color:"#3F8CFF" }}/>
+              </button>
+              <span className="px-3 font-bold text-sm" style={{ color:"#0A1629", minWidth:110, textAlign:"center" }}>
+                {MON_NAMES[month-1]} {year}
+              </span>
+              <button onClick={()=>chMonth(1)} className="w-8 h-8 flex items-center justify-center rounded hover:bg-white transition-colors">
+                <ChevronRight size={15} style={{ color:"#3F8CFF" }}/>
+              </button>
+            </div>
           </div>
         </div>
 
@@ -188,6 +235,83 @@ export default function HisobotlarPage() {
           onClose={()=>setReviewTarget(null)}
           onScored={refreshAfterScore}
         />
+      )}
+
+      {/* ── Telegram xabar yuborish modali ── */}
+      {notifyOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
+          style={{ background:"rgba(10,22,41,0.55)", backdropFilter:"blur(4px)" }}
+          onClick={()=>setNotifyOpen(false)}>
+          <div className="w-full max-w-[520px] p-7 relative"
+            style={{ background:"#FFFFFF", borderRadius:24, boxShadow:"0px 30px 80px rgba(0,0,0,0.2)" }}
+            onClick={e=>e.stopPropagation()}>
+
+            <button onClick={()=>setNotifyOpen(false)}
+              className="absolute top-5 right-5 w-8 h-8 flex items-center justify-center"
+              style={{ background:"#F4F9FD", borderRadius:10 }}>
+              <X size={15} style={{ color:"#91929E" }}/>
+            </button>
+
+            <div className="flex items-center gap-3 mb-6">
+              <div className="w-12 h-12 flex items-center justify-center"
+                style={{ background:"rgba(0,136,204,0.1)", borderRadius:14 }}>
+                <Send size={20} style={{ color:"#0088CC" }}/>
+              </div>
+              <div>
+                <h3 className="font-bold text-lg" style={{ color:"#0A1629" }}>Telegram orqali eslatish</h3>
+                <p className="text-xs" style={{ color:"#91929E" }}>Guruhga avtomatik xabar yuboriladi</p>
+              </div>
+            </div>
+
+            {notifyLoading ? (
+              <div className="flex items-center justify-center py-14">
+                <Loader2 size={24} className="animate-spin" style={{ color:"#3F8CFF" }}/>
+              </div>
+            ) : notifySent ? (
+              <div className="flex flex-col items-center justify-center py-10 text-center">
+                <div className="w-14 h-14 flex items-center justify-center mb-3" style={{ background:"rgba(0,196,140,0.1)", borderRadius:18 }}>
+                  <CheckCheck size={26} style={{ color:"#00C48C" }}/>
+                </div>
+                <p className="font-bold text-base" style={{ color:"#0A1629" }}>Xabar yuborildi</p>
+                <p className="text-sm mt-1" style={{ color:"#91929E" }}>Telegram guruhiga muvaffaqiyatli jo'natildi</p>
+                <button onClick={()=>setNotifyOpen(false)}
+                  className="mt-5 px-6 py-2.5 font-bold text-sm" style={{ background:"#F4F9FD", borderRadius:12, color:"#7D8592" }}>
+                  Yopish
+                </button>
+              </div>
+            ) : notifyCount === 0 ? (
+              <div className="flex flex-col items-center justify-center py-10 text-center">
+                <div className="w-14 h-14 flex items-center justify-center mb-3" style={{ background:"rgba(0,196,140,0.1)", borderRadius:18 }}>
+                  <CheckCheck size={26} style={{ color:"#00C48C" }}/>
+                </div>
+                <p className="font-bold text-base" style={{ color:"#0A1629" }}>Hammasi topshirilgan</p>
+                <p className="text-sm mt-1" style={{ color:"#91929E" }}>Joriy hafta uchun hisobot topshirmaganlar yo'q</p>
+              </div>
+            ) : (
+              <>
+                <label className="block text-sm font-bold mb-2" style={{ color:"#0A1629" }}>
+                  Xabar matni
+                  <span className="ml-2 text-xs font-normal" style={{ color:"#91929E" }}>({notifyCount} kishi)</span>
+                </label>
+                <textarea rows={9} value={notifyText} onChange={e=>setNotifyText(e.target.value)}
+                  className="w-full px-4 py-3 text-sm outline-none resize-none"
+                  style={{ background:"#F4F9FD", borderRadius:14, color:"#0A1629", border:"1.5px solid #EEF2FF", lineHeight:1.6 }}/>
+                <div className="flex gap-3 mt-5">
+                  <button onClick={()=>setNotifyOpen(false)}
+                    className="flex-1 py-3 font-bold text-sm" style={{ background:"#F4F9FD", borderRadius:14, color:"#7D8592" }}>
+                    Bekor qilish
+                  </button>
+                  <button onClick={sendNotify} disabled={notifySending}
+                    className="flex-1 py-3 font-bold text-sm text-white flex items-center justify-center gap-2 disabled:opacity-50"
+                    style={{ background:"#0088CC", borderRadius:14, boxShadow:"0px 6px 12px rgba(0,136,204,0.3)" }}>
+                    {notifySending ? <Loader2 size={16} className="animate-spin"/> : <Send size={15}/>}
+                    {notifySending ? "Yuborilmoqda..." : "Yuborish"}
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
       )}
     </div>
   );
