@@ -6,7 +6,7 @@ import Badge from "@/components/ui/Badge";
 import {
   ChevronLeft, ChevronRight, ChevronDown, ChevronUp,
   Star, Upload, Download, Loader2, Save, X, FileText,
-  Award, Users, CheckCircle2, Clock, Calendar,
+  Award, Users, CheckCircle2, Clock, Calendar, Info,
 } from "lucide-react";
 import { apiFetch } from "@/lib/api";
 import { getUser } from "@/lib/auth";
@@ -14,9 +14,28 @@ import { getUser } from "@/lib/auth";
 /* ── Constants ── */
 const MAX_BOLIM    = 65;
 const MAX_KADR     = 25;
-const MAX_DIREKTOR = 100;
 const MAX_IJRO     = 10;
-const MAX_TOTAL    = MAX_BOLIM + MAX_KADR + MAX_DIREKTOR + MAX_IJRO;
+const MAX_TOTAL    = MAX_BOLIM + MAX_KADR + MAX_IJRO;
+
+const KPI_RANGES = [
+  { from: 70, to: 75,  foiz: "50%",  color: "#FF5C5C", bg: "rgba(255,92,92,0.10)"  },
+  { from: 76, to: 80,  foiz: "75%",  color: "#FF8C42", bg: "rgba(255,140,66,0.12)" },
+  { from: 81, to: 85,  foiz: "100%", color: "#FFBD21", bg: "rgba(255,189,33,0.12)" },
+  { from: 86, to: 90,  foiz: "125%", color: "#00C48C", bg: "rgba(0,196,140,0.10)"  },
+  { from: 91, to: 95,  foiz: "150%", color: "#3F8CFF", bg: "rgba(63,140,255,0.10)" },
+  { from: 96, to: 100, foiz: "200%", color: "#6D5DD3", bg: "rgba(109,93,211,0.12)" },
+];
+
+function getKpiLabel(total: number | null): { text: string; color: string; bg: string } {
+  if (total == null) return { text: "—", color: "#C4CBD6", bg: "#F4F9FD" };
+  if (total >= 96)   return { text: "200%", color: "#6D5DD3", bg: "rgba(109,93,211,0.12)" };
+  if (total >= 91)   return { text: "150%", color: "#3F8CFF", bg: "rgba(63,140,255,0.10)" };
+  if (total >= 86)   return { text: "125%", color: "#00C48C", bg: "rgba(0,196,140,0.10)" };
+  if (total >= 81)   return { text: "100%", color: "#FFBD21", bg: "rgba(255,189,33,0.12)" };
+  if (total >= 76)   return { text: "75%",  color: "#FF8C42", bg: "rgba(255,140,66,0.12)" };
+  if (total >= 70)   return { text: "50%",  color: "#FF5C5C", bg: "rgba(255,92,92,0.10)"  };
+  return { text: "—", color: "#C4CBD6", bg: "#F4F9FD" };
+}
 
 const MON_NAMES = [
   "Yanvar","Fevral","Mart","Aprel","May","Iyun",
@@ -49,10 +68,10 @@ interface Row {
 }
 
 function mkAvatar(n:string){ return n.split(" ").filter(Boolean).map(w=>w[0]).join("").toUpperCase().slice(0,2); }
-function rowTotal(r:Row){ return (r.bolimBall??0)+(r.kadrBall??0)+(r.direktorBall??0)+(r.ijroBall??0); }
+function rowTotal(r:Row){ return (r.bolimBall??0)+(r.kadrBall??0)+(r.ijroBall??0); }
 function getStatus(r:Row):"Baholangan"|"Qisman"|"Kutilmoqda"{
-  const cnt=[r.bolimBall,r.kadrBall,r.direktorBall,r.ijroBall].filter(v=>v!=null).length;
-  return cnt===4?"Baholangan":cnt>0?"Qisman":"Kutilmoqda";
+  const cnt=[r.bolimBall,r.kadrBall,r.ijroBall].filter(v=>v!=null).length;
+  return cnt===3?"Baholangan":cnt>0?"Qisman":"Kutilmoqda";
 }
 const statusVariant: Record<string,"success"|"warning"|"danger"> = {
   Baholangan:"success", Qisman:"warning", Kutilmoqda:"danger",
@@ -96,6 +115,7 @@ export default function BolimKpiPage() {
   const [rows,     setRows]     = useState<Row[]>([]);
   const [loading,  setLoading]  = useState(true);
   const [expanded, setExpanded] = useState(true); // accordion
+  const [kpiModal, setKpiModal] = useState(false);
 
   /* ── Ball berish modal ── */
   const [ballModal,  setBallModal]  = useState<{id:number;name:string}|null>(null);
@@ -325,16 +345,21 @@ export default function BolimKpiPage() {
                   {/* Column headers */}
                   <div className="grid px-5 py-2.5 mb-1 text-xs font-bold uppercase tracking-wide items-center"
                     style={{
-                      gridTemplateColumns:"2fr 90px 90px 90px 90px 80px 1fr 130px",
+                      gridTemplateColumns:"2fr 90px 90px 90px 80px 110px 1fr 130px",
                       color:"#91929E",letterSpacing:"0.05em",
                       background:"#F4F9FD",borderRadius:12,
                     }}>
                     <span>Xodim</span>
                     <span className="text-center">Bo'lim</span>
                     <span className="text-center">Kadr</span>
-                    <span className="text-center">Direktor</span>
                     <span className="text-center">Ijro</span>
                     <span className="text-center">Jami</span>
+                    <span className="flex items-center justify-center gap-1">
+                      KPI Foiz
+                      <button onClick={()=>setKpiModal(true)} className="hover:opacity-70 transition-opacity" title="KPI foiz jadvalini ko'rish">
+                        <Info size={13} style={{color:"#6D5DD3"}}/>
+                      </button>
+                    </span>
                     <span>Holat</span>
                     <span className="text-right">Amallar</span>
                   </div>
@@ -343,7 +368,7 @@ export default function BolimKpiPage() {
                   {selfRow && (
                     <div className="grid items-center px-5 py-4 mb-3"
                       style={{
-                        gridTemplateColumns:"2fr 90px 90px 90px 90px 80px 1fr 130px",
+                        gridTemplateColumns:"2fr 90px 90px 90px 80px 110px 1fr 130px",
                         background:"rgba(63,140,255,0.04)",borderRadius:14,
                         border:"1.5px solid rgba(63,140,255,0.12)",
                       }}>
@@ -357,14 +382,18 @@ export default function BolimKpiPage() {
                           <p className="text-[10px]" style={{color:"#3F8CFF",fontWeight:700}}>O'ZINGIZ</p>
                         </div>
                       </div>
-                      <ScoreCircle val={selfRow.bolimBall}    max={MAX_BOLIM}    color="#3F8CFF"/>
-                      <ScoreCircle val={selfRow.kadrBall}     max={MAX_KADR}     color="#FF8C42"/>
-                      <ScoreCircle val={selfRow.direktorBall} max={MAX_DIREKTOR} color="#6D5DD3"/>
-                      <ScoreCircle val={selfRow.ijroBall}     max={MAX_IJRO}     color="#00C48C"/>
+                      <ScoreCircle val={selfRow.bolimBall} max={MAX_BOLIM} color="#3F8CFF"/>
+                      <ScoreCircle val={selfRow.kadrBall}  max={MAX_KADR}  color="#FF8C42"/>
+                      <ScoreCircle val={selfRow.ijroBall}  max={MAX_IJRO}  color="#00C48C"/>
                       <div className="text-center">
                         {rowTotal(selfRow)>0
                           ?<><span className="text-lg font-bold" style={{color:"#0A1629"}}>{rowTotal(selfRow)}</span><span className="text-xs block" style={{color:"#91929E"}}>/{MAX_TOTAL}</span></>
                           :<span className="text-sm" style={{color:"#C4CBD6"}}>—</span>}
+                      </div>
+                      <div className="flex justify-center">
+                        {(()=>{const k=getKpiLabel(rowTotal(selfRow)>0?rowTotal(selfRow):null);return(
+                          <span className="px-2.5 py-1 text-xs font-bold" style={{background:k.bg,color:k.color,borderRadius:8}}>{k.text}</span>
+                        );})()}
                       </div>
                       <div><Badge label={getStatus(selfRow)} variant={statusVariant[getStatus(selfRow)]}/></div>
                       <div className="flex gap-1.5 justify-end">
@@ -409,11 +438,12 @@ export default function BolimKpiPage() {
                       const tot=rowTotal(r);
                       const pct=Math.round((tot/MAX_TOTAL)*100);
                       const st=getStatus(r);
+                      const kpi=getKpiLabel(tot>0?tot:null);
                       return (
                         <div key={r.id}
                           className="grid items-center px-5 py-3.5 hover:bg-[#FAFCFF] transition-colors"
                           style={{
-                            gridTemplateColumns:"2fr 90px 90px 90px 90px 80px 1fr 130px",
+                            gridTemplateColumns:"2fr 90px 90px 90px 80px 110px 1fr 130px",
                             borderBottom:idx<arr.length-1?"1px solid #F4F9FD":"none",
                           }}>
                           <div className="flex items-center gap-3">
@@ -426,16 +456,18 @@ export default function BolimKpiPage() {
                               <p className="text-xs truncate" style={{color:"#91929E"}}>{r.position}</p>
                             </div>
                           </div>
-                          <ScoreCircle val={r.bolimBall}    max={MAX_BOLIM}    color="#3F8CFF"/>
-                          <ScoreCircle val={r.kadrBall}     max={MAX_KADR}     color="#FF8C42"/>
-                          <ScoreCircle val={r.direktorBall} max={MAX_DIREKTOR} color="#6D5DD3"/>
-                          <ScoreCircle val={r.ijroBall}     max={MAX_IJRO}     color="#00C48C"/>
+                          <ScoreCircle val={r.bolimBall} max={MAX_BOLIM} color="#3F8CFF"/>
+                          <ScoreCircle val={r.kadrBall}  max={MAX_KADR}  color="#FF8C42"/>
+                          <ScoreCircle val={r.ijroBall}  max={MAX_IJRO}  color="#00C48C"/>
                           <div className="text-center">
                             <span className="text-lg font-bold"
                               style={{color:pct>=70?"#00C48C":pct>=50?"#FFBD21":"#FF5C5C"}}>
                               {tot>0?tot:"—"}
                             </span>
                             {tot>0&&<span className="text-xs block" style={{color:"#91929E"}}>/{MAX_TOTAL}</span>}
+                          </div>
+                          <div className="flex justify-center">
+                            <span className="px-2.5 py-1 text-xs font-bold" style={{background:kpi.bg,color:kpi.color,borderRadius:8}}>{kpi.text}</span>
                           </div>
                           <div><Badge label={st} variant={statusVariant[st]}/></div>
                           <div className="flex items-center gap-1.5 justify-end">
@@ -485,12 +517,11 @@ export default function BolimKpiPage() {
           </div>
 
           {/* ── Info cards ── */}
-          <div className="mt-4 grid grid-cols-4 gap-4">
+          <div className="mt-4 grid grid-cols-3 gap-4">
             {[
-              {label:"Bo'lim boshlig'i",max:MAX_BOLIM,   color:"#3F8CFF",desc:"Bevosita rahbar qo'yadi"},
-              {label:"Kadrlar bo'limi", max:MAX_KADR,    color:"#FF8C42",desc:"Kadrlar bo'limi belgilaydi"},
-              {label:"Direktordan",      max:MAX_DIREKTOR,color:"#6D5DD3",desc:"Direktor belgilaydi"},
-              {label:"Ijro nazorati",    max:MAX_IJRO,   color:"#00C48C",desc:"Topshiriqlar asosida"},
+              {label:"Bo'lim boshlig'i",max:MAX_BOLIM,color:"#3F8CFF",desc:"Bevosita rahbar qo'yadi"},
+              {label:"Kadrlar bo'limi", max:MAX_KADR, color:"#FF8C42",desc:"Kadrlar bo'limi belgilaydi"},
+              {label:"Ijro nazorati",   max:MAX_IJRO, color:"#00C48C",desc:"Topshiriqlar asosida"},
             ].map(item=>(
               <div key={item.label} className="flex items-center gap-4 px-5 py-4"
                 style={{background:"#FFFFFF",borderRadius:18,boxShadow:"0px 6px 58px rgba(196,203,214,0.103611)"}}>
@@ -553,8 +584,9 @@ export default function BolimKpiPage() {
               {myScores.map(sc=>{
                 const monName = MON_NAMES[sc.month-1];
                 const mc = MON_COLORS[monName]??{bg:"rgba(63,140,255,0.1)",color:"#3F8CFF"};
-                const tot=(sc.bolim_ball??0)+(sc.kadr_ball??0)+(sc.direktor_ball??0)+(sc.ijro_ball??0);
+                const tot=(sc.bolim_ball??0)+(sc.kadr_ball??0)+(sc.ijro_ball??0);
                 const pct=Math.round((tot/MAX_TOTAL)*100);
+                const kpi=getKpiLabel(tot>0?tot:null);
                 const hasFile=!!sc.report_file_name;
                 return (
                   <div key={sc.id}
@@ -577,10 +609,9 @@ export default function BolimKpiPage() {
                     {/* Balls */}
                     <div className="flex items-center gap-3 flex-1 flex-wrap">
                       {[
-                        {label:"Bo'lim",   val:sc.bolim_ball,    max:MAX_BOLIM,    color:"#3F8CFF"},
-                        {label:"Kadr",     val:sc.kadr_ball,     max:MAX_KADR,     color:"#FF8C42"},
-                        {label:"Direktor", val:sc.direktor_ball, max:MAX_DIREKTOR, color:"#6D5DD3"},
-                        {label:"Ijro",     val:sc.ijro_ball,     max:MAX_IJRO,     color:"#00C48C"},
+                        {label:"Bo'lim", val:sc.bolim_ball, max:MAX_BOLIM, color:"#3F8CFF"},
+                        {label:"Kadr",   val:sc.kadr_ball,  max:MAX_KADR,  color:"#FF8C42"},
+                        {label:"Ijro",   val:sc.ijro_ball,  max:MAX_IJRO,  color:"#00C48C"},
                       ].map(b=>(
                         <div key={b.label} className="text-center px-2">
                           <p className="text-xs mb-0.5" style={{color:"#91929E"}}>{b.label}</p>
@@ -600,6 +631,12 @@ export default function BolimKpiPage() {
                         {tot>0?tot:"—"}
                       </p>
                       {tot>0&&<p className="text-xs" style={{color:"#91929E"}}>/{MAX_TOTAL}</p>}
+                    </div>
+
+                    {/* KPI Foiz */}
+                    <div className="text-center w-20 flex-shrink-0">
+                      <p className="text-xs mb-0.5" style={{color:"#91929E"}}>KPI Foiz</p>
+                      <span className="px-2.5 py-1 text-xs font-bold inline-block" style={{background:kpi.bg,color:kpi.color,borderRadius:8}}>{kpi.text}</span>
                     </div>
 
                     {/* File */}
@@ -681,6 +718,45 @@ export default function BolimKpiPage() {
                 {ballSaving?<Loader2 size={16} className="animate-spin"/>:<Save size={16}/>}
                 {ballSaving?"Saqlanmoqda...":"Saqlash"}
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── KPI Foiz modal ── */}
+      {kpiModal && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center"
+          style={{background:"rgba(10,22,41,0.45)"}}
+          onClick={()=>setKpiModal(false)}>
+          <div
+            className="relative flex flex-col gap-0 overflow-hidden"
+            style={{background:"#FFFFFF",borderRadius:20,boxShadow:"0px 20px 60px rgba(10,22,41,0.25)",minWidth:320}}
+            onClick={e=>e.stopPropagation()}>
+            <div className="flex items-center justify-between px-5 py-4" style={{borderBottom:"1px solid #F4F9FD"}}>
+              <div>
+                <p className="font-bold text-sm" style={{color:"#0A1629"}}>KPI Foiz Jadval</p>
+                <p className="text-xs mt-0.5" style={{color:"#91929E"}}>Ball oralig'iga qarab KPI ulushi</p>
+              </div>
+              <button onClick={()=>setKpiModal(false)}
+                className="w-7 h-7 flex items-center justify-center hover:bg-[#F4F9FD] rounded-lg transition-colors">
+                <X size={15} style={{color:"#91929E"}}/>
+              </button>
+            </div>
+            <div className="flex flex-col gap-0">
+              {KPI_RANGES.map((r,i)=>(
+                <div key={i} className="flex items-center justify-between px-5 py-3"
+                  style={{borderBottom:i<KPI_RANGES.length-1?"1px solid #F4F9FD":"none"}}>
+                  <div className="flex items-center gap-2">
+                    <div className="w-2 h-2 rounded-full" style={{background:r.color}}/>
+                    <span className="text-sm font-medium" style={{color:"#0A1629"}}>{r.from} – {r.to} ball</span>
+                  </div>
+                  <span className="px-3 py-1 text-sm font-bold" style={{background:r.bg,color:r.color,borderRadius:8}}>{r.foiz}</span>
+                </div>
+              ))}
+            </div>
+            <div className="px-5 py-3" style={{background:"#F8FAFF",borderTop:"1px solid #F4F9FD"}}>
+              <p className="text-xs" style={{color:"#91929E"}}>70 balldan past — KPI hisoblanmaydi</p>
             </div>
           </div>
         </div>
