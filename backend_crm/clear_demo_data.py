@@ -2,9 +2,10 @@
 Prezentatsiya oldidan demo ma'lumotlarni tozalash skripti.
 
 Joriy oy uchun quyidagilarni o'chiradi:
-  - scores         (kadr/ijro/bo'lim/direktor ballari + yuklangan hisobot fayllari)
-  - attendances    (GPS orqali keldi-keti belgilash)
-  - tabel_records  (kunlik tabel kodlari: 8, 4, X va h.k.)
+  - scores          (kadr/ijro/bo'lim/direktor ballari + eski hisobot fayllari)
+  - weekly_reports  (haftalik hisobot fayllari va ularga qo'yilgan ballar)
+  - attendances     (GPS orqali keldi-keti belgilash)
+  - tabel_records   (kunlik tabel kodlari: 8, 4, X va h.k.)
 
 Xodimlar, bo'limlar va boshqa hech narsaga tegilmaydi.
 
@@ -40,6 +41,9 @@ def main():
         scores_q     = db.query(models.Score).filter(
             models.Score.year == year, models.Score.month == month,
         )
+        weekly_q     = db.query(models.WeeklyReport).filter(
+            models.WeeklyReport.year == year, models.WeeklyReport.month == month,
+        )
         attendance_q = db.query(models.Attendance).filter(
             models.Attendance.date.like(f"{month_prefix}%"),
         )
@@ -48,14 +52,16 @@ def main():
         )
 
         scores_count     = scores_q.count()
+        weekly_count     = weekly_q.count()
         attendance_count = attendance_q.count()
         tabel_count      = tabel_q.count()
 
         print(f"\n=== {year}-{month:02d} uchun topilgan yozuvlar ===")
-        print(f"  scores (ball/hisobot)      : {scores_count}")
-        print(f"  attendances (GPS davomat)  : {attendance_count}")
-        print(f"  tabel_records (kunlik kod) : {tabel_count}")
-        print(f"  JAMI                       : {scores_count + attendance_count + tabel_count}\n")
+        print(f"  scores (ball/eski hisobot)     : {scores_count}")
+        print(f"  weekly_reports (haftalik fayl) : {weekly_count}")
+        print(f"  attendances (GPS davomat)      : {attendance_count}")
+        print(f"  tabel_records (kunlik kod)     : {tabel_count}")
+        print(f"  JAMI                           : {scores_count + weekly_count + attendance_count + tabel_count}\n")
 
         if not args.confirm:
             print("DRY RUN: hech narsa o'chirilmadi.")
@@ -63,19 +69,21 @@ def main():
             print(f"  python clear_demo_data.py --year {year} --month {month} --confirm\n")
             return
 
-        if scores_count + attendance_count + tabel_count == 0:
+        if scores_count + weekly_count + attendance_count + tabel_count == 0:
             print("O'chiriladigan narsa yo'q.")
             return
 
         deleted_scores     = scores_q.delete(synchronize_session=False)
+        deleted_weekly     = weekly_q.delete(synchronize_session=False)
         deleted_attendance = attendance_q.delete(synchronize_session=False)
         deleted_tabel      = tabel_q.delete(synchronize_session=False)
         db.commit()
 
         print("=== Tozalandi ===")
-        print(f"  scores       : {deleted_scores} ta o'chirildi")
-        print(f"  attendances  : {deleted_attendance} ta o'chirildi")
-        print(f"  tabel_records: {deleted_tabel} ta o'chirildi")
+        print(f"  scores        : {deleted_scores} ta o'chirildi")
+        print(f"  weekly_reports: {deleted_weekly} ta o'chirildi")
+        print(f"  attendances   : {deleted_attendance} ta o'chirildi")
+        print(f"  tabel_records : {deleted_tabel} ta o'chirildi")
         print("\nTizim shu oy uchun 'bo'sh' holatga qaytdi.\n")
     except Exception:
         db.rollback()
