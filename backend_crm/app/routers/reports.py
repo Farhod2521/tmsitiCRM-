@@ -180,15 +180,7 @@ def my_weekly_reports(
     return result
 
 
-@router.get("/weekly/team", response_model=List[schemas.WeeklyTeamRowOut])
-def team_weekly_reports(
-    year: int,
-    month: int,
-    db: Session = Depends(get_db),
-    current: models.Employee = Depends(get_current_employee),
-):
-    """Joriy foydalanuvchi tasdiqlay oladigan xodimlarning shu oydagi hisobotlari."""
-    targets = _reviewer_targets(current, db)
+def _build_team_rows(targets: List[models.Employee], year: int, month: int, db: Session) -> List[schemas.WeeklyTeamRowOut]:
     if not targets:
         return []
 
@@ -239,6 +231,37 @@ def team_weekly_reports(
             bolim_ball=scores.get(emp.id).bolim_ball if emp.id in scores else None,
         ))
     return rows
+
+
+@router.get("/weekly/team", response_model=List[schemas.WeeklyTeamRowOut])
+def team_weekly_reports(
+    year: int,
+    month: int,
+    db: Session = Depends(get_db),
+    current: models.Employee = Depends(get_current_employee),
+):
+    """Joriy foydalanuvchi tasdiqlay oladigan xodimlarning shu oydagi hisobotlari."""
+    targets = _reviewer_targets(current, db)
+    return _build_team_rows(targets, year, month, db)
+
+
+@router.get("/weekly/subteam", response_model=List[schemas.WeeklyTeamRowOut])
+def subteam_weekly_reports(
+    head_id: int,
+    year: int,
+    month: int,
+    db: Session = Depends(get_db),
+    current: models.Employee = Depends(get_current_employee),
+):
+    """Admin/zamdirektor uchun: berilgan bo'lim boshlig'ining o'z xodimlariga qo'ygan
+    haftalik hisobotlari (faqat ko'rish — nazorat/shaffoflik uchun)."""
+    if current.role not in _ADMIN_ROLES:
+        raise HTTPException(status_code=403, detail="Ruxsat yo'q")
+    head = db.query(models.Employee).filter(models.Employee.id == head_id).first()
+    if not head or head.role not in _HEAD_ROLES:
+        raise HTTPException(status_code=404, detail="Bo'lim boshlig'i topilmadi")
+    targets = _reviewer_targets(head, db)
+    return _build_team_rows(targets, year, month, db)
 
 
 @router.post("/weekly/{report_id}/score", response_model=schemas.WeeklyReportOut)

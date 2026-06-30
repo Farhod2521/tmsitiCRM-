@@ -8,7 +8,8 @@ import {
   Users, CheckCircle2, Clock, FileText,
 } from "lucide-react";
 import { apiFetch } from "@/lib/api";
-import WeeklyReportReviewModal, { WeekRow } from "@/components/reports/WeeklyReportReviewModal";
+import { WeekRow } from "@/components/reports/WeeklyReportReviewModal";
+import DeptHeadReviewModal from "@/components/reports/DeptHeadReviewModal";
 
 const MON_NAMES = [
   "Yanvar","Fevral","Mart","Aprel","May","Iyun",
@@ -177,10 +178,13 @@ export default function HisobotlarPage() {
       </div>
 
       {reviewTarget && (
-        <WeeklyReportReviewModal
-          employeeName={reviewTarget.full_name}
-          position={reviewTarget.position}
+        <DeptHeadReviewModal
+          headId={reviewTarget.employee_id}
+          headName={reviewTarget.full_name}
+          headPosition={reviewTarget.position}
           weeks={reviewTarget.weeks}
+          year={year}
+          month={month}
           onClose={()=>setReviewTarget(null)}
           onScored={refreshAfterScore}
         />
