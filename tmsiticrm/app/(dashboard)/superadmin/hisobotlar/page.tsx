@@ -1,397 +1,190 @@
+"use client";
+
+import { useState, useEffect, useCallback } from "react";
 import Header from "@/components/layout/Header";
 import Badge from "@/components/ui/Badge";
 import {
-  BarChart3,
-  FileText,
-  Download,
-  Eye,
-  Plus,
-  Filter,
-  TrendingUp,
-  TrendingDown,
-  Calendar,
-  MoreHorizontal,
+  ChevronLeft, ChevronRight, ClipboardCheck, Loader2,
+  Users, CheckCircle2, Clock, FileText,
 } from "lucide-react";
+import { apiFetch } from "@/lib/api";
+import WeeklyReportReviewModal, { WeekRow } from "@/components/reports/WeeklyReportReviewModal";
 
-const reports = [
-  {
-    id: 1,
-    title: "Oylik moliyaviy hisobot",
-    type: "Moliya",
-    period: "Aprel 2026",
-    author: "Nodira Hasanova",
-    date: "01 May 2026",
-    status: "Tasdiqlangan",
-    size: "2.4 MB",
-    color: "#00C48C",
-  },
-  {
-    id: 2,
-    title: "HR faoliyat hisoboti",
-    type: "HR",
-    period: "Aprel 2026",
-    author: "Shahnoza Tosheva",
-    date: "02 May 2026",
-    status: "Ko'rib chiqilmoqda",
-    size: "1.8 MB",
-    color: "#6D5DD3",
-  },
-  {
-    id: 3,
-    title: "IT bo'limi texnik hisobot",
-    type: "IT",
-    period: "Aprel 2026",
-    author: "Alisher Karimov",
-    date: "03 May 2026",
-    status: "Tasdiqlangan",
-    size: "3.1 MB",
-    color: "#3F8CFF",
-  },
-  {
-    id: 4,
-    title: "Marketing kampaniya tahlili",
-    type: "Marketing",
-    period: "Q1 2026",
-    author: "Jasur Mirzayev",
-    date: "05 May 2026",
-    status: "Qoralama",
-    size: "5.2 MB",
-    color: "#FFBD21",
-  },
-  {
-    id: 5,
-    title: "Ishlab chiqarish hisoboti",
-    type: "Ishlab chiqarish",
-    period: "Aprel 2026",
-    author: "Ulugbek Saidov",
-    date: "06 May 2026",
-    status: "Tasdiqlangan",
-    size: "4.7 MB",
-    color: "#15C0E6",
-  },
-  {
-    id: 6,
-    title: "Yillik strategik hisobot",
-    type: "Rahbariyat",
-    period: "2025 yil",
-    author: "Super Admin",
-    date: "10 May 2026",
-    status: "Ko'rib chiqilmoqda",
-    size: "8.3 MB",
-    color: "#FF5C5C",
-  },
+const MON_NAMES = [
+  "Yanvar","Fevral","Mart","Aprel","May","Iyun",
+  "Iyul","Avgust","Sentabr","Oktabr","Noyabr","Dekabr",
 ];
+const AVATAR_COLORS = ["#3F8CFF","#6D5DD3","#00C48C","#FFBD21","#FF5C5C","#15C0E6","#FF8C42"];
 
-const statusVariant: Record<string, "success" | "warning" | "gray"> = {
-  Tasdiqlangan: "success",
-  "Ko'rib chiqilmoqda": "warning",
-  Qoralama: "gray",
+interface ApiTeamRow {
+  employee_id: number; full_name: string; position: string;
+  department_name: string | null; weeks: WeekRow[]; bolim_ball: number | null;
+}
+
+function mkAvatar(n: string) { return n.split(" ").filter(Boolean).map(w=>w[0]).join("").toUpperCase().slice(0,2); }
+
+function getStatus(weeks: WeekRow[]): "Baholangan"|"Qisman"|"Kutilmoqda" {
+  const total = weeks.length;
+  const confirmed = weeks.filter(w=>w.confirmed_at).length;
+  if (total>0 && confirmed===total) return "Baholangan";
+  if (confirmed>0) return "Qisman";
+  return "Kutilmoqda";
+}
+const statusVariant: Record<string,"success"|"warning"|"danger"> = {
+  Baholangan:"success", Qisman:"warning", Kutilmoqda:"danger",
 };
 
-const summaryData = [
-  { label: "Jami hisobotlar", value: "84", trend: "+12", up: true, icon: FileText, color: "#3F8CFF", bg: "rgba(63,140,255,0.1)" },
-  { label: "Tasdiqlangan", value: "61", trend: "+8", up: true, icon: BarChart3, color: "#00C48C", bg: "rgba(0,196,140,0.1)" },
-  { label: "Kutilmoqda", value: "18", trend: "-3", up: false, icon: Calendar, color: "#FFBD21", bg: "rgba(255,189,33,0.1)" },
-  { label: "Qoralamalar", value: "5", trend: "+1", up: true, icon: FileText, color: "#6D5DD3", bg: "rgba(109,93,211,0.1)" },
-];
-
 export default function HisobotlarPage() {
+  const now = new Date();
+  const [year, setYear]   = useState(now.getFullYear());
+  const [month, setMonth] = useState(now.getMonth()+1);
+  const [rows, setRows]   = useState<ApiTeamRow[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [reviewTarget, setReviewTarget] = useState<ApiTeamRow|null>(null);
+
+  const load = useCallback(async (y:number, m:number) => {
+    setLoading(true);
+    try {
+      const data = await apiFetch<ApiTeamRow[]>(`/reports/weekly/team?year=${y}&month=${m}`);
+      setRows(data);
+      return data;
+    } catch (e) { console.error(e); return []; }
+    finally { setLoading(false); }
+  }, []);
+
+  useEffect(() => { load(year, month); }, []); // eslint-disable-line
+
+  function chMonth(dir: number) {
+    let m = month+dir; let y = year;
+    if (m<1) { m=12; y--; } if (m>12) { m=1; y++; }
+    setYear(y); setMonth(m); load(y,m);
+  }
+
+  async function refreshAfterScore() {
+    const next = await load(year, month);
+    setReviewTarget(prev => prev ? next.find(r=>r.employee_id===prev.employee_id) ?? null : null);
+  }
+
+  const total      = rows.length;
+  const rated      = rows.filter(r => getStatus(r.weeks)==="Baholangan").length;
+  const withReport = rows.filter(r => r.weeks.some(w=>w.file_name)).length;
+  const pending    = total - rated;
+
+  const statCards = [
+    { label: "Bo'lim boshliqlari", value: total,      icon: Users,        color: "#3F8CFF", bg: "rgba(63,140,255,0.1)" },
+    { label: "Baholangan",         value: rated,       icon: CheckCircle2, color: "#00C48C", bg: "rgba(0,196,140,0.1)" },
+    { label: "Hisobot yuklangan",  value: withReport,  icon: FileText,     color: "#6D5DD3", bg: "rgba(109,93,211,0.1)" },
+    { label: "Kutilmoqda",         value: pending,     icon: Clock,        color: "#FF5C5C", bg: "rgba(255,92,92,0.1)" },
+  ];
+
   return (
     <div>
-      <Header title="Hisobotlar" subtitle="Tashkilot hisobotlari va tahlillar" />
+      <Header title="Hisobotlar" subtitle="Bo'lim boshliqlarining haftalik hisobotlarini tasdiqlash" />
 
-      {/* Summary Stats */}
+      {/* Stats */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-5 mb-6">
-        {summaryData.map((s) => (
-          <div
-            key={s.label}
-            className="p-5"
-            style={{
-              background: "#FFFFFF",
-              boxShadow: "0px 6px 58px rgba(196, 203, 214, 0.103611)",
-              borderRadius: 24,
-            }}
-          >
-            <div className="flex items-center justify-between mb-3">
-              <div
-                className="w-12 h-12 flex items-center justify-center"
-                style={{ background: s.bg, borderRadius: 14 }}
-              >
-                <s.icon size={22} style={{ color: s.color }} />
-              </div>
-              <span
-                className="flex items-center gap-1 text-xs font-bold px-2 py-1"
-                style={{
-                  color: s.up ? "#00C48C" : "#FF5C5C",
-                  background: s.up ? "rgba(0,196,140,0.1)" : "rgba(255,92,92,0.1)",
-                  borderRadius: 8,
-                }}
-              >
-                {s.up ? <TrendingUp size={10} /> : <TrendingDown size={10} />}
-                {s.trend}
-              </span>
+        {statCards.map(s => (
+          <div key={s.label} className="p-5 flex items-center gap-4"
+            style={{ background:"#FFFFFF", boxShadow:"0px 6px 58px rgba(196,203,214,0.103611)", borderRadius:20 }}>
+            <div className="w-11 h-11 flex items-center justify-center flex-shrink-0" style={{ background:s.bg, borderRadius:13 }}>
+              <s.icon size={20} style={{ color:s.color }}/>
             </div>
-            <p className="text-3xl font-bold" style={{ color: "#0A1629" }}>
-              {s.value}
-            </p>
-            <p className="text-sm mt-1" style={{ color: "#91929E" }}>
-              {s.label}
-            </p>
+            <div>
+              <p className="text-2xl font-bold leading-tight" style={{ color:"#0A1629" }}>{s.value}</p>
+              <p className="text-xs mt-0.5" style={{ color:"#91929E" }}>{s.label}</p>
+            </div>
           </div>
         ))}
       </div>
 
-      {/* Filters & Actions */}
-      <div className="flex items-center justify-between mb-5">
-        <div className="flex gap-2">
-          {["Barchasi", "Moliya", "HR", "IT", "Marketing"].map((tab, i) => (
-            <button
-              key={tab}
-              className="px-4 py-2 text-sm font-bold transition-all"
-              style={{
-                background: i === 0 ? "#3F8CFF" : "#FFFFFF",
-                color: i === 0 ? "#FFFFFF" : "#7D8592",
-                borderRadius: 10,
-                boxShadow: i === 0 ? "0px 6px 12px rgba(63, 140, 255, 0.263686)" : "0px 6px 58px rgba(196, 203, 214, 0.103611)",
-              }}
-            >
-              {tab}
+      {/* Main card */}
+      <div style={{ background:"#FFFFFF", boxShadow:"0px 6px 58px rgba(196,203,214,0.103611)", borderRadius:24 }}>
+        <div className="flex items-center justify-between flex-wrap gap-3 px-6 py-5" style={{ borderBottom:"1px solid #F4F9FD" }}>
+          <div>
+            <h2 className="font-bold text-base" style={{ color:"#0A1629" }}>Bo'lim boshliqlari</h2>
+            <p className="text-xs mt-0.5" style={{ color:"#91929E" }}>Haftalik hisobotlarni ko'rib, ball qo'ying</p>
+          </div>
+          <div className="flex items-center gap-1 p-1" style={{ background:"#F4F9FD", borderRadius:12 }}>
+            <button onClick={()=>chMonth(-1)} className="w-8 h-8 flex items-center justify-center rounded hover:bg-white transition-colors">
+              <ChevronLeft size={15} style={{ color:"#3F8CFF" }}/>
             </button>
-          ))}
-          <button
-            className="flex items-center gap-2 px-4 py-2 text-sm font-bold"
-            style={{
-              background: "#FFFFFF",
-              color: "#7D8592",
-              borderRadius: 10,
-              boxShadow: "0px 6px 58px rgba(196, 203, 214, 0.103611)",
-            }}
-          >
-            <Filter size={14} />
-            Filter
-          </button>
-        </div>
-        <button
-          className="flex items-center gap-2 px-5 py-2.5 font-bold text-sm text-white"
-          style={{
-            background: "#3F8CFF",
-            borderRadius: 14,
-            boxShadow: "0px 6px 12px rgba(63, 140, 255, 0.263686)",
-          }}
-        >
-          <Plus size={18} />
-          Hisobot yaratish
-        </button>
-      </div>
-
-      {/* Reports Table */}
-      <div
-        className="p-6"
-        style={{
-          background: "#FFFFFF",
-          boxShadow: "0px 6px 58px rgba(196, 203, 214, 0.103611)",
-          borderRadius: 24,
-        }}
-      >
-        <div className="overflow-x-auto">
-        <table className="w-full" style={{ minWidth: 760 }}>
-          <thead>
-            <tr style={{ borderBottom: "2px solid #F4F9FD" }}>
-              {["Hisobot nomi", "Turi", "Davr", "Muallif", "Sana", "Hajm", "Holat", "Amallar"].map((h) => (
-                <th
-                  key={h}
-                  className="text-left pb-4 text-xs font-bold uppercase"
-                  style={{ color: "#91929E", letterSpacing: "0.05em", paddingRight: 12 }}
-                >
-                  {h}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {reports.map((report) => (
-              <tr
-                key={report.id}
-                style={{ borderBottom: "1px solid #F4F9FD" }}
-                className="hover:bg-[#F4F9FD] transition-colors"
-              >
-                <td className="py-4" style={{ paddingRight: 12 }}>
-                  <div className="flex items-center gap-3">
-                    <div
-                      className="w-10 h-10 flex-shrink-0 flex items-center justify-center"
-                      style={{ background: `${report.color}18`, borderRadius: 12 }}
-                    >
-                      <FileText size={18} style={{ color: report.color }} />
-                    </div>
-                    <p className="font-bold text-sm" style={{ color: "#0A1629" }}>
-                      {report.title}
-                    </p>
-                  </div>
-                </td>
-                <td className="py-4" style={{ paddingRight: 12 }}>
-                  <span
-                    className="text-xs font-bold px-2 py-1"
-                    style={{
-                      color: report.color,
-                      background: `${report.color}18`,
-                      borderRadius: 8,
-                    }}
-                  >
-                    {report.type}
-                  </span>
-                </td>
-                <td className="py-4 text-sm" style={{ color: "#7D8592", paddingRight: 12 }}>
-                  {report.period}
-                </td>
-                <td className="py-4" style={{ paddingRight: 12 }}>
-                  <div className="flex items-center gap-2">
-                    <div
-                      className="w-7 h-7 flex items-center justify-center font-bold text-white text-xs"
-                      style={{ background: report.color, borderRadius: 8 }}
-                    >
-                      {report.author.charAt(0)}
-                    </div>
-                    <span className="text-sm" style={{ color: "#7D8592" }}>
-                      {report.author}
-                    </span>
-                  </div>
-                </td>
-                <td className="py-4 text-sm" style={{ color: "#7D8592", paddingRight: 12 }}>
-                  <div className="flex items-center gap-1">
-                    <Calendar size={12} />
-                    {report.date}
-                  </div>
-                </td>
-                <td className="py-4 text-sm font-bold" style={{ color: "#0A1629", paddingRight: 12 }}>
-                  {report.size}
-                </td>
-                <td className="py-4" style={{ paddingRight: 12 }}>
-                  <Badge label={report.status} variant={statusVariant[report.status]} />
-                </td>
-                <td className="py-4">
-                  <div className="flex items-center gap-2">
-                    <button
-                      className="w-8 h-8 flex items-center justify-center hover:opacity-80 transition-opacity"
-                      style={{ background: "rgba(63,140,255,0.1)", borderRadius: 8 }}
-                    >
-                      <Eye size={14} style={{ color: "#3F8CFF" }} />
-                    </button>
-                    <button
-                      className="w-8 h-8 flex items-center justify-center hover:opacity-80 transition-opacity"
-                      style={{ background: "rgba(0,196,140,0.1)", borderRadius: 8 }}
-                    >
-                      <Download size={14} style={{ color: "#00C48C" }} />
-                    </button>
-                    <button style={{ color: "#91929E" }}>
-                      <MoreHorizontal size={18} />
-                    </button>
-                  </div>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-        </div>
-
-        {/* Pagination */}
-        <div className="flex items-center justify-between flex-wrap gap-3 mt-5">
-          <p className="text-sm" style={{ color: "#91929E" }}>
-            Jami 84 hisobotdan 1-6 ko'rsatilmoqda
-          </p>
-          <div className="flex gap-2">
-            {[1, 2, 3, "...", 14].map((p, i) => (
-              <button
-                key={i}
-                className="w-9 h-9 flex items-center justify-center text-sm font-bold"
-                style={{
-                  background: p === 1 ? "#3F8CFF" : "#F4F9FD",
-                  color: p === 1 ? "#FFFFFF" : "#7D8592",
-                  borderRadius: 10,
-                }}
-              >
-                {p}
-              </button>
-            ))}
+            <span className="px-3 font-bold text-sm" style={{ color:"#0A1629", minWidth:110, textAlign:"center" }}>
+              {MON_NAMES[month-1]} {year}
+            </span>
+            <button onClick={()=>chMonth(1)} className="w-8 h-8 flex items-center justify-center rounded hover:bg-white transition-colors">
+              <ChevronRight size={15} style={{ color:"#3F8CFF" }}/>
+            </button>
           </div>
         </div>
-      </div>
 
-      {/* Recent Analytics */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 mt-5">
-        <div
-          className="p-6"
-          style={{
-            background: "#FFFFFF",
-            boxShadow: "0px 6px 58px rgba(196, 203, 214, 0.103611)",
-            borderRadius: 24,
-          }}
-        >
-          <h3 className="font-bold mb-4" style={{ color: "#0A1629" }}>
-            Bo'limlar bo'yicha hisobotlar
-          </h3>
-          <div className="flex flex-col gap-3">
-            {[
-              { name: "Moliya", count: 24, color: "#00C48C" },
-              { name: "IT Bo'limi", count: 18, color: "#3F8CFF" },
-              { name: "Ishlab chiqarish", count: 16, color: "#15C0E6" },
-              { name: "HR", count: 14, color: "#6D5DD3" },
-              { name: "Marketing", count: 12, color: "#FFBD21" },
-            ].map((d) => (
-              <div key={d.name} className="flex items-center gap-3">
-                <span className="text-sm font-bold w-28" style={{ color: "#7D8592" }}>
-                  {d.name}
-                </span>
-                <div className="flex-1 h-3 rounded-full overflow-hidden" style={{ background: "#F4F9FD" }}>
-                  <div
-                    className="h-full rounded-full"
-                    style={{ width: `${(d.count / 24) * 100}%`, background: d.color }}
-                  />
-                </div>
-                <span className="text-sm font-bold w-8 text-right" style={{ color: "#0A1629" }}>
-                  {d.count}
-                </span>
+        {loading ? (
+          <div className="flex items-center justify-center py-16">
+            <Loader2 size={26} className="animate-spin" style={{ color:"#3F8CFF" }}/>
+          </div>
+        ) : rows.length===0 ? (
+          <div className="py-16 text-center">
+            <Users size={36} style={{ color:"#D9E3F0", margin:"0 auto" }}/>
+            <p className="font-bold mt-3" style={{ color:"#0A1629" }}>Bo'lim boshliqlari topilmadi</p>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <div style={{ minWidth: 700 }} className="px-6 py-4">
+              <div className="grid px-4 py-2.5 mb-1 text-xs font-bold uppercase tracking-wide"
+                style={{ gridTemplateColumns:"2fr 1.5fr 110px 1fr 140px", color:"#91929E", letterSpacing:"0.05em", background:"#F4F9FD", borderRadius:12 }}>
+                <span>Boshliq</span><span>Bo'lim</span><span className="text-center">Jami ball</span><span>Holat</span><span className="text-right">Amallar</span>
               </div>
-            ))}
-          </div>
-        </div>
-
-        <div
-          className="p-6"
-          style={{
-            background: "#3F8CFF",
-            boxShadow: "0px 6px 12px rgba(63, 140, 255, 0.263686)",
-            borderRadius: 24,
-          }}
-        >
-          <h3 className="font-bold text-white mb-4">Hisobot holatlari</h3>
-          <div className="flex items-center justify-center gap-8 h-32">
-            {[
-              { label: "Tasdiqlangan", pct: 73, color: "#FFFFFF" },
-              { label: "Kutilmoqda", pct: 21, color: "rgba(255,255,255,0.5)" },
-              { label: "Qoralama", pct: 6, color: "rgba(255,255,255,0.25)" },
-            ].map((item) => (
-              <div key={item.label} className="flex flex-col items-center gap-2">
-                <div
-                  className="w-16 h-16 rounded-full flex items-center justify-center font-bold text-lg"
-                  style={{
-                    background: item.color,
-                    color: item.color === "#FFFFFF" ? "#3F8CFF" : "#FFFFFF",
-                  }}
-                >
-                  {item.pct}%
-                </div>
-                <span className="text-xs text-white opacity-80 text-center">
-                  {item.label}
-                </span>
+              <div className="flex flex-col">
+                {rows.map((r,i) => {
+                  const st = getStatus(r.weeks);
+                  const pendingCount = r.weeks.filter(w=>w.file_name && !w.confirmed_at).length;
+                  const color = AVATAR_COLORS[i % AVATAR_COLORS.length];
+                  return (
+                    <div key={r.employee_id} className="grid items-center px-4 py-3.5 hover:bg-[#FAFCFF] transition-colors"
+                      style={{ gridTemplateColumns:"2fr 1.5fr 110px 1fr 140px", borderBottom: i<rows.length-1 ? "1px solid #F4F9FD" : "none" }}>
+                      <div className="flex items-center gap-3">
+                        <div className="w-9 h-9 flex items-center justify-center text-white text-xs font-bold flex-shrink-0"
+                          style={{ background:color, borderRadius:11 }}>{mkAvatar(r.full_name)}</div>
+                        <div className="min-w-0">
+                          <p className="font-bold text-sm truncate" style={{ color:"#0A1629" }}>{r.full_name}</p>
+                          <p className="text-xs truncate" style={{ color:"#91929E" }}>{r.position}</p>
+                        </div>
+                      </div>
+                      <p className="text-sm truncate" style={{ color:"#7D8592" }}>{r.department_name || "—"}</p>
+                      <div className="text-center">
+                        <span className="text-base font-bold" style={{ color:"#0A1629" }}>{r.bolim_ball ?? "—"}</span>
+                        <span className="text-xs" style={{ color:"#91929E" }}> /65</span>
+                      </div>
+                      <div><Badge label={st} variant={statusVariant[st]}/></div>
+                      <div className="flex justify-end">
+                        <button onClick={()=>setReviewTarget(r)}
+                          className="relative flex items-center gap-1.5 px-3 py-2 text-xs font-bold text-white hover:opacity-80"
+                          style={{ background:"#3F8CFF", borderRadius:10, boxShadow:"0px 4px 10px rgba(63,140,255,0.25)" }}>
+                          <ClipboardCheck size={13}/> Hisobot
+                          {pendingCount>0 && (
+                            <span className="absolute -top-1.5 -right-1.5 w-4 h-4 flex items-center justify-center text-[9px] font-bold text-white"
+                              style={{ background:"#FF5C5C", borderRadius:"50%" }}>{pendingCount}</span>
+                          )}
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
-            ))}
+            </div>
           </div>
-          <div className="mt-4 p-3 text-center" style={{ background: "rgba(255,255,255,0.15)", borderRadius: 12 }}>
-            <p className="text-white font-bold">84 ta hisobot jami</p>
-            <p className="text-white text-xs opacity-75">2026 yil, 1-apreldan buyon</p>
-          </div>
-        </div>
+        )}
+        <div className="pb-2"/>
       </div>
+
+      {reviewTarget && (
+        <WeeklyReportReviewModal
+          employeeName={reviewTarget.full_name}
+          position={reviewTarget.position}
+          weeks={reviewTarget.weeks}
+          onClose={()=>setReviewTarget(null)}
+          onScored={refreshAfterScore}
+        />
+      )}
     </div>
   );
 }

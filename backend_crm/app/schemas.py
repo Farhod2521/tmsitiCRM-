@@ -1,6 +1,6 @@
 from pydantic import BaseModel
 from typing import Optional, List
-from datetime import datetime
+from datetime import datetime, date
 from .models import RoleEnum, DeptTypeEnum, EmployeeStatusEnum
 
 
@@ -142,7 +142,7 @@ class ScoreIn(BaseModel):
     employee_id: int
     year: int
     month: int
-    bolim_ball: Optional[int] = None    # 0-65
+    bolim_ball: Optional[float] = None  # 0-65 (haftalik hisobotlar yig'indisi, avtomatik)
     kadr_ball: Optional[int] = None     # 0-25
     direktor_ball: Optional[int] = None # 0-100
     ijro_ball: Optional[int] = None     # 0-10
@@ -153,7 +153,7 @@ class ScoreOut(BaseModel):
     employee_id: int
     year: int
     month: int
-    bolim_ball: Optional[int] = None
+    bolim_ball: Optional[float] = None
     kadr_ball: Optional[int] = None
     direktor_ball: Optional[int] = None
     ijro_ball: Optional[int] = None
@@ -183,7 +183,7 @@ class EmpScoreRowOut(BaseModel):
     role:           str
     department_id:  Optional[int] = None
     department_name:Optional[str] = None
-    bolim_ball:     Optional[int] = None
+    bolim_ball:     Optional[float] = None
     kadr_ball:      Optional[int] = None
     direktor_ball:  Optional[int] = None
     ijro_ball:      Optional[int] = None
@@ -191,7 +191,7 @@ class EmpScoreRowOut(BaseModel):
 
 class BulkScoreItemIn(BaseModel):
     employee_id:    int
-    bolim_ball:     Optional[int] = None
+    bolim_ball:     Optional[float] = None
     kadr_ball:      Optional[int] = None
     direktor_ball:  Optional[int] = None
     ijro_ball:      Optional[int] = None
@@ -200,3 +200,47 @@ class BulkScoreIn(BaseModel):
     year:       int
     month:      int
     employees:  List[BulkScoreItemIn]
+
+
+# ── Haftalik hisobot ─────────────────────────────────────────────────────────
+class WeekInfo(BaseModel):
+    week: int
+    start: date
+    end: date
+    label: str
+    max_ball: float
+
+class WeeklyReportUploadIn(BaseModel):
+    year: int
+    month: int
+    week: int
+    file_name: str
+    file_b64: str   # "data:application/pdf;base64,..."
+
+class WeeklyReportScoreIn(BaseModel):
+    ball: float
+
+class WeeklyReportOut(BaseModel):
+    id: int
+    employee_id: int
+    employee_name: Optional[str] = None
+    year: int
+    month: int
+    week: int
+    week_label: Optional[str] = None
+    max_ball: Optional[float] = None
+    file_name: Optional[str] = None
+    uploaded_at: Optional[datetime] = None
+    ball: Optional[float] = None
+    confirmed_at: Optional[datetime] = None
+    confirmed_by: Optional[int] = None
+    model_config = {"from_attributes": True}
+
+class WeeklyTeamRowOut(BaseModel):
+    """Bitta xodim + shu oydagi barcha haftalik hisobotlari (tasdiqlovchi ko'rinishi)."""
+    employee_id: int
+    full_name: str
+    position: str
+    department_name: Optional[str] = None
+    weeks: List[WeeklyReportOut]
+    bolim_ball: Optional[float] = None

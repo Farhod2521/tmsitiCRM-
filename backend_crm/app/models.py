@@ -114,7 +114,7 @@ class Score(Base):
     employee_id     = Column(Integer, ForeignKey("employees.id"), nullable=False)
     year            = Column(Integer, nullable=False)
     month           = Column(Integer, nullable=False)  # 1-12
-    bolim_ball      = Column(Integer, nullable=True)   # 0-65,  bo'lim boshlig'i beradi
+    bolim_ball      = Column(Float, nullable=True)      # 0-65,  haftalik tasdiqlangan hisobotlar yig'indisi (avtomatik)
     kadr_ball       = Column(Integer, nullable=True)   # 0-25,  kadrlar bo'limi beradi
     direktor_ball   = Column(Integer, nullable=True)   # 0-100, direktor beradi
     ijro_ball       = Column(Integer, nullable=True)   # 0-10,  ijro nazoratidan
@@ -126,3 +126,26 @@ class Score(Base):
 
     employee        = relationship("Employee", foreign_keys=[employee_id], back_populates="scores")
     author          = relationship("Employee", foreign_keys=[created_by])
+
+
+class WeeklyReport(Base):
+    """Haftalik hisobot — xodim/bo'lim boshlig'i o'zi yuklaydi, rahbari tasdiqlab ball qo'yadi."""
+    __tablename__ = "weekly_reports"
+    __table_args__ = (
+        UniqueConstraint("employee_id", "year", "month", "week", name="uq_weekly_report"),
+    )
+
+    id            = Column(Integer, primary_key=True, index=True)
+    employee_id   = Column(Integer, ForeignKey("employees.id"), nullable=False)
+    year          = Column(Integer, nullable=False)
+    month         = Column(Integer, nullable=False)   # 1-12
+    week          = Column(Integer, nullable=False)   # 1-5 (shu oydagi taqvim haftasi tartib raqami)
+    file_name     = Column(String(255), nullable=True)
+    file_b64      = Column(Text, nullable=True)
+    uploaded_at   = Column(DateTime, nullable=True)
+    ball          = Column(Float, nullable=True)      # tasdiqlangach qo'yiladigan ball
+    confirmed_at  = Column(DateTime, nullable=True)
+    confirmed_by  = Column(Integer, ForeignKey("employees.id"), nullable=True)
+
+    employee      = relationship("Employee", foreign_keys=[employee_id])
+    reviewer      = relationship("Employee", foreign_keys=[confirmed_by])

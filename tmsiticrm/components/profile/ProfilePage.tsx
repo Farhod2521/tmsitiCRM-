@@ -10,6 +10,7 @@ import {
 import { getUser, saveAuth, getProfileExtra, saveProfileExtra } from "@/lib/auth";
 import { apiFetch } from "@/lib/api";
 import AttendanceCalendar from "@/components/profile/AttendanceCalendar";
+import WeeklyReportCard from "@/components/reports/WeeklyReportCard";
 
 interface Department {
   id: number;
@@ -324,6 +325,11 @@ export default function ProfilePage() {
             </div>
           </div>
         </div>
+      </div>
+
+      {/* ── Haftalik hisobotlar ── */}
+      <div className="mt-5">
+        <WeeklyReportCard />
       </div>
 
       {/* ── Davomat kalendari ── */}

@@ -248,8 +248,8 @@ def bulk_save_balls(
             if item.ijro_ball is not None and 0 <= item.ijro_ball <= 10:
                 sc.ijro_ball = item.ijro_ball
         if is_full:
-            if item.bolim_ball is not None and 0 <= item.bolim_ball <= 65:
-                sc.bolim_ball = item.bolim_ball
+            # bolim_ball endi bu yerda qo'lda o'rnatilmaydi — faqat /reports/weekly orqali
+            # tasdiqlangan haftalik hisobotlar yig'indisidan avtomatik hisoblanadi.
             if item.direktor_ball is not None and 0 <= item.direktor_ball <= 100:
                 sc.direktor_ball = item.direktor_ball
         saved += 1
@@ -258,29 +258,5 @@ def bulk_save_balls(
     return {"ok": True, "saved": saved}
 
 
-@router.post("/bolim-ball", response_model=schemas.ScoreOut)
-def set_bolim_ball(
-    payload: schemas.ScoreIn,
-    db: Session = Depends(get_db),
-    current: models.Employee = Depends(get_current_employee),
-):
-    """Bo'lim boshlig'i xodimga bolim_ball beradi (o'ziga bera olmaydi)."""
-    allowed = {models.RoleEnum.bolim_boshligi, models.RoleEnum.boshqarma_boshligi,
-               models.RoleEnum.superadmin, models.RoleEnum.direktor, models.RoleEnum.zamdirektor,
-               models.RoleEnum.kadr, models.RoleEnum.ijro}
-    if current.role not in allowed:
-        raise HTTPException(status_code=403, detail="Ruxsat yo'q")
-
-    if current.id == payload.employee_id:
-        raise HTTPException(status_code=400, detail="O'zingizga ball bera olmaysiz")
-
-    if payload.bolim_ball is None or not (0 <= payload.bolim_ball <= MAX_BOLIM):
-        raise HTTPException(status_code=422, detail=f"bolim_ball 0–{MAX_BOLIM} oraliq'da bo'lishi kerak")
-
-    sc = _upsert_score(db, payload.employee_id, payload.year, payload.month, current.id)
-    sc.bolim_ball = payload.bolim_ball
-    if payload.comment is not None:
-        sc.comment = payload.comment
-    db.commit()
-    db.refresh(sc)
-    return sc
+## /bolim-ball endpoint olib tashlandi — endi bolim_ball faqat haftalik hisobot
+## tasdiqlash orqali (/reports/weekly/{id}/score) avtomatik hisoblanadi.

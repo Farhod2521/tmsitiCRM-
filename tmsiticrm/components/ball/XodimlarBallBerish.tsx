@@ -42,11 +42,12 @@ const FIELD_CONFIG: Record<BallMode, {key: keyof BallState; max: number; label: 
   kadr:     [{ key:"kadr_ball",  max:25, label:"KADR",   color:"#FF8C42" }],
   ijro:     [{ key:"ijro_ball",  max:10, label:"IJRO",   color:"#00C48C" }],
   direktor: [
-    { key:"bolim_ball", max:65, label:"BO'LIM", color:"#3F8CFF" },
     { key:"kadr_ball",  max:25, label:"KADR",   color:"#FF8C42" },
     { key:"ijro_ball",  max:10, label:"IJRO",   color:"#00C48C" },
   ],
 };
+// direktor rejimida BO'LIM endi tahrirlanmaydi — haftalik hisobot tasdiqlanganda avtomatik hisoblanadi
+const BOLIM_MAX = 65;
 
 function getVal(r: EmpScoreRow, b: BallState, key: "bolim_ball" | "kadr_ball" | "ijro_ball"): number | null {
   return b[key] !== undefined ? (b[key] as number | null) : r[key];
@@ -644,12 +645,17 @@ export default function XodimlarBallBerish({ mode }: Props) {
                       {/* Table header */}
                       <div className="grid px-6 py-2 text-xs font-bold uppercase tracking-wide"
                         style={{
-                          gridTemplateColumns: `50px 2fr ${fields.map(()=>"100px").join(" ")} 90px 100px${mode==="direktor"?" 120px":""}`,
+                          gridTemplateColumns: `50px 2fr ${mode==="direktor"?"100px ":""}${fields.map(()=>"100px").join(" ")} 90px 100px${mode==="direktor"?" 120px":""}`,
                           color:"#91929E", letterSpacing:"0.05em",
                           background:"#F8FAFF",
                         }}>
                         <span>#</span>
                         <span>Xodim</span>
+                        {mode === "direktor" && (
+                          <span className="text-center" style={{ color:"#3F8CFF" }}>
+                            BO'LIM <span className="font-normal">/{BOLIM_MAX}</span>
+                          </span>
+                        )}
                         {fields.map(f => (
                           <span key={f.key} className="text-center" style={{ color: f.color }}>
                             {f.label} <span className="font-normal">/{f.max}</span>
@@ -678,7 +684,7 @@ export default function XodimlarBallBerish({ mode }: Props) {
                           <div key={r.employee_id}
                             className="grid items-center px-6 py-3 hover:bg-[#FAFCFF] transition-colors"
                             style={{
-                              gridTemplateColumns: `50px 2fr ${fields.map(()=>"100px").join(" ")} 90px 100px${mode==="direktor"?" 120px":""}`,
+                              gridTemplateColumns: `50px 2fr ${mode==="direktor"?"100px ":""}${fields.map(()=>"100px").join(" ")} 90px 100px${mode==="direktor"?" 120px":""}`,
                               borderTop: "1px solid #F4F9FD",
                             }}>
                             <span className="text-xs font-bold" style={{ color:"#91929E" }}>{idx+1}</span>
@@ -692,6 +698,14 @@ export default function XodimlarBallBerish({ mode }: Props) {
                                 <p className="text-xs truncate" style={{ color:"#91929E" }}>{r.position}</p>
                               </div>
                             </div>
+                            {mode === "direktor" && (
+                              <div className="flex flex-col items-center justify-center gap-1">
+                                <span className="font-bold text-sm" style={{ color: r.bolim_ball != null ? "#0A1629" : "#C4CBD6" }}>
+                                  {r.bolim_ball != null ? r.bolim_ball : "—"}
+                                </span>
+                                <span className="text-xs" style={{ color:"#C4CBD6" }}>haftalik</span>
+                              </div>
+                            )}
                             {fields.map(f => {
                               const val = b[f.key];
                               const numVal = val != null ? Number(val) : null;
