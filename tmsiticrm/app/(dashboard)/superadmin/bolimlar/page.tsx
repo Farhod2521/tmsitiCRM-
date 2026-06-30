@@ -105,59 +105,81 @@ function EmpMenu({ emp, color, onRoleChange, onStatusChange }: {
         <MoreHorizontal size={16}/>
       </button>
       {open && (
-        <div className="absolute right-0 top-9 z-50 w-[230px] py-2"
-          style={{background:"#FFFFFF",borderRadius:16,boxShadow:"0px 8px 40px rgba(0,0,0,0.15)"}}>
-          <div className="px-3 pb-2 mb-1" style={{borderBottom:"1px solid #F4F9FD"}}>
-            <p className="text-xs font-bold" style={{color:"#91929E"}}>Rol belgilash</p>
-            <p className="text-xs font-bold truncate" style={{color:"#0A1629"}}>{emp.full_name}</p>
-          </div>
-          {ROLE_MENU.map(item=>{
-            const Icon = item.icon;
-            const isCurrent = emp.role === item.role;
-            return (
-              <button key={item.role}
-                onClick={()=>!isCurrent && assign(item.role)}
-                disabled={isCurrent || saving==="role:"+item.role}
-                className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-gray-50 transition-colors disabled:opacity-40"
-                style={{opacity:isCurrent?0.5:1}}>
-                <div className="w-7 h-7 flex items-center justify-center flex-shrink-0"
-                  style={{background:item.bg,borderRadius:8}}>
-                  {saving==="role:"+item.role
-                    ? <Loader2 size={12} className="animate-spin" style={{color:item.color}}/>
-                    : <Icon size={12} style={{color:item.color}}/>}
-                </div>
-                <span className="text-sm font-bold" style={{color:item.color}}>{item.label}</span>
-                {isCurrent && <span className="ml-auto text-xs" style={{color:"#91929E"}}>Joriy</span>}
-              </button>
-            );
-          })}
+        <div className="absolute right-0 top-10 z-50 w-[270px] overflow-hidden"
+          style={{background:"#FFFFFF",borderRadius:18,boxShadow:"0px 12px 40px rgba(10,22,41,0.16)",border:"1px solid #F4F9FD"}}>
 
-          <div className="px-3 pb-2 pt-2 mt-1" style={{borderTop:"1px solid #F4F9FD",borderBottom:"1px solid #F4F9FD"}}>
-            <p className="text-xs font-bold" style={{color:"#91929E"}}>Xodim holati</p>
+          {/* Header */}
+          <div className="flex items-center gap-2.5 px-4 py-3.5" style={{background:"#FAFCFF",borderBottom:"1px solid #F4F9FD"}}>
+            <div className="w-8 h-8 flex-shrink-0 flex items-center justify-center font-bold text-white text-xs"
+              style={{background:color,borderRadius:9}}>{mkAvatar(emp.full_name)}</div>
+            <div className="min-w-0">
+              <p className="text-sm font-bold truncate" style={{color:"#0A1629"}}>{emp.full_name}</p>
+              <p className="text-xs truncate" style={{color:"#91929E"}}>{emp.position}</p>
+            </div>
           </div>
-          {STATUS_MENU.filter(item=>item.status!==emp.status).map(item=>{
-            const Icon = item.icon;
-            return (
-              <button key={item.status}
-                onClick={()=>assignStatus(item.status)}
-                disabled={saving==="status:"+item.status}
-                className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-gray-50 transition-colors disabled:opacity-40">
-                <div className="w-7 h-7 flex items-center justify-center flex-shrink-0"
-                  style={{background:item.bg,borderRadius:8}}>
-                  {saving==="status:"+item.status
-                    ? <Loader2 size={12} className="animate-spin" style={{color:item.color}}/>
-                    : <Icon size={12} style={{color:item.color}}/>}
-                </div>
-                <span className="text-sm font-bold" style={{color:item.color}}>{item.label}</span>
-              </button>
-            );
-          })}
 
-          <div className="mt-1 pt-1" style={{borderTop:"1px solid #F4F9FD"}}>
+          {/* Rol belgilash */}
+          <div className="px-4 pt-3 pb-1">
+            <p className="text-[10px] font-bold uppercase" style={{color:"#B0B8C8",letterSpacing:"0.06em"}}>Rol belgilash</p>
+          </div>
+          <div className="px-2 pb-1.5 flex flex-col gap-0.5">
+            {ROLE_MENU.map(item=>{
+              const Icon = item.icon;
+              const isCurrent = emp.role === item.role;
+              return (
+                <button key={item.role}
+                  onClick={()=>!isCurrent && assign(item.role)}
+                  disabled={isCurrent || saving==="role:"+item.role}
+                  className="w-full flex items-center gap-2.5 px-2.5 py-2 rounded-xl hover:bg-[#F8FAFF] transition-colors disabled:cursor-default"
+                  style={{background:isCurrent?"#F8FAFF":"transparent"}}>
+                  <div className="w-7 h-7 flex-shrink-0 flex items-center justify-center"
+                    style={{background:item.bg,borderRadius:9}}>
+                    {saving==="role:"+item.role
+                      ? <Loader2 size={12} className="animate-spin" style={{color:item.color}}/>
+                      : <Icon size={13} style={{color:item.color}}/>}
+                  </div>
+                  <span className="text-[13px] font-semibold flex-1 text-left truncate" style={{color:"#0A1629"}}>{item.label}</span>
+                  {isCurrent && (
+                    <span className="flex-shrink-0 text-[10px] font-bold px-1.5 py-0.5"
+                      style={{background:`${item.color}18`,color:item.color,borderRadius:6}}>Joriy</span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Xodim holati */}
+          <div className="px-4 pt-2.5 pb-1" style={{borderTop:"1px solid #F4F9FD"}}>
+            <p className="text-[10px] font-bold uppercase" style={{color:"#B0B8C8",letterSpacing:"0.06em"}}>Xodim holati</p>
+          </div>
+          <div className="px-2 pb-1.5 flex flex-col gap-0.5">
+            {STATUS_MENU.filter(item=>item.status!==emp.status).map(item=>{
+              const Icon = item.icon;
+              return (
+                <button key={item.status}
+                  onClick={()=>assignStatus(item.status)}
+                  disabled={saving==="status:"+item.status}
+                  className="w-full flex items-center gap-2.5 px-2.5 py-2 rounded-xl hover:bg-[#F8FAFF] transition-colors">
+                  <div className="w-7 h-7 flex-shrink-0 flex items-center justify-center"
+                    style={{background:item.bg,borderRadius:9}}>
+                    {saving==="status:"+item.status
+                      ? <Loader2 size={12} className="animate-spin" style={{color:item.color}}/>
+                      : <Icon size={13} style={{color:item.color}}/>}
+                  </div>
+                  <span className="text-[13px] font-semibold flex-1 text-left truncate" style={{color:"#0A1629"}}>{item.label}</span>
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Yopish */}
+          <div className="px-2 py-1.5" style={{borderTop:"1px solid #F4F9FD"}}>
             <button onClick={()=>setOpen(false)}
-              className="w-full flex items-center gap-3 px-4 py-2 hover:bg-gray-50 transition-colors">
-              <X size={12} style={{color:"#91929E"}}/>
-              <span className="text-sm" style={{color:"#91929E"}}>Yopish</span>
+              className="w-full flex items-center gap-2.5 px-2.5 py-2 rounded-xl hover:bg-[#F8FAFF] transition-colors">
+              <div className="w-7 h-7 flex-shrink-0 flex items-center justify-center" style={{background:"#F4F9FD",borderRadius:9}}>
+                <X size={13} style={{color:"#91929E"}}/>
+              </div>
+              <span className="text-[13px] font-semibold" style={{color:"#91929E"}}>Yopish</span>
             </button>
           </div>
         </div>
