@@ -21,7 +21,7 @@ const MON_NAMES = ["Yanvar","Fevral","Mart","Aprel","May","Iyun","Iyul","Avgust"
 const AVATAR_COLORS = ["#3F8CFF","#6D5DD3","#00C48C","#FFBD21","#FF5C5C","#15C0E6","#FF8C42"];
 
 /* ── Types ── */
-interface ApiEmp  { id:number; full_name:string; position:string; work_rate:number; role:string; }
+interface ApiEmp  { id:number; full_name:string; position:string; work_rate:number; role:string; is_active:boolean; }
 interface ApiScore{
   id:number; employee_id:number; year:number; month:number;
   bolim_ball:number|null; kadr_ball:number|null; direktor_ball:number|null; ijro_ball:number|null; comment:string|null;
@@ -97,8 +97,8 @@ export default function BallBerishPage() {
 
       // Employees — GET /employees/ returns own dept for bolim_boshligi
       const emps = await apiFetch<ApiEmp[]>("/employees/");
-      // Bo'lim boshlig'i o'zi baholanmaydi
-      const others = emps.filter(e => e.id !== me?.id && e.role !== "bolim_boshligi" && e.role !== "boshqarma_boshligi");
+      // Bo'lim boshlig'i o'zi baholanmaydi, otpuska/dekretdagilar chiqmaydi
+      const others = emps.filter(e => e.id !== me?.id && e.role !== "bolim_boshligi" && e.role !== "boshqarma_boshligi" && e.is_active);
 
       // Scores for this month
       const deptId = me?.department_id;

@@ -1,7 +1,7 @@
 from pydantic import BaseModel
 from typing import Optional, List
 from datetime import datetime
-from .models import RoleEnum, DeptTypeEnum
+from .models import RoleEnum, DeptTypeEnum, EmployeeStatusEnum
 
 
 # ── Department ────────────────────────────────────────────────────────────────
@@ -46,9 +46,13 @@ class EmployeeOut(BaseModel):
     work_rate: float
     phone: str
     role: RoleEnum
+    status: EmployeeStatusEnum
     is_active: bool
     department: Optional[DepartmentOut] = None
     model_config = {"from_attributes": True}
+
+class SetStatusIn(BaseModel):
+    status: EmployeeStatusEnum
 
 
 # ── Auth ──────────────────────────────────────────────────────────────────────

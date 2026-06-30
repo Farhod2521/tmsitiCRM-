@@ -7,6 +7,7 @@ import {
   ChevronRight, List, LayoutGrid, Table2, Search,
   Phone, MoreHorizontal, Loader2, Building2, Users,
   ClipboardList, Activity, Crown, RotateCcw, X,
+  Palmtree, Baby, UserCheck,
 } from "lucide-react";
 import { apiFetch } from "@/lib/api";
 
@@ -15,7 +16,7 @@ interface ApiDept { id:number; name:string; dept_type:string; order_num:number; 
 interface ApiEmp  {
   id:number; full_name:string; position:string;
   department_id:number|null; work_rate:number; phone:string;
-  role:string; is_active:boolean;
+  role:string; status:string; is_active:boolean;
 }
 
 /* ── Helpers ── */
@@ -48,9 +49,23 @@ const ROLE_MENU = [
   { role:"xodim",    icon:RotateCcw,     label:"Rolni tiklash (Xodim)",        color:"#91929E", bg:"rgba(145,146,158,0.1)" },
 ];
 
+/* ── Xodim holati (status) config ── */
+const STATUS_LABEL: Record<string,string> = {
+  faol:"Faol", otpuska:"Otpuskada", dekret:"Dekretda",
+};
+const STATUS_BADGE: Record<string,"success"|"warning"|"purple"> = {
+  faol:"success", otpuska:"warning", dekret:"purple",
+};
+const STATUS_MENU = [
+  { status:"otpuska", icon:Palmtree,  label:"Otpuskaga chiqarish", color:"#FFBD21", bg:"rgba(255,189,33,0.1)"  },
+  { status:"dekret",  icon:Baby,      label:"Dekretga chiqarish",  color:"#6D5DD3", bg:"rgba(109,93,211,0.1)"  },
+  { status:"faol",    icon:UserCheck, label:"Faol holatga qaytarish", color:"#00C48C", bg:"rgba(0,196,140,0.1)" },
+];
+
 /* ── Dropdown Menu ── */
-function EmpMenu({ emp, color, onRoleChange }: {
+function EmpMenu({ emp, color, onRoleChange, onStatusChange }: {
   emp:ApiEmp; color:string; onRoleChange:(id:number,role:string)=>void;
+  onStatusChange:(id:number,status:string)=>void;
 }) {
   const [open, setOpen] = useState(false);
   const [saving, setSaving] = useState<string|null>(null);
@@ -63,10 +78,20 @@ function EmpMenu({ emp, color, onRoleChange }: {
   },[]);
 
   async function assign(role:string){
-    setSaving(role);
+    setSaving("role:"+role);
     try{
       await apiFetch(`/employees/${emp.id}/set-role`,{method:"PATCH",body:JSON.stringify({role})});
       onRoleChange(emp.id,role);
+      setOpen(false);
+    }catch(e){ alert(e instanceof Error?e.message:"Xato"); }
+    finally{setSaving(null);}
+  }
+
+  async function assignStatus(status:string){
+    setSaving("status:"+status);
+    try{
+      await apiFetch(`/employees/${emp.id}/set-status`,{method:"PATCH",body:JSON.stringify({status})});
+      onStatusChange(emp.id,status);
       setOpen(false);
     }catch(e){ alert(e instanceof Error?e.message:"Xato"); }
     finally{setSaving(null);}
@@ -92,12 +117,12 @@ function EmpMenu({ emp, color, onRoleChange }: {
             return (
               <button key={item.role}
                 onClick={()=>!isCurrent && assign(item.role)}
-                disabled={isCurrent || saving===item.role}
+                disabled={isCurrent || saving==="role:"+item.role}
                 className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-gray-50 transition-colors disabled:opacity-40"
                 style={{opacity:isCurrent?0.5:1}}>
                 <div className="w-7 h-7 flex items-center justify-center flex-shrink-0"
                   style={{background:item.bg,borderRadius:8}}>
-                  {saving===item.role
+                  {saving==="role:"+item.role
                     ? <Loader2 size={12} className="animate-spin" style={{color:item.color}}/>
                     : <Icon size={12} style={{color:item.color}}/>}
                 </div>
@@ -106,6 +131,28 @@ function EmpMenu({ emp, color, onRoleChange }: {
               </button>
             );
           })}
+
+          <div className="px-3 pb-2 pt-2 mt-1" style={{borderTop:"1px solid #F4F9FD",borderBottom:"1px solid #F4F9FD"}}>
+            <p className="text-xs font-bold" style={{color:"#91929E"}}>Xodim holati</p>
+          </div>
+          {STATUS_MENU.filter(item=>item.status!==emp.status).map(item=>{
+            const Icon = item.icon;
+            return (
+              <button key={item.status}
+                onClick={()=>assignStatus(item.status)}
+                disabled={saving==="status:"+item.status}
+                className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-gray-50 transition-colors disabled:opacity-40">
+                <div className="w-7 h-7 flex items-center justify-center flex-shrink-0"
+                  style={{background:item.bg,borderRadius:8}}>
+                  {saving==="status:"+item.status
+                    ? <Loader2 size={12} className="animate-spin" style={{color:item.color}}/>
+                    : <Icon size={12} style={{color:item.color}}/>}
+                </div>
+                <span className="text-sm font-bold" style={{color:item.color}}>{item.label}</span>
+              </button>
+            );
+          })}
+
           <div className="mt-1 pt-1" style={{borderTop:"1px solid #F4F9FD"}}>
             <button onClick={()=>setOpen(false)}
               className="w-full flex items-center gap-3 px-4 py-2 hover:bg-gray-50 transition-colors">
@@ -146,6 +193,10 @@ export default function BolimlarPage() {
 
   function handleRoleChange(empId:number, role:string){
     setAllEmps(prev=>prev.map(e=>e.id===empId?{...e,role}:e));
+  }
+
+  function handleStatusChange(empId:number, status:string){
+    setAllEmps(prev=>prev.map(e=>e.id===empId?{...e,status,is_active:status==="faol"}:e));
   }
 
   const selected   = depts.find(d=>d.id===selectedId);
@@ -278,7 +329,7 @@ export default function BolimlarPage() {
                         <p className="text-sm truncate" style={{color:"#7D8592"}}>{emp.position}</p>
                         <p className="text-xs" style={{color:"#7D8592"}}>{emp.work_rate} st.</p>
                         <Badge label={ROLE_LABEL[emp.role]||emp.role} variant={ROLE_BADGE[emp.role]||"gray"}/>
-                        <EmpMenu emp={emp} color={color} onRoleChange={handleRoleChange}/>
+                        <EmpMenu emp={emp} color={color} onRoleChange={handleRoleChange} onStatusChange={handleStatusChange}/>
                       </div>
                     ))}
                     {inactive.length>0&&(
@@ -294,8 +345,8 @@ export default function BolimlarPage() {
                             </div>
                             <p className="text-sm" style={{color:"#7D8592"}}>{emp.position}</p>
                             <p className="text-xs" style={{color:"#7D8592"}}>{emp.phone}</p>
-                            <Badge label="Nofaol" variant="danger"/>
-                            <EmpMenu emp={emp} color={color} onRoleChange={handleRoleChange}/>
+                            <Badge label={STATUS_LABEL[emp.status]||"Nofaol"} variant={STATUS_BADGE[emp.status]||"danger"}/>
+                            <EmpMenu emp={emp} color={color} onRoleChange={handleRoleChange} onStatusChange={handleStatusChange}/>
                           </div>
                         ))}
                       </>
@@ -311,7 +362,7 @@ export default function BolimlarPage() {
                     <table className="w-full mt-3" style={{minWidth:600}}>
                       <thead>
                         <tr style={{borderBottom:"2px solid #F4F9FD"}}>
-                          {["#","Xodim","Lavozim","Telefon","Stavka","Rol",""].map(h=>(
+                          {["#","Xodim","Lavozim","Telefon","Stavka","Rol","Holat",""].map(h=>(
                             <th key={h} className="text-left pb-3 text-xs font-bold uppercase"
                               style={{color:"#91929E",letterSpacing:"0.05em",paddingRight:12}}>{h}</th>
                           ))}
@@ -337,8 +388,13 @@ export default function BolimlarPage() {
                             <td className="py-3" style={{paddingRight:12}}>
                               <Badge label={ROLE_LABEL[emp.role]||emp.role} variant={ROLE_BADGE[emp.role]||"gray"}/>
                             </td>
+                            <td className="py-3" style={{paddingRight:12}}>
+                              {emp.status!=="faol"
+                                ? <Badge label={STATUS_LABEL[emp.status]||emp.status} variant={STATUS_BADGE[emp.status]||"gray"}/>
+                                : <span className="text-xs" style={{color:"#D9E3F0"}}>—</span>}
+                            </td>
                             <td className="py-3">
-                              <EmpMenu emp={emp} color={color} onRoleChange={handleRoleChange}/>
+                              <EmpMenu emp={emp} color={color} onRoleChange={handleRoleChange} onStatusChange={handleStatusChange}/>
                             </td>
                           </tr>
                         ))}
@@ -359,9 +415,14 @@ export default function BolimlarPage() {
                           <div className="flex items-start justify-between mb-3">
                             <div className="w-11 h-11 flex items-center justify-center font-bold text-white"
                               style={{background:color,borderRadius:12}}>{mkAvatar(emp.full_name)}</div>
-                            <EmpMenu emp={emp} color={color} onRoleChange={handleRoleChange}/>
+                            <EmpMenu emp={emp} color={color} onRoleChange={handleRoleChange} onStatusChange={handleStatusChange}/>
                           </div>
-                          <p className="font-bold text-sm" style={{color:"#0A1629"}}>{emp.full_name}</p>
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <p className="font-bold text-sm" style={{color:"#0A1629"}}>{emp.full_name}</p>
+                            {emp.status!=="faol" && (
+                              <Badge label={STATUS_LABEL[emp.status]||emp.status} variant={STATUS_BADGE[emp.status]||"gray"}/>
+                            )}
+                          </div>
                           <p className="text-xs mt-0.5 mb-3" style={{color:"#7D8592"}}>{emp.position}</p>
                           <div className="flex items-center gap-1 text-xs mb-1" style={{color:"#91929E"}}>
                             <Phone size={11}/> {emp.phone}

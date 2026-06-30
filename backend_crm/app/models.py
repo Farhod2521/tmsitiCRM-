@@ -21,6 +21,12 @@ class RoleEnum(str, enum.Enum):
         return {cls.superadmin, cls.direktor, cls.zamdirektor}
 
 
+class EmployeeStatusEnum(str, enum.Enum):
+    faol     = "faol"      # oddiy, faol ishlamoqda
+    otpuska  = "otpuska"   # otpuskada
+    dekret   = "dekret"    # dekret ta'tilida
+
+
 class DeptTypeEnum(str, enum.Enum):
     rahbariyat  = "rahbariyat"
     bolim       = "bolim"
@@ -50,6 +56,7 @@ class Employee(Base):
     phone           = Column(String(20), unique=True, nullable=False, index=True)
     hashed_password = Column(String(200), nullable=False)
     role            = Column(SAEnum(RoleEnum, name="role_enum"), default=RoleEnum.xodim, nullable=False)
+    status          = Column(SAEnum(EmployeeStatusEnum, name="employee_status_enum"), default=EmployeeStatusEnum.faol, nullable=False)
     is_active       = Column(Boolean, default=True, nullable=False)
     photo_base64    = Column(Text, nullable=True)   # "data:image/jpeg;base64,..." — yuz tanish uchun
 

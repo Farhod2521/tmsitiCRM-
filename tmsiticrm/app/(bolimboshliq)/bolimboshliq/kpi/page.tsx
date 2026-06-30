@@ -54,7 +54,7 @@ const MON_COLORS: Record<string,{bg:string;color:string}> = {
 };
 
 /* ── Types ── */
-interface ApiEmp   { id:number; full_name:string; position:string; role:string; }
+interface ApiEmp   { id:number; full_name:string; position:string; role:string; is_active:boolean; }
 interface ApiScore {
   id:number; employee_id:number; year:number; month:number;
   bolim_ball:number|null; kadr_ball:number|null; direktor_ball:number|null;
@@ -139,7 +139,8 @@ export default function BolimKpiPage() {
         apiFetch<ApiScore[]>(`/ball/month?year=${y}&month=${m}`),
       ]);
       const sm = new Map(scores.map(s=>[s.employee_id,s]));
-      setRows(emps.map((e,i)=>({
+      const activeEmps = emps.filter(e=>e.is_active||e.id===me?.id);
+      setRows(activeEmps.map((e,i)=>({
         id:e.id, name:e.full_name, position:e.position, role:e.role,
         avatar:mkAvatar(e.full_name), color:AVATAR_COLORS[i%AVATAR_COLORS.length],
         isSelf:e.id===me?.id,

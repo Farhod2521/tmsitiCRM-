@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from typing import List
 from ..database import get_db
-from ..schemas import EmployeeOut, EmployeeCreate, EmployeeUpdate, PhotoIn, SetRoleIn
+from ..schemas import EmployeeOut, EmployeeCreate, EmployeeUpdate, PhotoIn, SetRoleIn, SetStatusIn
 from ..auth import get_password_hash
 from ..deps import get_current_employee, require_superadmin
 from .. import models
@@ -142,6 +142,26 @@ def set_employee_role(
     if not emp:
         raise HTTPException(status_code=404, detail="Xodim topilmadi")
     emp.role = data.role
+    db.commit()
+    db.refresh(emp)
+    return emp
+
+
+@router.patch("/{emp_id}/set-status", response_model=EmployeeOut)
+def set_employee_status(
+    emp_id: int,
+    data: SetStatusIn,
+    db: Session = Depends(get_db),
+    _: models.Employee = Depends(require_superadmin),
+):
+    """Xodim holatini belgilash: faol / otpuska / dekret (superadmin).
+    Otpuska va dekretda is_active=False bo'ladi — ball berishda chiqmaydi,
+    lekin Bo'limlar sahifasida xodim sifatida (status bilan) ko'rinishda qoladi."""
+    emp = db.query(models.Employee).filter(models.Employee.id == emp_id).first()
+    if not emp:
+        raise HTTPException(status_code=404, detail="Xodim topilmadi")
+    emp.status = data.status
+    emp.is_active = (data.status == models.EmployeeStatusEnum.faol)
     db.commit()
     db.refresh(emp)
     return emp
