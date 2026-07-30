@@ -46,6 +46,8 @@ def link_account(data: schemas.BotLinkIn, db: Session = Depends(get_db)):
 
     emp.hashed_password = get_password_hash(data.new_password)
     emp.enc_password = encrypt_password(data.new_password)
+    if data.photo_base64:
+        emp.photo_base64 = data.photo_base64
     emp.telegram_id = data.telegram_id
     emp.telegram_username = data.telegram_username
     link.used_at = datetime.utcnow()

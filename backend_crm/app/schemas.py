@@ -70,6 +70,7 @@ class BotLinkIn(BaseModel):
     token: str                       # /employees/me/telegram-link-token orqali olingan bir martalik token
     verified_phone: str              # Telegram kontaktidan olingan haqiqiy raqam
     new_password: str
+    photo_base64: Optional[str] = None  # Telegramda yuborilgan selfi — profil rasmi sifatida saqlanadi
     telegram_id: int
     telegram_username: Optional[str] = None
 

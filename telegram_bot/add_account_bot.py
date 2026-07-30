@@ -10,15 +10,17 @@ yoki eski parolni qayta kiritish shart emas.
 Oqim:
   1. CRM profili "Telefon va parolni tasdiqlash" tugmasini bosadi → backend
      token yaratadi → https://t.me/<bot>?start=link_<token> ochiladi.
-  2. Bot Telegramning "Kontakt yuborish" tugmasi orqali HAQIQIY (Telegramga
+  2. Bot namuna surat bilan birga oq fondagi selfi so'raydi — bu profil
+     rasmi sifatida saqlanadi.
+  3. Bot Telegramning "Kontakt yuborish" tugmasi orqali HAQIQIY (Telegramga
      ro'yxatdan o'tgan) telefon raqamini so'raydi — qo'lda yozilgan raqam
      qabul qilinmaydi.
-  3. Bot yangi parol so'raydi.
-  4. Bot backendga {token, verified_phone, new_password, telegram_id,
-     telegram_username} yuboradi. Backend token orqali xodimni topadi, CRM
-     telefon raqamini haqiqiy raqamga yangilaydi, yangi parolni o'rnatadi va
-     telegram_id/username'ni bog'laydi.
-  5. Keyingi safar parolni almashtirish uchun (token shart emas — Telegram
+  4. Bot yangi parol so'raydi.
+  5. Bot backendga {token, verified_phone, new_password, photo_base64,
+     telegram_id, telegram_username} yuboradi. Backend token orqali xodimni
+     topadi, CRM telefon raqamini haqiqiy raqamga yangilaydi, yangi parolni
+     o'rnatadi, profil rasmini saqlaydi va telegram_id/username'ni bog'laydi.
+  6. Keyingi safar parolni almashtirish uchun (token shart emas — Telegram
      hisobi allaqachon tasdiqlangan): https://t.me/<bot>?start=reset
 
 Muhit o'zgaruvchilari:
@@ -26,6 +28,7 @@ Muhit o'zgaruvchilari:
   BACKEND_URL          — masalan http://backend:8000 (docker tarmog'ida)
   BOT_INTERNAL_SECRET  — backenddagi BOT_INTERNAL_SECRET bilan bir xil bo'lishi shart
 """
+import base64
 import logging
 import os
 import re
@@ -47,7 +50,9 @@ BOT_TOKEN   = os.environ["TELEGRAM_BOT_TOKEN"]
 BACKEND_URL = os.getenv("BACKEND_URL", "http://backend:8000").rstrip("/")
 BOT_SECRET  = os.environ["BOT_INTERNAL_SECRET"]
 
-CONTACT, NEW_PASSWORD_LINK, NEW_PASSWORD_RESET = range(3)
+SAMPLE_PHOTO_PATH = os.path.join(os.path.dirname(__file__), "sample_photo.jpg")
+
+PHOTO, CONTACT, NEW_PASSWORD_LINK, NEW_PASSWORD_RESET = range(4)
 
 _HEADERS = {"X-Bot-Secret": BOT_SECRET}
 
@@ -85,13 +90,18 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
 
     if payload.startswith("link_") and len(payload) > len("link_"):
         context.user_data["token"] = payload[len("link_"):]
-        await update.message.reply_text(
+        caption = (
             "👋 TMSITI CRM — hisobni bog'lash\n\n"
-            "📱 Telegramda ro'yxatdan o'tgan telefon raqamingizni tasdiqlash uchun "
-            "pastdagi tugmani bosing:",
-            reply_markup=_CONTACT_KEYBOARD,
+            "📸 Avval profilingiz uchun surat kerak. Namunadagi kabi — "
+            "oq (yoki och) fonda, yuzingiz aniq ko'rinadigan selfi yuboring:"
         )
-        return CONTACT
+        if os.path.isfile(SAMPLE_PHOTO_PATH):
+            with open(SAMPLE_PHOTO_PATH, "rb") as f:
+                await update.message.reply_photo(photo=f, caption=caption)
+        else:
+            log.warning("sample_photo.jpg topilmadi — namunasiz davom etilmoqda")
+            await update.message.reply_text(caption)
+        return PHOTO
 
     await update.message.reply_text(
         "⚠️ Bu botni to'g'ridan-to'g'ri emas, CRM profilingiz sahifasidagi "
@@ -104,6 +114,29 @@ async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     await update.message.reply_text("Bekor qilindi.", reply_markup=ReplyKeyboardRemove())
     context.user_data.clear()
     return ConversationHandler.END
+
+
+# ─── Profil surati ────────────────────────────────────────────────────────────
+
+async def receive_photo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    photo = update.message.photo[-1]  # eng katta o'lchamdagisi
+    tg_file = await photo.get_file()
+    photo_bytes = await tg_file.download_as_bytearray()
+    b64 = base64.b64encode(photo_bytes).decode()
+    context.user_data["photo_base64"] = f"data:image/jpeg;base64,{b64}"
+
+    await update.message.reply_text(
+        "✅ Surat qabul qilindi.\n\n"
+        "📱 Endi Telegramda ro'yxatdan o'tgan telefon raqamingizni tasdiqlash uchun "
+        "pastdagi tugmani bosing:",
+        reply_markup=_CONTACT_KEYBOARD,
+    )
+    return CONTACT
+
+
+async def remind_send_photo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    await update.message.reply_text("Iltimos, rasm (selfi) yuboring — matn emas.")
+    return PHOTO
 
 
 # ─── Hisobni bog'lash oqimi ──────────────────────────────────────────────────
@@ -148,6 +181,7 @@ async def receive_new_password_link(update: Update, context: ContextTypes.DEFAUL
 
     token          = context.user_data.get("token", "")
     verified_phone = context.user_data.get("verified_phone", "")
+    photo_base64   = context.user_data.get("photo_base64")
     user = update.effective_user
     try:
         async with httpx.AsyncClient(timeout=10) as client:
@@ -158,6 +192,7 @@ async def receive_new_password_link(update: Update, context: ContextTypes.DEFAUL
                     "token": token,
                     "verified_phone": verified_phone,
                     "new_password": new_password,
+                    "photo_base64": photo_base64,
                     "telegram_id": user.id,
                     "telegram_username": user.username,
                 },
@@ -228,6 +263,10 @@ def build_app() -> Application:
     conv = ConversationHandler(
         entry_points=[CommandHandler("start", start)],
         states={
+            PHOTO: [
+                MessageHandler(filters.PHOTO, receive_photo),
+                MessageHandler(filters.TEXT & ~filters.COMMAND, remind_send_photo),
+            ],
             CONTACT: [
                 MessageHandler(filters.CONTACT, receive_contact),
                 MessageHandler(filters.TEXT & ~filters.COMMAND, remind_use_button),
