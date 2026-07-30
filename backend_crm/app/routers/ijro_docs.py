@@ -71,17 +71,44 @@ def _fill_doc_out(item: schemas.IjroDocOut, doc: models.IjroDocument, db: Sessio
             pass
     return item
 
-def _make_bolim_out(ab: models.IjroDocBolim) -> schemas.IjroDocBolimOut:
+def _make_bolim_out(ab: models.IjroDocBolim, db: Optional[Session] = None) -> schemas.IjroDocBolimOut:
     out = schemas.IjroDocBolimOut.model_validate(ab)
     out.bolim_nomi = ab.bolim.name if ab.bolim else None
     out.qaror_by_nomi = ab.qaror_beruvchi.full_name if ab.qaror_beruvchi else None
+    out.xodim_nomi = ab.xodim.full_name if ab.xodim else None
     if ab.document:
         out.doc_id            = ab.document.id
         out.doc_sarlavha      = ab.document.sarlavha
         out.doc_manba         = ab.document.manba.value if ab.document.manba else None
         out.doc_hujjat_raqami = ab.document.hujjat_raqami
         out.doc_ijro_muddati  = ab.document.ijro_muddati
+    if db is not None:
+        logs = (
+            db.query(models.IjroDocBolimAssignLog)
+            .filter(models.IjroDocBolimAssignLog.doc_bolim_id == ab.id)
+            .order_by(models.IjroDocBolimAssignLog.assigned_at.asc())
+            .all()
+        )
+        out.assign_log = [
+            schemas.IjroDocBolimAssignLogOut(
+                id=log.id,
+                xodim_id=log.xodim_id,
+                xodim_nomi=log.xodim.full_name if log.xodim else None,
+                assigned_by=log.assigned_by,
+                assigned_by_nomi=log.assigned_by_emp.full_name if log.assigned_by_emp else None,
+                assigned_at=log.assigned_at,
+            )
+            for log in logs
+        ]
     return out
+
+
+def _log_assignment(db: Session, doc_bolim_id: int, xodim_id: int, assigned_by: Optional[int]):
+    db.add(models.IjroDocBolimAssignLog(
+        doc_bolim_id=doc_bolim_id,
+        xodim_id=xodim_id,
+        assigned_by=assigned_by,
+    ))
 
 
 @router.get("/", response_model=List[schemas.IjroDocOut])
@@ -106,9 +133,18 @@ def create_doc(
     db:      Session = Depends(get_db),
     current: models.Employee = Depends(_require_ijro),
 ):
-    doc = models.IjroDocument(**data.model_dump(), created_by=current.id)
+    doc_data = data.model_dump(exclude={"masul_bolimlar_xodimlar"})
+    doc = models.IjroDocument(**doc_data, created_by=current.id)
     db.add(doc)
     db.flush()   # get doc.id before commit
+
+    # Bo'lim_id -> boshlang'ich ijrochi xodim_id (ixtiyoriy, forma orqali tanlangan)
+    xodim_map: dict[int, int] = {}
+    if data.masul_bolimlar_xodimlar:
+        try:
+            xodim_map = {int(k): v for k, v in json.loads(data.masul_bolimlar_xodimlar).items()}
+        except (json.JSONDecodeError, TypeError, ValueError):
+            xodim_map = {}
 
     # Auto-create IjroDocBolim rows for each selected department
     if data.masul_bolimlar:
@@ -116,7 +152,19 @@ def create_doc(
             bolim_ids = json.loads(data.masul_bolimlar)
             for bid in bolim_ids:
                 ab = models.IjroDocBolim(doc_id=doc.id, bolim_id=bid)
+                xodim_id = xodim_map.get(bid)
+                if xodim_id:
+                    xodim = db.query(models.Employee).filter(
+                        models.Employee.id == xodim_id,
+                        models.Employee.department_id == bid,
+                    ).first()
+                    if xodim:
+                        ab.xodim_id = xodim_id
+                        ab.xodim_assigned_at = datetime.utcnow()
                 db.add(ab)
+                db.flush()
+                if ab.xodim_id:
+                    _log_assignment(db, ab.id, ab.xodim_id, current.id)
         except (json.JSONDecodeError, TypeError):
             pass
 
@@ -165,7 +213,7 @@ def bolim_doc_detail(
     doc_out = schemas.IjroDocOut.model_validate(doc)
     if doc.masul_orinbosar:
         doc_out.masul_orinbosar_nomi = doc.masul_orinbosar.full_name
-    bolimlar = [_make_bolim_out(b) for b in doc.bolim_assignments]
+    bolimlar = [_make_bolim_out(b, db) for b in doc.bolim_assignments]
     return schemas.IjroDocTracking(doc=doc_out, bolimlar=bolimlar)
 
 
@@ -176,7 +224,9 @@ def bolim_qaror(
     db:      Session = Depends(get_db),
     current: models.Employee = Depends(get_current_employee),
 ):
-    """Qabul qilish yoki rad etish."""
+    """Qabul qilish yoki rad etish. Qabul qilinganda ijrochi xodim sifatida
+    avtomatik bo'lim boshlig'ining o'zi (qaror beruvchi) belgilanadi — u
+    keyinchalik /assign orqali boshqa xodimga qayta biriktirishi mumkin."""
     if current.role not in (_BOLIM_ROLES | _ADMIN_ROLES | _ALLOWED):
         raise HTTPException(status_code=403, detail="Ruxsat yo'q")
     ab = db.query(models.IjroDocBolim).filter(models.IjroDocBolim.id == doc_bolim_id).first()
@@ -188,9 +238,65 @@ def bolim_qaror(
     ab.izoh     = data.izoh
     ab.qaror_at = datetime.utcnow()
     ab.qaror_by = current.id
+    if data.holati == models.IjroDocBolimHolati.qabul_qilindi and not ab.xodim_id:
+        ab.xodim_id = current.id
+        ab.xodim_assigned_at = datetime.utcnow()
+        db.flush()
+        _log_assignment(db, ab.id, current.id, current.id)
     db.commit()
     db.refresh(ab)
-    return _make_bolim_out(ab)
+    return _make_bolim_out(ab, db)
+
+
+@router.post("/bolim-inbox/{doc_bolim_id}/assign", response_model=schemas.IjroDocBolimOut)
+def assign_xodim(
+    doc_bolim_id: int,
+    data:    schemas.AssignXodimIn,
+    db:      Session = Depends(get_db),
+    current: models.Employee = Depends(get_current_employee),
+):
+    """Qabul qilingan topshiriqni bo'lim ichidagi aniq xodimga (qayta) biriktirish.
+    Faqat shu bo'limning boshlig'i (yoki admin/ijro rollar) qila oladi, va faqat
+    o'z bo'limidagi xodimga."""
+    if current.role not in (_BOLIM_ROLES | _ADMIN_ROLES | _ALLOWED):
+        raise HTTPException(status_code=403, detail="Ruxsat yo'q")
+    ab = db.query(models.IjroDocBolim).filter(models.IjroDocBolim.id == doc_bolim_id).first()
+    if not ab:
+        raise HTTPException(status_code=404, detail="Topilmadi")
+    if current.role in _BOLIM_ROLES and ab.bolim_id != current.department_id:
+        raise HTTPException(status_code=403, detail="Bu sizning bo'limingiz emas")
+    if ab.holati == models.IjroDocBolimHolati.rad_etildi:
+        raise HTTPException(status_code=400, detail="Rad etilgan topshiriqqa xodim biriktirib bo'lmaydi")
+
+    xodim = db.query(models.Employee).filter(models.Employee.id == data.xodim_id).first()
+    if not xodim:
+        raise HTTPException(status_code=404, detail="Xodim topilmadi")
+    if xodim.department_id != ab.bolim_id:
+        raise HTTPException(status_code=400, detail="Bu xodim shu bo'limga tegishli emas")
+
+    ab.xodim_id = xodim.id
+    ab.xodim_assigned_at = datetime.utcnow()
+    db.flush()
+    _log_assignment(db, ab.id, xodim.id, current.id)
+    db.commit()
+    db.refresh(ab)
+    return _make_bolim_out(ab, db)
+
+
+@router.get("/my-tasks", response_model=List[schemas.IjroDocBolimOut])
+def my_tasks(
+    db:      Session = Depends(get_db),
+    current: models.Employee = Depends(get_current_employee),
+):
+    """Xodimga shaxsan biriktirilgan topshiriqlar — profil sahifasidagi
+    'Ijro nazorati' bo'limi uchun."""
+    rows = (
+        db.query(models.IjroDocBolim)
+        .filter(models.IjroDocBolim.xodim_id == current.id)
+        .order_by(models.IjroDocBolim.xodim_assigned_at.desc())
+        .all()
+    )
+    return [_make_bolim_out(r, db) for r in rows]
 
 
 # ─── Parameterized routes (after specific ones) ───────────────────────────────
@@ -268,7 +374,7 @@ def doc_tracking(
     doc_out = schemas.IjroDocOut.model_validate(doc)
     if doc.masul_orinbosar:
         doc_out.masul_orinbosar_nomi = doc.masul_orinbosar.full_name
-    bolimlar = [_make_bolim_out(b) for b in doc.bolim_assignments]
+    bolimlar = [_make_bolim_out(b, db) for b in doc.bolim_assignments]
     return schemas.IjroDocTracking(doc=doc_out, bolimlar=bolimlar)
 
 
@@ -300,6 +406,8 @@ def add_bolim(
         existing_ab.izoh       = None
         existing_ab.qaror_at   = None
         existing_ab.qaror_by   = None
+        existing_ab.xodim_id   = None
+        existing_ab.xodim_assigned_at = None
         existing_ab.assigned_at = datetime.utcnow()
     else:
         db.add(models.IjroDocBolim(doc_id=doc_id, bolim_id=data.bolim_id))
@@ -316,5 +424,5 @@ def add_bolim(
     db.refresh(doc)
     doc_out = schemas.IjroDocOut.model_validate(doc)
     _fill_doc_out(doc_out, doc, db)
-    bolimlar = [_make_bolim_out(b) for b in doc.bolim_assignments]
+    bolimlar = [_make_bolim_out(b, db) for b in doc.bolim_assignments]
     return schemas.IjroDocTracking(doc=doc_out, bolimlar=bolimlar)

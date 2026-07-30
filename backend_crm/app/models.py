@@ -206,9 +206,32 @@ class IjroDocBolim(Base):
     qaror_at   = Column(DateTime, nullable=True)
     qaror_by   = Column(Integer, ForeignKey("employees.id"), nullable=True)
 
+    # Bo'lim ichida topshiriqni bajarayotgan aniq xodim. Bo'lim qabul qilganda
+    # avtomatik bo'lim boshlig'ining o'ziga o'rnatiladi; keyin boshqa xodimga
+    # qayta biriktirilishi mumkin (IjroDocBolimAssignLog orqali tarix saqlanadi).
+    xodim_id         = Column(Integer, ForeignKey("employees.id"), nullable=True)
+    xodim_assigned_at= Column(DateTime, nullable=True)
+
     document        = relationship("IjroDocument", back_populates="bolim_assignments")
     bolim           = relationship("Department")
     qaror_beruvchi  = relationship("Employee", foreign_keys=[qaror_by])
+    xodim           = relationship("Employee", foreign_keys=[xodim_id])
+
+
+class IjroDocBolimAssignLog(Base):
+    """Bo'lim ichida topshiriq kimga (qayta) biriktirilgani haqidagi tarix —
+    direktor/ijro rollarga to'liq shaffoflik uchun."""
+    __tablename__ = "ijro_doc_bolim_assign_log"
+
+    id           = Column(Integer, primary_key=True, index=True)
+    doc_bolim_id = Column(Integer, ForeignKey("ijro_doc_bolimlar.id", ondelete="CASCADE"), nullable=False)
+    xodim_id     = Column(Integer, ForeignKey("employees.id"), nullable=False)
+    assigned_by  = Column(Integer, ForeignKey("employees.id"), nullable=True)
+    assigned_at  = Column(DateTime, default=datetime.utcnow)
+
+    doc_bolim       = relationship("IjroDocBolim")
+    xodim           = relationship("Employee", foreign_keys=[xodim_id])
+    assigned_by_emp = relationship("Employee", foreign_keys=[assigned_by])
 
 
 class WeeklyReport(Base):

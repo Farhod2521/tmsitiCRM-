@@ -46,9 +46,16 @@ interface IjroDoc {
 }
 
 interface Department { id: number; name: string; dept_type: string; }
-interface Employee   { id: number; full_name: string; role: string; position: string; }
+interface Employee   { id: number; full_name: string; role: string; position: string; department_id: number | null; }
 
 type BolimHolati = "yuborildi" | "qabul_qilindi" | "rad_etildi" | "bajarilmoqda" | "bajarildi";
+
+interface AssignLogEntry {
+  id: number;
+  xodim_nomi: string | null;
+  assigned_by_nomi: string | null;
+  assigned_at: string | null;
+}
 
 interface DocBolimRow {
   id: number;
@@ -59,6 +66,9 @@ interface DocBolimRow {
   assigned_at: string | null;
   qaror_at: string | null;
   qaror_by_nomi: string | null;
+  xodim_nomi: string | null;
+  xodim_assigned_at: string | null;
+  assign_log: AssignLogEntry[];
 }
 
 interface IjroTracking {
@@ -157,63 +167,82 @@ function computeDeptStats(depts: Department[], docs: IjroDoc[]): DeptTaskStat[] 
   });
 }
 
-// Shoshilinchlik darajasiga qarab tortburchak fon/chegara rangi.
-function tileColors(urgent1: number, within5: number): { bg: string; border: string } {
-  if (urgent1 > 3)  return { bg: "#FFD6D6", border: "#FF9B9B" };   // to'qroq qizil
-  if (urgent1 >= 1) return { bg: "#FFEFEF", border: "#FFCACA" };   // ochiq qizil
-  if (within5 > 0)  return { bg: "#FFF7E0", border: "#FFE4A3" };   // ochiq sariq
-  return { bg: "#FFFFFF", border: "#EEF2FF" };
-}
-
 // ─── Bo'limlar Metro grid ──────────────────────────────────────────────────────
 
-function MetroTile({ dept, total, kamQoldi, vaqtiBor, urgent1, within5, onClick }: {
-  dept: Department; total: number; kamQoldi: number; vaqtiBor: number; urgent1: number; within5: number; onClick: () => void;
+// Har bir bo'limga barqaror (id asosida) rang mavzusi — davlat-idora uslubidagi
+// palitra, doim bir xil bo'lim bir xil rangda chiqadi.
+const TILE_THEMES: { bg: string; text: string; iconBg: string; border?: string }[] = [
+  { bg: "#003366", text: "#FFFFFF", iconBg: "rgba(255,255,255,0.12)" },
+  { bg: "#006666", text: "#FFFFFF", iconBg: "rgba(255,255,255,0.15)" },
+  { bg: "#455A64", text: "#FFFFFF", iconBg: "rgba(255,255,255,0.15)" },
+  { bg: "#FFFFFF", text: "#0A1629", iconBg: "rgba(63,140,255,0.1)", border: "#E2E8F0" },
+  { bg: "#005FAD", text: "#FFFFFF", iconBg: "rgba(255,255,255,0.15)" },
+  { bg: "#CFF7F5", text: "#00504F", iconBg: "rgba(0,80,79,0.08)" },
+  { bg: "#B02C0E", text: "#FFFFFF", iconBg: "rgba(255,255,255,0.15)" },
+  { bg: "#E4F5F4", text: "#006666", iconBg: "rgba(0,102,102,0.1)", border: "#B7E4E2" },
+  { bg: "#1B1B1B", text: "#FFFFFF", iconBg: "rgba(255,255,255,0.1)" },
+  { bg: "#D4E3FF", text: "#001C39", iconBg: "rgba(0,28,57,0.08)" },
+  { bg: "#717784", text: "#FFFFFF", iconBg: "rgba(255,255,255,0.15)" },
+  { bg: "#FFDAD6", text: "#93000A", iconBg: "rgba(147,0,10,0.08)" },
+  { bg: "#77F6F3", text: "#00201F", iconBg: "rgba(0,32,31,0.08)" },
+];
+function tileTheme(deptId: number) {
+  return TILE_THEMES[deptId % TILE_THEMES.length];
+}
+
+type TileSize = "s" | "w" | "l";
+function tileSize(dept: Department, isHero: boolean): TileSize {
+  if (dept.dept_type === "rahbariyat") return "w";
+  if (isHero) return "l";
+  return dept.id % 3 === 0 ? "w" : "s";
+}
+const TILE_SPAN: Record<TileSize, string> = { s: "", w: "col-span-2", l: "col-span-2 row-span-2" };
+
+function MetroTile({ dept, total, kamQoldi, size, onClick }: {
+  dept: Department; total: number; kamQoldi: number; size: TileSize; onClick: () => void;
 }) {
   const Icon = deptIcon(dept.name, dept.dept_type);
-  const { bg, border } = tileColors(urgent1, within5);
+  const theme = tileTheme(dept.id);
+  const isPriority = dept.dept_type === "rahbariyat";
 
   return (
     <button onClick={onClick}
-      className="group flex flex-col p-3.5 border-[1.5px] hover:ring-2 hover:ring-[#3F8CFF] hover:shadow-[0_4px_16px_rgba(63,140,255,0.15)] transition-all duration-150 rounded-[10px] text-left"
-      style={{ aspectRatio: "1 / 1", background: bg, borderColor: border }}>
+      className={`group relative flex flex-col justify-between p-5 text-left transition-all duration-200 hover:-translate-y-1 hover:shadow-xl ${TILE_SPAN[size]}`}
+      style={{ background: theme.bg, borderRadius: 12, border: `1px solid ${theme.border || "transparent"}` }}>
 
-      {/* Top: icon + jami badge */}
-      <div className="flex items-start justify-between flex-shrink-0">
-        <div className="w-8 h-8 flex-shrink-0 flex items-center justify-center rounded-[9px]"
-          style={{ background: "rgba(63,140,255,0.1)" }}>
-          <Icon size={16} style={{ color: "#3F8CFF" }} />
+      <div className="flex items-start justify-between">
+        <div className="p-2.5 rounded-lg flex items-center justify-center transition-colors" style={{ background: theme.iconBg }}>
+          <Icon size={size === "l" ? 26 : 20} style={{ color: theme.text }} />
         </div>
-        {total > 0 && (
-          <span className="text-xs font-bold px-2 py-0.5 text-white flex-shrink-0" style={{ background: "#0A1629", borderRadius: 999 }}>
-            {total}
+        {isPriority && (
+          <span className="text-[9px] font-bold border px-2 py-1 tracking-widest uppercase rounded flex-shrink-0"
+            style={{ borderColor: `${theme.text}4D`, color: theme.text }}>
+            Priority
           </span>
         )}
       </div>
 
-      {/* Nomi — ikonadan darhol keyin, o'rtada bo'sh joy qolmasligi uchun */}
-      <div className="mt-2.5 flex-1 min-h-0">
-        <p className="font-bold leading-snug text-[12px]"
+      <div>
+        <h3 className={`font-bold leading-tight ${size === "l" ? "text-xl" : size === "w" ? "text-base" : "text-sm"}`}
           style={{
-            color: "#0A1629",
+            color: theme.text,
             display: "-webkit-box",
-            WebkitLineClamp: 3,
+            WebkitLineClamp: size === "s" ? 2 : 3,
             WebkitBoxOrient: "vertical",
             overflow: "hidden",
           }}>
           {dept.name}
-        </p>
-      </div>
-
-      {/* Statistika — pastga yopishtiriladi */}
-      <div className="flex items-center gap-2.5 pt-2 mt-auto flex-shrink-0 flex-nowrap overflow-hidden"
-        style={{ borderTop: "1px solid rgba(10,22,41,0.06)" }}>
-        <span className="flex items-center gap-1 text-[11px] font-bold whitespace-nowrap" style={{ color: kamQoldi > 0 ? "#FF5C5C" : "#D0D9E8" }}>
-          <AlertTriangle size={11} className="flex-shrink-0" /> {kamQoldi}
-        </span>
-        <span className="flex items-center gap-1 text-[11px] font-bold whitespace-nowrap" style={{ color: vaqtiBor > 0 ? "#00C48C" : "#D0D9E8" }}>
-          <Clock size={11} className="flex-shrink-0" /> {vaqtiBor}
-        </span>
+        </h3>
+        <div className="mt-3 flex items-center gap-2 flex-wrap">
+          {kamQoldi > 0 && (
+            <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-1 rounded-full text-white flex-shrink-0" style={{ background: "#FF5C5C" }}>
+              <AlertTriangle size={11} /> {kamQoldi}
+            </span>
+          )}
+          <span className="text-[10px] font-bold px-2 py-1 rounded-full flex-shrink-0" style={{ background: `${theme.text}22`, color: theme.text }}>
+            {total} jami
+          </span>
+        </div>
       </div>
     </button>
   );
@@ -296,19 +325,46 @@ function BolimlarMetroGrid({ depts, docs }: { depts: Department[]; docs: IjroDoc
 
   if (depts.length === 0) return null;
 
+  // Eng ko'p topshiriqli (rahbariyatdan boshqa) bo'lim — katta "hero" katak bo'ladi
+  const heroId = stats
+    .filter(s => s.dept.dept_type !== "rahbariyat" && s.total > 0)
+    .sort((a, b) => b.total - a.total)[0]?.dept.id;
+
+  const totalUrgent1 = stats.reduce((sum, s) => sum + s.urgent1, 0);
+  const totalWithin5 = stats.reduce((sum, s) => sum + s.within5, 0);
+  const totalAll     = stats.reduce((sum, s) => sum + s.total, 0);
+
   return (
     <div style={{ background: "#FFFFFF", borderRadius: 20, boxShadow: "0 4px 24px rgba(196,203,214,0.15)" }}>
-      <div className="flex items-center justify-between px-6 py-5" style={{ borderBottom: "1px solid #F4F9FD" }}>
-        <h2 className="font-bold text-lg" style={{ color: "#0A1629" }}>Bo'limlar bo'yicha topshiriqlar</h2>
-        <span className="text-xs font-bold px-2.5 py-1" style={{ background: "rgba(63,140,255,0.1)", color: "#3F8CFF", borderRadius: 8 }}>
-          {depts.length} ta bo'lim
-        </span>
+      <div className="px-6 py-5" style={{ borderBottom: "1px solid #F4F9FD" }}>
+        <div className="flex items-center justify-between flex-wrap gap-2">
+          <h2 className="font-bold text-lg" style={{ color: "#0A1629" }}>Bo'limlar bo'yicha topshiriqlar</h2>
+          <span className="text-xs font-bold px-2.5 py-1" style={{ background: "rgba(63,140,255,0.1)", color: "#3F8CFF", borderRadius: 8 }}>
+            {depts.length} ta bo'lim
+          </span>
+        </div>
+        <div className="flex items-center gap-2 flex-wrap mt-3">
+          <span className="inline-flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-full" style={{ background: "rgba(255,92,92,0.1)", color: "#FF5C5C" }}>
+            <AlertTriangle size={12} /> {totalUrgent1} Shoshilinch
+          </span>
+          <span className="inline-flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-full" style={{ background: "rgba(255,189,33,0.14)", color: "#B8860B" }}>
+            <Clock size={12} /> {totalWithin5} Muddati yaqin
+          </span>
+          <span className="inline-flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-full" style={{ background: "rgba(0,196,140,0.1)", color: "#00A578" }}>
+            <CheckCircle2 size={12} /> {totalAll} Nazoratda
+          </span>
+        </div>
       </div>
-      {/* Bir xil o'lchamdagi katakchalar — 20 ta bo'lim ~3 qatorga (7 ustun) sig'adi */}
-      <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-7 gap-3 p-5">
+      <div className="p-5" style={{
+        display: "grid",
+        gridTemplateColumns: "repeat(auto-fill, minmax(170px, 1fr))",
+        gridAutoRows: 170,
+        gridAutoFlow: "dense",
+        gap: 12,
+      }}>
         {stats.map(s => (
-          <MetroTile key={s.dept.id} dept={s.dept} total={s.total} kamQoldi={s.kamQoldi} vaqtiBor={s.vaqtiBor}
-            urgent1={s.urgent1} within5={s.within5} onClick={() => setSelectedDept(s.dept)} />
+          <MetroTile key={s.dept.id} dept={s.dept} total={s.total} kamQoldi={s.kamQoldi}
+            size={tileSize(s.dept, s.dept.id === heroId)} onClick={() => setSelectedDept(s.dept)} />
         ))}
       </div>
 
@@ -351,10 +407,12 @@ function YangiHujjatModal({ depts, onClose, onSaved, editDoc }:
   const [fileB64, setFileB64] = useState<string | null>(null);
   const [fileName, setFileName] = useState<string | null>(editDoc?.fayl_name ?? null);
   const [orinbosarlar, setOrinbosarlar] = useState<Employee[]>([]);
+  const [allEmployees, setAllEmployees] = useState<Employee[]>([]);
   const [masulBolimlar, setMasulBolimlar] = useState<number[]>(() => {
     if (!editDoc?.masul_bolimlar) return [];
     try { return JSON.parse(editDoc.masul_bolimlar); } catch { return []; }
   });
+  const [bolimXodimlar, setBolimXodimlar] = useState<Record<number, number>>({});
   const [kelishuvchi, setKelishuvchi] = useState<string[]>(() =>
     editDoc?.kelishuvchi_tashkilotlar ? editDoc.kelishuvchi_tashkilotlar.split(", ").filter(Boolean) : []
   );
@@ -373,14 +431,39 @@ function YangiHujjatModal({ depts, onClose, onSaved, editDoc }:
 
   useEffect(() => {
     apiFetch<Employee[]>("/employees")
-      .then(list => setOrinbosarlar(list.filter(e => e.role === "zamdirektor")))
+      .then(list => {
+        setOrinbosarlar(list.filter(e => e.role === "zamdirektor"));
+        setAllEmployees(list);
+      })
       .catch(() => {});
   }, []);
 
   function setF(k: string, v: unknown) { setForm(p => ({ ...p, [k]: v })); }
 
+  function bolimBoshligi(bolimId: number): Employee | undefined {
+    return allEmployees.find(e =>
+      e.department_id === bolimId && (e.role === "bolim_boshligi" || e.role === "boshqarma_boshligi"));
+  }
+
   function toggleBolim(id: number) {
-    setMasulBolimlar(p => p.includes(id) ? p.filter(x => x !== id) : [...p, id]);
+    setMasulBolimlar(p => {
+      const next = p.includes(id) ? p.filter(x => x !== id) : [...p, id];
+      return next;
+    });
+    setBolimXodimlar(p => {
+      if (masulBolimlar.includes(id)) {
+        // o'chirilyapti — tanlovni ham olib tashlaymiz
+        const { [id]: _drop, ...rest } = p;
+        return rest;
+      }
+      // yangi bo'lim tanlandi — avtomatik bo'lim boshlig'ini belgilaymiz
+      const head = bolimBoshligi(id);
+      return head ? { ...p, [id]: head.id } : p;
+    });
+  }
+
+  function setBolimXodim(bolimId: number, xodimId: number) {
+    setBolimXodimlar(p => ({ ...p, [bolimId]: xodimId }));
   }
   function toggleTashkilot(t: string) {
     setKelishuvchi(p => p.includes(t) ? p.filter(x => x !== t) : [...p, t]);
@@ -405,6 +488,7 @@ function YangiHujjatModal({ depts, onClose, onSaved, editDoc }:
       ijro_muddati:             form.ijro_muddati || null,
       hujjat_sanasi:            form.hujjat_sanasi || null,
       masul_bolimlar:           masulBolimlar.length ? JSON.stringify(masulBolimlar) : null,
+      masul_bolimlar_xodimlar:  masulBolimlar.length ? JSON.stringify(bolimXodimlar) : null,
       kelishuvchi_tashkilotlar: kelishuvchi.length ? kelishuvchi.join(", ") : null,
       fayl_name:                fileName,
       fayl_b64:                 fileB64,
@@ -532,15 +616,36 @@ function YangiHujjatModal({ depts, onClose, onSaved, editDoc }:
             {/* Mas'ul bo'lim (multi-select checkboxes) */}
             <div>
               <label className="text-xs font-bold mb-2 block" style={{ color: "#91929E" }}>Mas'ul bo'lim</label>
-              <div className="p-3 max-h-40 overflow-y-auto flex flex-col gap-2"
+              <div className="p-3 max-h-64 overflow-y-auto flex flex-col gap-2"
                 style={{ background: "#F4F9FD", borderRadius: 12, border: "1.5px solid #EEF2FF" }}>
-                {depts.map(d => (
-                  <label key={d.id} className="flex items-center gap-2 cursor-pointer">
-                    <input type="checkbox" checked={masulBolimlar.includes(d.id)}
-                      onChange={() => toggleBolim(d.id)} className="accent-[#3F8CFF] w-4 h-4" />
-                    <span className="text-sm" style={{ color: "#0A1629" }}>{d.name}</span>
-                  </label>
-                ))}
+                {depts.map(d => {
+                  const checked = masulBolimlar.includes(d.id);
+                  const deptEmployees = allEmployees.filter(e => e.department_id === d.id);
+                  return (
+                    <div key={d.id} className="flex flex-col gap-1.5">
+                      <label className="flex items-center gap-2 cursor-pointer">
+                        <input type="checkbox" checked={checked}
+                          onChange={() => toggleBolim(d.id)} className="accent-[#3F8CFF] w-4 h-4" />
+                        <span className="text-sm" style={{ color: "#0A1629" }}>{d.name}</span>
+                      </label>
+                      {checked && (
+                        <div className="ml-6 relative">
+                          <select
+                            value={bolimXodimlar[d.id] ?? ""}
+                            onChange={e => setBolimXodim(d.id, Number(e.target.value))}
+                            className="w-full appearance-none px-3 py-2 text-xs font-bold outline-none"
+                            style={{ background: "#FFFFFF", borderRadius: 10, border: "1.5px solid #EEF2FF", color: "#0A1629" }}>
+                            <option value="">Ijrochi xodim tanlanmagan</option>
+                            {deptEmployees.map(e => (
+                              <option key={e.id} value={e.id}>{e.full_name}{e.position ? ` (${e.position})` : ""}</option>
+                            ))}
+                          </select>
+                          <ChevronDown size={13} className="absolute right-3 top-2.5 pointer-events-none" style={{ color: "#91929E" }} />
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
                 {depts.length === 0 && <p className="text-xs" style={{ color: "#91929E" }}>Bo'limlar yuklanmoqda...</p>}
               </div>
             </div>
@@ -784,6 +889,27 @@ function IjroTrackingModal({ docId, depts, onClose }: {
                             {b.qaror_at && <span>Qaror: <b style={{ color: "#0A1629" }}>{fmtDt(b.qaror_at)}</b></span>}
                             {b.qaror_by_nomi && <span>Kim: <b style={{ color: "#0A1629" }}>{b.qaror_by_nomi}</b></span>}
                           </div>
+
+                          {/* Ijrochi xodim + biriktirish tarixi */}
+                          {b.xodim_nomi && (
+                            <div className="mt-2.5 pt-2.5" style={{ borderTop: "1px solid #F0F4FB" }}>
+                              <p className="text-xs" style={{ color: "#91929E" }}>
+                                Ijrochi xodim: <b style={{ color: "#0A1629" }}>{b.xodim_nomi}</b>
+                                {b.xodim_assigned_at && <> — {fmtDt(b.xodim_assigned_at)}</>}
+                              </p>
+                              {b.assign_log && b.assign_log.length > 1 && (
+                                <div className="mt-1.5 flex flex-col gap-1">
+                                  {b.assign_log.slice().reverse().map(log => (
+                                    <p key={log.id} className="text-[11px]" style={{ color: "#91929E" }}>
+                                      <b style={{ color: "#7D8592" }}>{log.xodim_nomi}</b>ga biriktirildi
+                                      {log.assigned_by_nomi && ` — ${log.assigned_by_nomi} tomonidan`}
+                                      {log.assigned_at && `, ${fmtDt(log.assigned_at)}`}
+                                    </p>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          )}
                         </div>
                       );
                     })}

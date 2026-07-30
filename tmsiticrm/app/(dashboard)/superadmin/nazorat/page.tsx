@@ -33,6 +33,13 @@ interface IjroDocOut {
   created_at: string | null;
 }
 
+interface AssignLogEntry {
+  id: number;
+  xodim_nomi: string | null;
+  assigned_by_nomi: string | null;
+  assigned_at: string | null;
+}
+
 interface DocBolimRow {
   id: number;
   bolim_id: number;
@@ -42,6 +49,9 @@ interface DocBolimRow {
   assigned_at: string | null;
   qaror_at: string | null;
   qaror_by_nomi: string | null;
+  xodim_nomi: string | null;
+  xodim_assigned_at: string | null;
+  assign_log: AssignLogEntry[];
 }
 
 interface Tracking {
@@ -280,6 +290,26 @@ function TrackingModal({ docId, onClose }: { docId: number; onClose: () => void 
                             {b.qaror_at && <span>Qaror: {fmt(b.qaror_at)}</span>}
                             {b.qaror_by_nomi && <span>Kim: {b.qaror_by_nomi}</span>}
                           </div>
+
+                          {b.xodim_nomi && (
+                            <div className="mt-2 pt-2" style={{ borderTop: `1px solid ${cfg.color}22` }}>
+                              <p className="text-xs" style={{ color: "#7D8592" }}>
+                                Ijrochi xodim: <b style={{ color: "#0A1629" }}>{b.xodim_nomi}</b>
+                                {b.xodim_assigned_at && <> — {fmt(b.xodim_assigned_at)}</>}
+                              </p>
+                              {b.assign_log && b.assign_log.length > 1 && (
+                                <div className="mt-1 flex flex-col gap-0.5">
+                                  {b.assign_log.slice().reverse().map(log => (
+                                    <p key={log.id} className="text-[11px]" style={{ color: "#91929E" }}>
+                                      <b style={{ color: "#7D8592" }}>{log.xodim_nomi}</b>ga biriktirildi
+                                      {log.assigned_by_nomi && ` — ${log.assigned_by_nomi} tomonidan`}
+                                      {log.assigned_at && `, ${fmt(log.assigned_at)}`}
+                                    </p>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          )}
                         </div>
                       );
                     })}

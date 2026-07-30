@@ -4,13 +4,22 @@ import { useState, useEffect, useCallback } from "react";
 import {
   Search, CheckCircle2, XCircle, Clock, FileText, ChevronDown,
   Download, AlertTriangle, Loader2, RefreshCw, Building2,
-  Calendar, Send, ClipboardCheck,
+  Calendar, Send, ClipboardCheck, UserCog, History,
 } from "lucide-react";
 import { apiFetch } from "@/lib/api";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
 type BolimHolati = "yuborildi" | "qabul_qilindi" | "rad_etildi" | "bajarilmoqda" | "bajarildi";
+
+interface AssignLogEntry {
+  id: number;
+  xodim_id: number;
+  xodim_nomi: string | null;
+  assigned_by: number | null;
+  assigned_by_nomi: string | null;
+  assigned_at: string | null;
+}
 
 interface DocBolimRow {
   id: number;
@@ -22,11 +31,17 @@ interface DocBolimRow {
   assigned_at: string | null;
   qaror_at: string | null;
   qaror_by_nomi: string | null;
+  xodim_id: number | null;
+  xodim_nomi: string | null;
+  xodim_assigned_at: string | null;
+  assign_log: AssignLogEntry[];
   doc_sarlavha: string | null;
   doc_manba: string | null;
   doc_hujjat_raqami: string | null;
   doc_ijro_muddati: string | null;
 }
+
+interface Employee { id: number; full_name: string; position: string; }
 
 interface IjroDocOut {
   id: number;
@@ -103,14 +118,24 @@ function DetailPanel({
   const [loading,  setLoading]  = useState(true);
   const [izoh,     setIzoh]     = useState("");
   const [saving,   setSaving]   = useState(false);
+  const [employees, setEmployees] = useState<Employee[]>([]);
+  const [selectedXodim, setSelectedXodim] = useState<number | "">("");
+  const [assigning, setAssigning] = useState(false);
+  const [assignError, setAssignError] = useState<string | null>(null);
 
-  useEffect(() => {
+  const loadDetail = useCallback(() => {
     setLoading(true);
-    apiFetch<Tracking>(`/ijro-docs/bolim-inbox/${row.id}/detail`)
+    return apiFetch<Tracking>(`/ijro-docs/bolim-inbox/${row.id}/detail`)
       .then(setTracking)
       .catch(() => {})
       .finally(() => setLoading(false));
   }, [row.id]);
+
+  useEffect(() => { loadDetail(); }, [loadDetail]);
+
+  useEffect(() => {
+    apiFetch<Employee[]>("/employees/").then(setEmployees).catch(() => {});
+  }, []);
 
   if (loading) return (
     <div className="flex-1 flex items-center justify-center">
@@ -125,12 +150,34 @@ function DetailPanel({
 
   const doc = tracking.doc;
   const dl  = daysLeft(doc.ijro_muddati);
-  const isPending = row.holati === "yuborildi";
+  const myRow = tracking.bolimlar.find(b => b.id === row.id) || row;
+  const isPending = myRow.holati === "yuborildi";
+  const canAssign = myRow.holati !== "yuborildi" && myRow.holati !== "rad_etildi";
 
   async function handleAction(holati: BolimHolati) {
     setSaving(true);
-    try { await onQaror(holati, izoh); }
-    finally { setSaving(false); }
+    try {
+      await onQaror(holati, izoh);
+      await loadDetail();
+    } finally { setSaving(false); }
+  }
+
+  async function handleAssign() {
+    if (!selectedXodim) return;
+    setAssignError(null);
+    setAssigning(true);
+    try {
+      await apiFetch(`/ijro-docs/bolim-inbox/${row.id}/assign`, {
+        method: "POST",
+        body: JSON.stringify({ xodim_id: selectedXodim }),
+      });
+      setSelectedXodim("");
+      await loadDetail();
+    } catch (e) {
+      setAssignError(e instanceof Error ? e.message : "Xatolik yuz berdi");
+    } finally {
+      setAssigning(false);
+    }
   }
 
   return (
@@ -233,10 +280,69 @@ function DetailPanel({
         )}
 
         {/* Rad etilgan qayta holat ko'rsatish */}
-        {row.holati !== "yuborildi" && row.izoh && (
+        {myRow.holati !== "yuborildi" && myRow.izoh && (
           <div className="p-3" style={{ background: "rgba(255,92,92,0.06)", border: "1px solid rgba(255,92,92,0.15)", borderRadius: 12 }}>
             <p className="text-xs font-bold mb-1" style={{ color: "#FF5C5C" }}>Izoh:</p>
-            <p className="text-sm" style={{ color: "#0A1629" }}>{row.izoh}</p>
+            <p className="text-sm" style={{ color: "#0A1629" }}>{myRow.izoh}</p>
+          </div>
+        )}
+
+        {/* Ijrochi xodim — qabul qilingandan keyin ko'rinadi va o'zgartirib bo'ladi */}
+        {canAssign && (
+          <div className="p-4" style={{ background: "#F4F9FD", borderRadius: 14 }}>
+            <p className="text-xs font-bold mb-2 uppercase tracking-wide flex items-center gap-1.5" style={{ color: "#91929E" }}>
+              <UserCog size={13} /> Ijrochi xodim
+            </p>
+
+            <div className="flex items-center justify-between p-3 mb-3"
+              style={{ background: "#FFFFFF", borderRadius: 10, border: "1px solid #EEF2FF" }}>
+              <span className="text-sm font-bold" style={{ color: "#0A1629" }}>
+                {myRow.xodim_nomi || "Hali belgilanmagan"}
+              </span>
+              {myRow.xodim_assigned_at && (
+                <span className="text-xs" style={{ color: "#91929E" }}>{fmt(myRow.xodim_assigned_at)}</span>
+              )}
+            </div>
+
+            <div className="flex gap-2">
+              <div className="relative flex-1">
+                <select value={selectedXodim} onChange={e => setSelectedXodim(e.target.value ? Number(e.target.value) : "")}
+                  className="w-full appearance-none px-3 py-2.5 text-sm font-bold outline-none"
+                  style={{ background: "#FFFFFF", borderRadius: 10, border: "1.5px solid #EEF2FF", color: selectedXodim ? "#0A1629" : "#91929E" }}>
+                  <option value="">Boshqa xodimga biriktirish...</option>
+                  {employees.map(e => (
+                    <option key={e.id} value={e.id}>{e.full_name} ({e.position})</option>
+                  ))}
+                </select>
+                <ChevronDown size={14} className="absolute right-3 top-3 pointer-events-none" style={{ color: "#91929E" }} />
+              </div>
+              <button onClick={handleAssign} disabled={!selectedXodim || assigning}
+                className="px-4 py-2.5 flex items-center gap-1.5 text-sm font-bold text-white disabled:opacity-50"
+                style={{ background: "#3F8CFF", borderRadius: 10 }}>
+                {assigning ? <Loader2 size={13} className="animate-spin" /> : <Send size={13} />}
+                Biriktirish
+              </button>
+            </div>
+            {assignError && (
+              <p className="text-xs font-bold mt-2" style={{ color: "#FF5C5C" }}>{assignError}</p>
+            )}
+
+            {myRow.assign_log.length > 0 && (
+              <div className="mt-3 pt-3" style={{ borderTop: "1px solid #E8EDF5" }}>
+                <p className="text-[11px] font-bold mb-1.5 flex items-center gap-1" style={{ color: "#91929E" }}>
+                  <History size={11} /> Tarix
+                </p>
+                <div className="flex flex-col gap-1.5">
+                  {myRow.assign_log.slice().reverse().map(log => (
+                    <p key={log.id} className="text-xs" style={{ color: "#7D8592" }}>
+                      <b style={{ color: "#0A1629" }}>{log.xodim_nomi}</b>ga biriktirildi
+                      {log.assigned_by_nomi && ` — ${log.assigned_by_nomi} tomonidan`}
+                      {log.assigned_at && `, ${fmt(log.assigned_at)}`}
+                    </p>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         )}
 
@@ -428,7 +534,6 @@ export default function BolimNazoratPage() {
               row={selected}
               onQaror={async (holati, izoh) => {
                 await handleQaror(selected.id, holati, izoh);
-                setSelected(null);
               }}
             />
           ) : (

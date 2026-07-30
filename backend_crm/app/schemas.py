@@ -300,6 +300,7 @@ class IjroDocIn(BaseModel):
     mazmun:                   Optional[str]      = None
     masul_orinbosar_id:       Optional[int]      = None
     masul_bolimlar:           Optional[str]      = None   # JSON "[1,3]"
+    masul_bolimlar_xodimlar:  Optional[str]      = None   # JSON {"1": 12, "3": 45} — bo'lim_id -> boshlang'ich ijrochi xodim_id
     ijro_muddati:             Optional[datetime] = None
     davriyligi:               IjroDocDavriyligi  = IjroDocDavriyligi.bir_martalik
     kelishuvchi_tashkilotlar: Optional[str]      = None
@@ -334,6 +335,15 @@ class IjroDocStatusIn(BaseModel):
     holati:      IjroDocHolati
     qayta_sabab: Optional[str] = None
 
+class IjroDocBolimAssignLogOut(BaseModel):
+    id:               int
+    xodim_id:         int
+    xodim_nomi:       Optional[str] = None
+    assigned_by:      Optional[int] = None
+    assigned_by_nomi: Optional[str] = None
+    assigned_at:      Optional[datetime] = None
+    model_config = {"from_attributes": True}
+
 class IjroDocBolimOut(BaseModel):
     id:            int
     doc_id:        Optional[int]   = None
@@ -344,6 +354,10 @@ class IjroDocBolimOut(BaseModel):
     assigned_at:   Optional[datetime] = None
     qaror_at:      Optional[datetime] = None
     qaror_by_nomi: Optional[str]   = None
+    xodim_id:         Optional[int] = None
+    xodim_nomi:       Optional[str] = None
+    xodim_assigned_at: Optional[datetime] = None
+    assign_log:    List[IjroDocBolimAssignLogOut] = []
     # doc preview fields (for list display)
     doc_sarlavha:      Optional[str] = None
     doc_manba:         Optional[str] = None
@@ -354,6 +368,9 @@ class IjroDocBolimOut(BaseModel):
 class IjroDocBolimQaror(BaseModel):
     holati: IjroDocBolimHolati
     izoh:   Optional[str] = None
+
+class AssignXodimIn(BaseModel):
+    xodim_id: int
 
 class IjroDocTracking(BaseModel):
     """Direktor uchun hujjat to'liq holati."""
