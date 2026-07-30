@@ -430,7 +430,7 @@ function YangiHujjatModal({ depts, onClose, onSaved, editDoc }:
   });
 
   useEffect(() => {
-    apiFetch<Employee[]>("/employees")
+    apiFetch<Employee[]>("/employees/")
       .then(list => {
         setOrinbosarlar(list.filter(e => e.role === "zamdirektor"));
         setAllEmployees(list);
