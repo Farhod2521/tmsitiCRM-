@@ -211,7 +211,7 @@ def seed(force_reset: bool = False):
             print(f"[OK] {len(DEPARTMENTS)} ta bo'lim/boshqarma qo'shildi")
 
         # ── Superadmin ────────────────────────────────────────────────────────
-        sa = db.query(models.Employee).filter(models.Employee.phone == SUPERADMIN["phone"]).first()
+        sa = db.query(models.Employee).filter(models.Employee.full_name == SUPERADMIN["full_name"]).first()
         if not sa:
             pwd = SUPERADMIN["phone"].lstrip("+")
             db.add(models.Employee(
@@ -228,19 +228,22 @@ def seed(force_reset: bool = False):
             print(f"[OK] Superadmin qo'shildi: {SUPERADMIN['phone']}")
 
         # ── Employees ─────────────────────────────────────────────────────────
+        # E'tibor: xodim telefon raqami/paroli o'zgargan bo'lishi mumkin (Xodimlar
+        # paneli yoki Telegram bot orqali) — shuning uchun qidiruv TELEFON emas,
+        # F.I.Sh. bo'yicha (barqaror kalit) amalga oshiriladi, va mavjud xodimning
+        # telefon/paroli qayta yozilmaydi (faqat yangi xodim yaratilganda o'rnatiladi).
         added = 0
         for e in EMPLOYEES:
-            existing = db.query(models.Employee).filter(models.Employee.phone == e["ph"]).first()
-            pwd = e["ph"].lstrip("+")
+            existing = db.query(models.Employee).filter(models.Employee.full_name == e["full_name"]).first()
             if existing:
-                existing.full_name     = e["full_name"]
                 existing.position      = e["position"]
                 existing.department_id = e["dept_id"]
                 existing.work_rate     = e["rate"]
-                existing.hashed_password = get_password_hash(pwd)
-                # role o'zgartirilmaydi — superadmin UI orqali bergan rolni saqlab qolish
+                # role, phone, hashed_password o'zgartirilmaydi — bular
+                # administrator paneli yoki Telegram bot orqali o'zgargan bo'lishi mumkin
                 existing.is_active     = True
             else:
+                pwd = e["ph"].lstrip("+")
                 db.add(models.Employee(
                     full_name=e["full_name"],
                     position=e["position"],
