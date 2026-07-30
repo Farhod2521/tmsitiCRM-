@@ -9,7 +9,7 @@ services:
     restart: unless-stopped
     environment:
       POSTGRES_USER: crm_user
-      POSTGRES_PASSWORD: crm_pass_prod_2026
+      POSTGRES_PASSWORD: crm_pass
       POSTGRES_DB: crm_db
     volumes:
       - crm_postgres_data:/var/lib/postgresql/data
@@ -28,7 +28,7 @@ services:
     container_name: crm_backend
     restart: unless-stopped
     environment:
-      DATABASE_URL: postgresql://crm_user:crm_pass_prod_2026@db:5432/crm_db
+      DATABASE_URL: postgresql://crm_user:crm_pass@db:5432/crm_db
       SECRET_KEY: tmsiti-crm-super-secret-key-2026-production
       TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN}
       TELEGRAM_CHAT_ID: ${TELEGRAM_CHAT_ID}
