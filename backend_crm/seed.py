@@ -233,13 +233,13 @@ def seed(force_reset: bool = False):
             existing = db.query(models.Employee).filter(models.Employee.phone == e["ph"]).first()
             pwd = e["ph"].lstrip("+")
             if existing:
-                existing.full_name   = e["full_name"]
-                existing.position    = e["position"]
+                existing.full_name     = e["full_name"]
+                existing.position      = e["position"]
                 existing.department_id = e["dept_id"]
-                existing.work_rate   = e["rate"]
+                existing.work_rate     = e["rate"]
                 existing.hashed_password = get_password_hash(pwd)
-                existing.role        = models.RoleEnum(e["role"])
-                existing.is_active   = True
+                # role o'zgartirilmaydi — superadmin UI orqali bergan rolni saqlab qolish
+                existing.is_active     = True
             else:
                 db.add(models.Employee(
                     full_name=e["full_name"],

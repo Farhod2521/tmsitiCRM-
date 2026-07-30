@@ -3,14 +3,16 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useState } from "react";
-import { Star, User, LogOut, X } from "lucide-react";
+import { Star, User, LogOut, X, ClipboardCheck, Target } from "lucide-react";
 import LottiePlayer from "@/components/ui/LottiePlayer";
 import MobileTopBar from "@/components/layout/MobileTopBar";
 import { clearAuth } from "@/lib/auth";
 
 const navItems = [
-  { href: "/ijro/ball",    icon: Star, label: "Ball berish" },
-  { href: "/ijro/profile", icon: User, label: "Profil"      },
+  { href: "/ijro/nazorat", icon: ClipboardCheck, label: "Ijro nazorati" },
+  { href: "/ijro/kpi",     icon: Target,         label: "KPI"           },
+  { href: "/ijro/ball",    icon: Star,           label: "Ball berish"   },
+  { href: "/ijro/profile", icon: User,           label: "Profil"        },
 ];
 
 export default function SidebarIjro() {
@@ -23,7 +25,7 @@ export default function SidebarIjro() {
 
   return (
     <>
-      <MobileTopBar accent="#00C48C" letter="I" onOpen={() => setMobileOpen(true)} />
+      <MobileTopBar accent="#3F8CFF" letter="I" onOpen={() => setMobileOpen(true)} />
 
       {mobileOpen && (
         <div className="lg:hidden fixed inset-0 z-40" style={{ background: "rgba(10,22,41,0.5)" }}
@@ -43,7 +45,7 @@ export default function SidebarIjro() {
 
         <div className="flex items-center gap-3 px-6 pt-8 pb-6">
           <div className="w-[50px] h-[50px] flex items-center justify-center text-white font-bold text-lg"
-            style={{ background:"#00C48C", borderRadius:12 }}>I</div>
+            style={{ background:"#3F8CFF", borderRadius:12 }}>I</div>
           <div>
             <p className="font-bold text-sm" style={{ color:"#0A1629" }}>TMSITI</p>
             <p className="text-xs" style={{ color:"#91929E" }}>Ijro nazorati</p>
@@ -59,16 +61,16 @@ export default function SidebarIjro() {
                 <Link href={href}
                   className="flex items-center gap-3 px-3 py-3 rounded-[10px] transition-all"
                   style={{
-                    background: active ? "rgba(0,196,140,0.1)" : "transparent",
-                    color: active ? "#00C48C" : "#7D8592",
+                    background: active ? "rgba(63,140,255,0.1)" : "transparent",
+                    color: active ? "#3F8CFF" : "#7D8592",
                     fontWeight: active ? 700 : 600, fontSize:15,
                   }}>
-                  <Icon size={20} style={{ color: active ? "#00C48C" : "#7D8592" }}/>
+                  <Icon size={20} style={{ color: active ? "#3F8CFF" : "#7D8592" }}/>
                   {label}
                 </Link>
                 {active && (
                   <span className="absolute right-0 top-2 bottom-2"
-                    style={{ width:4, background:"#00C48C", borderRadius:2 }}/>
+                    style={{ width:4, background:"#3F8CFF", borderRadius:2 }}/>
                 )}
               </li>
             );
@@ -78,7 +80,7 @@ export default function SidebarIjro() {
 
       <div className="mx-2 mb-4">
         <div className="pt-2 pb-4 px-2 text-center"
-          style={{ background:"rgba(0,196,140,0.07)", borderRadius:20 }}>
+          style={{ background:"rgba(63,140,255,0.07)", borderRadius:20 }}>
           <LottiePlayer
             src="https://lottie.host/fa6b782a-bce3-4f59-96b1-b1801001343b/TxASaLnUXj.lottie"
             width={200} height={200} className="mx-auto"/>

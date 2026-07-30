@@ -1,7 +1,7 @@
 from pydantic import BaseModel
 from typing import Optional, List
 from datetime import datetime, date
-from .models import RoleEnum, DeptTypeEnum, EmployeeStatusEnum
+from .models import RoleEnum, DeptTypeEnum, EmployeeStatusEnum, IjroDocManba, IjroDocHolati, IjroDocTur, IjroDocDavriyligi, IjroDocBolimHolati
 
 
 # ── Department ────────────────────────────────────────────────────────────────
@@ -49,10 +49,44 @@ class EmployeeOut(BaseModel):
     status: EmployeeStatusEnum
     is_active: bool
     department: Optional[DepartmentOut] = None
+    telegram_id: Optional[int] = None
+    telegram_username: Optional[str] = None
     model_config = {"from_attributes": True}
 
 class SetStatusIn(BaseModel):
     status: EmployeeStatusEnum
+
+class EmployeePasswordOut(BaseModel):
+    id: int
+    password: Optional[str] = None
+
+
+# ── Telegram bot (add_account_bot) ────────────────────────────────────────────
+class TelegramLinkTokenOut(BaseModel):
+    token: str
+    expires_in: int   # sekundlarda
+
+class BotLinkIn(BaseModel):
+    token: str                       # /employees/me/telegram-link-token orqali olingan bir martalik token
+    verified_phone: str              # Telegram kontaktidan olingan haqiqiy raqam
+    new_password: str
+    telegram_id: int
+    telegram_username: Optional[str] = None
+
+class BotLinkOut(BaseModel):
+    ok: bool
+    full_name: Optional[str] = None
+    phone: Optional[str] = None
+    detail: Optional[str] = None
+
+class BotResetIn(BaseModel):
+    telegram_id: int
+    new_password: str
+
+class BotResetOut(BaseModel):
+    ok: bool
+    phone: Optional[str] = None
+    detail: Optional[str] = None
 
 
 # ── Auth ──────────────────────────────────────────────────────────────────────
@@ -253,3 +287,92 @@ class PendingMessageOut(BaseModel):
 
 class TelegramMessageIn(BaseModel):
     text: str
+
+
+# ── Ijro hujjatlari ───────────────────────────────────────────────────────────
+class IjroDocIn(BaseModel):
+    tur:                      IjroDocTur         = IjroDocTur.kiruvchi
+    manba:                    IjroDocManba
+    hujjat_raqami:            Optional[str]      = None
+    hujjat_sanasi:            Optional[str]      = None
+    sarlavha:                 Optional[str]      = None
+    mazmun:                   Optional[str]      = None
+    masul_orinbosar_id:       Optional[int]      = None
+    masul_bolimlar:           Optional[str]      = None   # JSON "[1,3]"
+    ijro_muddati:             Optional[datetime] = None
+    davriyligi:               IjroDocDavriyligi  = IjroDocDavriyligi.bir_martalik
+    kelishuvchi_tashkilotlar: Optional[str]      = None
+    fayl_name:                Optional[str]      = None
+    fayl_b64:                 Optional[str]      = None
+
+class IjroDocOut(BaseModel):
+    id:                       int
+    tur:                      IjroDocTur
+    manba:                    IjroDocManba
+    hujjat_raqami:            Optional[str]      = None
+    hujjat_sanasi:            Optional[str]      = None
+    sarlavha:                 Optional[str]      = None
+    mazmun:                   Optional[str]      = None
+    masul_orinbosar_id:       Optional[int]      = None
+    masul_orinbosar_nomi:     Optional[str]      = None
+    masul_bolimlar:           Optional[str]      = None
+    masul_bolimlar_nomi:      Optional[str]      = None   # "Bo'lim A, Bo'lim B"
+    masul_bolimlar_info:      Optional[str]      = None   # JSON: [{id,name,holati}]
+    masul_bolim_boshliqlari_nomi: Optional[str]  = None   # rad etilmagan bo'lim(lar) boshlig'i F.I.Sh.
+    ijro_muddati:             Optional[datetime] = None
+    davriyligi:               IjroDocDavriyligi
+    kelishuvchi_tashkilotlar: Optional[str]      = None
+    fayl_name:                Optional[str]      = None
+    holati:                   IjroDocHolati
+    qayta_sabab:              Optional[str]      = None
+    created_by:               Optional[int]      = None
+    created_at:               Optional[datetime] = None
+    model_config = {"from_attributes": True}
+
+class IjroDocStatusIn(BaseModel):
+    holati:      IjroDocHolati
+    qayta_sabab: Optional[str] = None
+
+class IjroDocBolimOut(BaseModel):
+    id:            int
+    doc_id:        Optional[int]   = None
+    bolim_id:      int
+    bolim_nomi:    Optional[str]   = None
+    holati:        IjroDocBolimHolati
+    izoh:          Optional[str]   = None
+    assigned_at:   Optional[datetime] = None
+    qaror_at:      Optional[datetime] = None
+    qaror_by_nomi: Optional[str]   = None
+    # doc preview fields (for list display)
+    doc_sarlavha:      Optional[str] = None
+    doc_manba:         Optional[str] = None
+    doc_hujjat_raqami: Optional[str] = None
+    doc_ijro_muddati:  Optional[datetime] = None
+    model_config = {"from_attributes": True}
+
+class IjroDocBolimQaror(BaseModel):
+    holati: IjroDocBolimHolati
+    izoh:   Optional[str] = None
+
+class IjroDocTracking(BaseModel):
+    """Direktor uchun hujjat to'liq holati."""
+    doc:      "IjroDocOut"
+    bolimlar: List[IjroDocBolimOut]
+
+class BolimAddIn(BaseModel):
+    bolim_id: int
+
+class IjroDocUpdate(BaseModel):
+    tur:                      Optional[IjroDocTur]         = None
+    manba:                    Optional[IjroDocManba]        = None
+    hujjat_raqami:            Optional[str]                = None
+    hujjat_sanasi:            Optional[str]                = None
+    sarlavha:                 Optional[str]                = None
+    mazmun:                   Optional[str]                = None
+    masul_orinbosar_id:       Optional[int]                = None
+    masul_bolimlar:           Optional[str]                = None
+    ijro_muddati:             Optional[datetime]           = None
+    davriyligi:               Optional[IjroDocDavriyligi]  = None
+    kelishuvchi_tashkilotlar: Optional[str]                = None
+    fayl_name:                Optional[str]                = None
+    fayl_b64:                 Optional[str]                = None

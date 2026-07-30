@@ -51,8 +51,8 @@ export function getRoleRedirect(role: string): string {
     case "zamdirektor":          return "/superadmin";
     case "bolim_boshligi":
     case "boshqarma_boshligi":   return "/bolimboshliq/kpi";
-    case "kadr":
-    case "ijro":                 return "/xodim/kpi";
+    case "kadr":                 return "/xodim/kpi";
+    case "ijro":                 return "/ijro/nazorat";
     case "xodim":                return "/xodim";
     default:                     return "/login";
   }

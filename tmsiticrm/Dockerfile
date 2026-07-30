@@ -7,9 +7,11 @@ RUN npm ci
 
 COPY . .
 
-# Build vaqtida API URL ni qabul qiladi
+# Build vaqtida API URL va Telegram bot username'ni qabul qiladi
 ARG NEXT_PUBLIC_API_URL
+ARG NEXT_PUBLIC_TELEGRAM_BOT_USERNAME
 ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
+ENV NEXT_PUBLIC_TELEGRAM_BOT_USERNAME=$NEXT_PUBLIC_TELEGRAM_BOT_USERNAME
 
 RUN npm run build
 

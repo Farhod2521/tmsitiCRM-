@@ -1,6 +1,6 @@
 import enum
 from datetime import datetime
-from sqlalchemy import Column, Integer, String, Float, Boolean, ForeignKey, Enum as SAEnum, DateTime, UniqueConstraint, Text
+from sqlalchemy import Column, Integer, String, Float, Boolean, ForeignKey, Enum as SAEnum, DateTime, UniqueConstraint, Text, BigInteger
 from sqlalchemy.orm import relationship
 from .database import Base
 
@@ -55,10 +55,13 @@ class Employee(Base):
     work_rate       = Column(Float, default=1.0, nullable=False)
     phone           = Column(String(20), unique=True, nullable=False, index=True)
     hashed_password = Column(String(200), nullable=False)
+    enc_password    = Column(Text, nullable=True)   # joriy parol, qaytarib olinadigan shifrda (superadmin uchun)
     role            = Column(SAEnum(RoleEnum, name="role_enum"), default=RoleEnum.xodim, nullable=False)
     status          = Column(SAEnum(EmployeeStatusEnum, name="employee_status_enum"), default=EmployeeStatusEnum.faol, nullable=False)
     is_active       = Column(Boolean, default=True, nullable=False)
     photo_base64    = Column(Text, nullable=True)   # "data:image/jpeg;base64,..." — yuz tanish uchun
+    telegram_id       = Column(BigInteger, unique=True, nullable=True)
+    telegram_username = Column(String(100), nullable=True)
 
     department      = relationship("Department", back_populates="employees")
     tabel_records   = relationship("TabelRecord", foreign_keys="TabelRecord.employee_id", back_populates="employee")
@@ -128,6 +131,86 @@ class Score(Base):
     author          = relationship("Employee", foreign_keys=[created_by])
 
 
+class IjroDocManba(str, enum.Enum):
+    pq_pf    = "pq_pf"
+    vm       = "vm"
+    qv       = "qv"
+    direktor = "direktor"
+
+class IjroDocHolati(str, enum.Enum):
+    jarayonda            = "jarayonda"
+    bajarildi            = "bajarildi"
+    muddati_yaqin        = "muddati_yaqin"
+    kechikmoqda          = "kechikmoqda"
+    bolimga_yonaltirildi = "bolimga_yonaltirildi"
+
+class IjroDocTur(str, enum.Enum):
+    kiruvchi  = "kiruvchi"
+    chiquvchi = "chiquvchi"
+    ichki     = "ichki"
+
+class IjroDocDavriyligi(str, enum.Enum):
+    bir_martalik = "bir_martalik"
+    har_chorakda = "har_chorakda"
+    har_yili     = "har_yili"
+
+
+class IjroDocBolimHolati(str, enum.Enum):
+    yuborildi     = "yuborildi"
+    qabul_qilindi = "qabul_qilindi"
+    rad_etildi    = "rad_etildi"
+    bajarilmoqda  = "bajarilmoqda"
+    bajarildi     = "bajarildi"
+
+
+class IjroDocument(Base):
+    """Ijro nazorati uchun hujjat va topshiriqlar."""
+    __tablename__ = "ijro_documents"
+
+    id                       = Column(Integer, primary_key=True, index=True)
+    tur                      = Column(SAEnum(IjroDocTur,       name="ijro_doc_tur_enum"),       default=IjroDocTur.kiruvchi,            nullable=False)
+    manba                    = Column(SAEnum(IjroDocManba,     name="ijro_doc_manba_enum"),      nullable=False)
+    hujjat_raqami            = Column(String(100),  nullable=True)
+    hujjat_sanasi            = Column(String(20),   nullable=True)
+    sarlavha                 = Column(String(500),  nullable=True)
+    mazmun                   = Column(Text,         nullable=True)
+    masul_orinbosar_id       = Column(Integer, ForeignKey("employees.id"), nullable=True)
+    masul_bolimlar           = Column(String(500),  nullable=True)   # JSON: "[1,3,5]"
+    ijro_muddati             = Column(DateTime,     nullable=True)
+    davriyligi               = Column(SAEnum(IjroDocDavriyligi, name="ijro_doc_davriyligi_enum"), default=IjroDocDavriyligi.bir_martalik, nullable=False)
+    kelishuvchi_tashkilotlar = Column(String(500),  nullable=True)
+    fayl_name                = Column(String(255),  nullable=True)
+    fayl_b64                 = Column(Text,         nullable=True)
+    holati                   = Column(SAEnum(IjroDocHolati, name="ijro_doc_holati_enum"), default=IjroDocHolati.jarayonda, nullable=False)
+    qayta_sabab              = Column(Text,         nullable=True)
+    created_by               = Column(Integer, ForeignKey("employees.id"), nullable=True)
+    created_at               = Column(DateTime, default=datetime.utcnow)
+
+    creator         = relationship("Employee", foreign_keys=[created_by])
+    masul_orinbosar = relationship("Employee", foreign_keys=[masul_orinbosar_id])
+    bolim_assignments = relationship("IjroDocBolim", back_populates="document", cascade="all, delete-orphan")
+
+
+class IjroDocBolim(Base):
+    """Hujjat qaysi bo'limlarga yuborilgani va ularning holati."""
+    __tablename__ = "ijro_doc_bolimlar"
+    __table_args__ = (UniqueConstraint("doc_id", "bolim_id", name="uq_doc_bolim"),)
+
+    id         = Column(Integer, primary_key=True, index=True)
+    doc_id     = Column(Integer, ForeignKey("ijro_documents.id", ondelete="CASCADE"), nullable=False)
+    bolim_id   = Column(Integer, ForeignKey("departments.id"),   nullable=False)
+    holati     = Column(SAEnum(IjroDocBolimHolati, name="ijro_doc_bolim_holati_enum"),
+                        default=IjroDocBolimHolati.yuborildi, nullable=False)
+    izoh       = Column(Text, nullable=True)
+    assigned_at= Column(DateTime, default=datetime.utcnow)
+    qaror_at   = Column(DateTime, nullable=True)
+    qaror_by   = Column(Integer, ForeignKey("employees.id"), nullable=True)
+
+    document        = relationship("IjroDocument", back_populates="bolim_assignments")
+    bolim           = relationship("Department")
+    qaror_beruvchi  = relationship("Employee", foreign_keys=[qaror_by])
+
+
 class WeeklyReport(Base):
     """Haftalik hisobot — xodim/bo'lim boshlig'i o'zi yuklaydi, rahbari tasdiqlab ball qo'yadi."""
     __tablename__ = "weekly_reports"
@@ -149,3 +232,19 @@ class WeeklyReport(Base):
 
     employee      = relationship("Employee", foreign_keys=[employee_id])
     reviewer      = relationship("Employee", foreign_keys=[confirmed_by])
+
+
+class TelegramLinkToken(Base):
+    """Xodim CRM profilida "Telegram" tugmasini bosganda yaratiladigan, bir martalik,
+    muddati tez tugaydigan token — add_account_bot shu orqali xodimni aniqlaydi
+    (telefon raqamini ochiq deep-linkda yubormaslik uchun)."""
+    __tablename__ = "telegram_link_tokens"
+
+    id          = Column(Integer, primary_key=True, index=True)
+    token       = Column(String(64), unique=True, nullable=False, index=True)
+    employee_id = Column(Integer, ForeignKey("employees.id"), nullable=False)
+    expires_at  = Column(DateTime, nullable=False)
+    used_at     = Column(DateTime, nullable=True)
+    created_at  = Column(DateTime, default=datetime.utcnow)
+
+    employee    = relationship("Employee")

@@ -32,6 +32,7 @@ services:
       SECRET_KEY: tmsiti-crm-super-secret-key-2026-production
       TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN}
       TELEGRAM_CHAT_ID: ${TELEGRAM_CHAT_ID}
+      BOT_INTERNAL_SECRET: ${BOT_INTERNAL_SECRET}
     ports:
       - "1111:8000"
     depends_on:
@@ -47,12 +48,28 @@ services:
       dockerfile: Dockerfile
       args:
         NEXT_PUBLIC_API_URL: https://tmsiti.testyarat.uz
+        NEXT_PUBLIC_TELEGRAM_BOT_USERNAME: ${TELEGRAM_BOT_USERNAME}
     container_name: crm_frontend
     restart: unless-stopped
     environment:
       NEXT_PUBLIC_API_URL: https://tmsiti.testyarat.uz
+      NEXT_PUBLIC_TELEGRAM_BOT_USERNAME: ${TELEGRAM_BOT_USERNAME}
     ports:
       - "2222:3000"
+    depends_on:
+      - backend
+
+  # ── Telegram: Hisobni bog'lash boti ────────────────────────────────────────
+  telegram_bot:
+    build:
+      context: ./telegram_bot
+      dockerfile: Dockerfile
+    container_name: crm_telegram_bot
+    restart: unless-stopped
+    environment:
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN}
+      BOT_INTERNAL_SECRET: ${BOT_INTERNAL_SECRET}
+      BACKEND_URL: http://backend:8000
     depends_on:
       - backend
 

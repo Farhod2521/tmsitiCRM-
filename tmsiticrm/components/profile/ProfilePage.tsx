@@ -5,7 +5,7 @@ import Header from "@/components/layout/Header";
 import Badge from "@/components/ui/Badge";
 import {
   Phone, Mail, Building2, Calendar, Edit3,
-  X, Save, Briefcase, Award, Star, Camera,
+  X, Save, Briefcase, Award, Star, Camera, Send, ShieldCheck, KeyRound,
 } from "lucide-react";
 import { getUser, saveAuth, getProfileExtra, saveProfileExtra } from "@/lib/auth";
 import { apiFetch } from "@/lib/api";
@@ -27,6 +27,35 @@ interface Employee {
   work_rate: number;
   department: Department | null;
   is_active: boolean;
+  telegram_id?: number | null;
+  telegram_username?: string | null;
+}
+
+const TELEGRAM_BOT_USERNAME = (process.env.NEXT_PUBLIC_TELEGRAM_BOT_USERNAME || "").replace(/^@/, "");
+
+function openTelegram(startPayload: string) {
+  if (!TELEGRAM_BOT_USERNAME) {
+    alert("Telegram bot sozlanmagan. Administratorga murojaat qiling.");
+    return;
+  }
+  window.open(`https://t.me/${TELEGRAM_BOT_USERNAME}?start=${startPayload}`, "_blank", "noopener,noreferrer");
+}
+
+async function openTelegramLink() {
+  if (!TELEGRAM_BOT_USERNAME) {
+    alert("Telegram bot sozlanmagan. Administratorga murojaat qiling.");
+    return;
+  }
+  // Oyna darhol (sinxron) ochiladi — aks holda brauzer popup-blocker
+  // await'dan keyingi window.open'ni bloklashi mumkin.
+  const win = window.open("", "_blank");
+  try {
+    const { token } = await apiFetch<{ token: string; expires_in: number }>("/employees/me/telegram-link-token", { method: "POST" });
+    if (win) win.location.href = `https://t.me/${TELEGRAM_BOT_USERNAME}?start=link_${token}`;
+  } catch {
+    win?.close();
+    alert("Havola olishda xatolik yuz berdi. Qaytadan urinib ko'ring.");
+  }
 }
 
 function getInitials(name: string): string {
@@ -290,6 +319,45 @@ export default function ProfilePage() {
                 <p className="text-xs mt-1" style={{ color: "#91929E" }}>{s.label}</p>
               </div>
             ))}
+          </div>
+
+          {/* Telefon raqam va parol — Telegram orqali tasdiqlash/tiklash */}
+          <div className="p-6" style={{ background: "#FFFFFF", boxShadow: "0px 6px 58px rgba(196,203,214,0.103611)", borderRadius: 24 }}>
+            <div className="flex items-center justify-between flex-wrap gap-3">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="w-11 h-11 flex-shrink-0 flex items-center justify-center"
+                  style={{ background: "rgba(34,158,217,0.1)", borderRadius: 14 }}>
+                  <KeyRound size={20} style={{ color: "#229ED9" }} />
+                </div>
+                <div className="min-w-0">
+                  <h3 className="font-bold text-base" style={{ color: "#0A1629" }}>Telefon raqam va parol</h3>
+                  {emp.telegram_id ? (
+                    <p className="text-xs mt-0.5 flex items-center gap-1" style={{ color: "#00C48C" }}>
+                      <ShieldCheck size={12} />
+                      Telegram orqali bog'langan{emp.telegram_username ? ` (@${emp.telegram_username})` : ""}
+                    </p>
+                  ) : (
+                    <p className="text-xs mt-0.5" style={{ color: "#91929E" }}>Hali Telegram bilan bog'lanmagan</p>
+                  )}
+                </div>
+              </div>
+
+              {emp.telegram_id ? (
+                <button onClick={() => openTelegram("reset")}
+                  className="flex items-center gap-2 px-4 py-2.5 text-sm font-bold text-white flex-shrink-0 hover:opacity-90 transition-opacity"
+                  style={{ background: "#229ED9", borderRadius: 12 }}>
+                  <Send size={15} />
+                  Parolni o'zgartirish
+                </button>
+              ) : (
+                <button onClick={() => openTelegramLink()}
+                  className="flex items-center gap-2 px-4 py-2.5 text-sm font-bold text-white flex-shrink-0 hover:opacity-90 transition-opacity"
+                  style={{ background: "#229ED9", borderRadius: 12 }}>
+                  <Send size={15} />
+                  Telefon va parolni tasdiqlash
+                </button>
+              )}
+            </div>
           </div>
 
           {/* Additional info */}

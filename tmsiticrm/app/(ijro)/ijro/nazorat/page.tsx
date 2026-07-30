@@ -1,0 +1,1348 @@
+"use client";
+
+import { useState, useEffect, useCallback } from "react";
+import {
+  Search, Bell, Settings, Eye, ArrowRight, Filter,
+  ChevronDown, Clock, CheckCircle2, AlertTriangle, AlertCircle,
+  FileText, Calendar, Upload, LayoutDashboard, List,
+  X, Loader2, Plus, CloudUpload, RefreshCw,
+  Send, ChevronLeft, ChevronRight, Pencil, Trash2,
+  Crown, Scale, Wallet, Settings2, BookOpen, Globe, Award,
+  ShieldCheck, Zap, FlaskConical, GraduationCap, Megaphone,
+  ClipboardCheck, Calculator, Monitor, MapPinned, ShieldAlert,
+  PenTool, Wrench, Layers, Briefcase, Building2, Users,
+} from "lucide-react";
+import { getUser } from "@/lib/auth";
+import { apiFetch } from "@/lib/api";
+
+// ─── Types ───────────────────────────────────────────────────────────────────
+
+type DocHolati = "jarayonda" | "bajarildi" | "muddati_yaqin" | "kechikmoqda" | "bolimga_yonaltirildi";
+type DocManba  = "pq_pf" | "vm" | "qv" | "direktor";
+type DocTur    = "kiruvchi" | "chiquvchi" | "ichki";
+
+interface BolimInfo { id: number; name: string; holati: string; }
+
+interface IjroDoc {
+  id: number;
+  tur: DocTur;
+  manba: DocManba;
+  hujjat_raqami: string | null;
+  hujjat_sanasi: string | null;
+  sarlavha: string | null;
+  mazmun: string | null;
+  masul_orinbosar_id: number | null;
+  masul_orinbosar_nomi: string | null;
+  masul_bolimlar: string | null;
+  masul_bolimlar_nomi: string | null;
+  masul_bolimlar_info: string | null;
+  ijro_muddati: string | null;
+  davriyligi: string;
+  kelishuvchi_tashkilotlar: string | null;
+  fayl_name: string | null;
+  holati: DocHolati;
+  qayta_sabab: string | null;
+  created_at: string | null;
+}
+
+interface Department { id: number; name: string; dept_type: string; }
+interface Employee   { id: number; full_name: string; role: string; position: string; }
+
+type BolimHolati = "yuborildi" | "qabul_qilindi" | "rad_etildi" | "bajarilmoqda" | "bajarildi";
+
+interface DocBolimRow {
+  id: number;
+  bolim_id: number;
+  bolim_nomi: string | null;
+  holati: BolimHolati;
+  izoh: string | null;
+  assigned_at: string | null;
+  qaror_at: string | null;
+  qaror_by_nomi: string | null;
+}
+
+interface IjroTracking {
+  doc: IjroDoc;
+  bolimlar: DocBolimRow[];
+}
+
+// ─── Constants ────────────────────────────────────────────────────────────────
+
+const MANBA_LABELS: Record<DocManba, string> = {
+  pq_pf: "Prezident Hujjatlari",
+  vm:    "Vazirlar Mahkamasi",
+  qv:    "Vazirlik (QV)",
+  direktor: "Institut direktori",
+};
+
+const HOLATI_CFG: Record<DocHolati, { label: string; color: string; bg: string }> = {
+  jarayonda:            { label: "Jarayonda",         color: "#3F8CFF", bg: "rgba(63,140,255,0.12)"  },
+  bajarildi:            { label: "Bajarildi",         color: "#00C48C", bg: "rgba(0,196,140,0.12)"   },
+  muddati_yaqin:        { label: "Muddati yaqin",     color: "#FFBD21", bg: "rgba(255,189,33,0.12)"  },
+  kechikmoqda:          { label: "Kechikmoqda",       color: "#FF5C5C", bg: "rgba(255,92,92,0.12)"   },
+  bolimga_yonaltirildi: { label: "Bo'limga yo'naltirildi", color: "#6D5DD3", bg: "rgba(109,93,211,0.12)" },
+};
+
+const TASHKILOTLAR = [
+  "Iqtisodiyot va moliya vazirligi",
+  "Adliya vazirligi",
+  "Raqamli texnologiyalar vazirligi",
+  "Qurilish va uy-joy kommunal xo'jaligi vazirligi",
+];
+
+// Bo'lim nomidagi kalit so'zga qarab eng mos ikonani tanlaydi — barchasi bitta
+// (ko'k) rangda chiziladi, faqat shakli bo'lim mavzusiga mos bo'ladi.
+function deptIcon(name: string, deptType: string) {
+  const n = name.toLowerCase();
+  if (n.includes("rahbariyat"))                                    return Crown;
+  if (n.includes("yuridik"))                                        return Scale;
+  if (n.includes("buxgalteriya") || n.includes("moliya"))           return Wallet;
+  if (n.includes("inson resurs"))                                   return Users;
+  if (n.includes("me'yorlash") || n.includes("meyorlash"))          return Settings2;
+  if (n.includes("tizimlashtirish") || n.includes("atamalar"))      return BookOpen;
+  if (n.includes("xalqaro norma"))                                  return Globe;
+  if (n.includes("standart"))                                       return Award;
+  if (n.includes("muvofiqlik"))                                     return ShieldCheck;
+  if (n.includes("energo"))                                         return Zap;
+  if (n.includes("ilmiy") || n.includes("innovatsi"))                return FlaskConical;
+  if (n.includes("ta'lim") || n.includes("talim"))                   return GraduationCap;
+  if (n.includes("marketing") || n.includes("xalqaro aloqa"))        return Megaphone;
+  if (n.includes("ijro nazorati"))                                  return ClipboardCheck;
+  if (n.includes("narxlarni shakllantirish"))                       return Calculator;
+  if (n.includes("axborot texnologiya"))                            return Monitor;
+  if (n.includes("raqamli texnologiya") || n.includes("shaharsozlik")) return MapPinned;
+  if (n.includes("komplaens"))                                      return ShieldAlert;
+  if (n.includes("loyihalashtirish"))                                return PenTool;
+  if (n.includes("texnik va xizmat"))                                return Wrench;
+  if (deptType === "rahbariyat") return Crown;
+  if (deptType === "boshqarma")  return Layers;
+  if (deptType === "xizmat")     return Briefcase;
+  return Building2;
+}
+
+interface DeptTaskStat { dept: Department; total: number; kamQoldi: number; vaqtiBor: number; bajarildi: number; urgent1: number; within5: number; }
+
+// Shu bo'limga hozir biriktirilgan (rad etilmagan) hujjatlar ro'yxati.
+function assignedDocs(dept: Department, docs: IjroDoc[]): IjroDoc[] {
+  return docs.filter(d => {
+    if (!d.masul_bolimlar_info) return false;
+    try {
+      const info: BolimInfo[] = JSON.parse(d.masul_bolimlar_info);
+      return info.some(b => b.id === dept.id && b.holati !== "rad_etildi");
+    } catch { return false; }
+  });
+}
+
+function daysUntil(dateStr: string | null): number | null {
+  if (!dateStr) return null;
+  return Math.ceil((new Date(dateStr).getTime() - Date.now()) / 86400000);
+}
+
+// Har bir bo'limga biriktirilgan hujjatlar bo'yicha statistika.
+function computeDeptStats(depts: Department[], docs: IjroDoc[]): DeptTaskStat[] {
+  return depts.map(dept => {
+    const assigned = assignedDocs(dept, docs);
+    const active   = assigned.filter(d => d.holati !== "bajarildi");
+    return {
+      dept,
+      total:     assigned.length,
+      kamQoldi:  assigned.filter(d => d.holati === "muddati_yaqin" || d.holati === "kechikmoqda").length,
+      vaqtiBor:  assigned.filter(d => d.holati === "jarayonda" || d.holati === "bolimga_yonaltirildi").length,
+      bajarildi: assigned.filter(d => d.holati === "bajarildi").length,
+      // Muddatiga 1 kun yoki kamroq qolgan (yoki o'tib ketgan) topshiriqlar soni
+      urgent1:   active.filter(d => { const dd = daysUntil(d.ijro_muddati); return dd !== null && dd <= 1; }).length,
+      // Muddatiga 5 kundan kam qolgan topshiriqlar soni
+      within5:   active.filter(d => { const dd = daysUntil(d.ijro_muddati); return dd !== null && dd < 5; }).length,
+    };
+  });
+}
+
+// Shoshilinchlik darajasiga qarab tortburchak fon/chegara rangi.
+function tileColors(urgent1: number, within5: number): { bg: string; border: string } {
+  if (urgent1 > 3)  return { bg: "#FFD6D6", border: "#FF9B9B" };   // to'qroq qizil
+  if (urgent1 >= 1) return { bg: "#FFEFEF", border: "#FFCACA" };   // ochiq qizil
+  if (within5 > 0)  return { bg: "#FFF7E0", border: "#FFE4A3" };   // ochiq sariq
+  return { bg: "#FFFFFF", border: "#EEF2FF" };
+}
+
+// ─── Bo'limlar Metro grid ──────────────────────────────────────────────────────
+
+function MetroTile({ dept, total, kamQoldi, vaqtiBor, urgent1, within5, onClick }: {
+  dept: Department; total: number; kamQoldi: number; vaqtiBor: number; urgent1: number; within5: number; onClick: () => void;
+}) {
+  const Icon = deptIcon(dept.name, dept.dept_type);
+  const { bg, border } = tileColors(urgent1, within5);
+
+  return (
+    <button onClick={onClick}
+      className="group flex flex-col p-3.5 border-[1.5px] hover:ring-2 hover:ring-[#3F8CFF] hover:shadow-[0_4px_16px_rgba(63,140,255,0.15)] transition-all duration-150 rounded-[10px] text-left"
+      style={{ aspectRatio: "1 / 1", background: bg, borderColor: border }}>
+
+      {/* Top: icon + jami badge */}
+      <div className="flex items-start justify-between flex-shrink-0">
+        <div className="w-8 h-8 flex-shrink-0 flex items-center justify-center rounded-[9px]"
+          style={{ background: "rgba(63,140,255,0.1)" }}>
+          <Icon size={16} style={{ color: "#3F8CFF" }} />
+        </div>
+        {total > 0 && (
+          <span className="text-xs font-bold px-2 py-0.5 text-white flex-shrink-0" style={{ background: "#0A1629", borderRadius: 999 }}>
+            {total}
+          </span>
+        )}
+      </div>
+
+      {/* Nomi — ikonadan darhol keyin, o'rtada bo'sh joy qolmasligi uchun */}
+      <div className="mt-2.5 flex-1 min-h-0">
+        <p className="font-bold leading-snug text-[12px]"
+          style={{
+            color: "#0A1629",
+            display: "-webkit-box",
+            WebkitLineClamp: 3,
+            WebkitBoxOrient: "vertical",
+            overflow: "hidden",
+          }}>
+          {dept.name}
+        </p>
+      </div>
+
+      {/* Statistika — pastga yopishtiriladi */}
+      <div className="flex items-center gap-2.5 pt-2 mt-auto flex-shrink-0 flex-nowrap overflow-hidden"
+        style={{ borderTop: "1px solid rgba(10,22,41,0.06)" }}>
+        <span className="flex items-center gap-1 text-[11px] font-bold whitespace-nowrap" style={{ color: kamQoldi > 0 ? "#FF5C5C" : "#D0D9E8" }}>
+          <AlertTriangle size={11} className="flex-shrink-0" /> {kamQoldi}
+        </span>
+        <span className="flex items-center gap-1 text-[11px] font-bold whitespace-nowrap" style={{ color: vaqtiBor > 0 ? "#00C48C" : "#D0D9E8" }}>
+          <Clock size={11} className="flex-shrink-0" /> {vaqtiBor}
+        </span>
+      </div>
+    </button>
+  );
+}
+
+// ─── Bo'limga biriktirilgan topshiriqlar modali ───────────────────────────────
+
+function DeptTasksModal({ dept, docs, depts, onClose }: { dept: Department; docs: IjroDoc[]; depts: Department[]; onClose: () => void }) {
+  const tasks = assignedDocs(dept, docs);
+  const [trackingDocId, setTrackingDocId] = useState<number | null>(null);
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      style={{ background: "rgba(10,22,41,0.5)", backdropFilter: "blur(3px)" }}
+      onClick={onClose}>
+      <div className="w-full max-w-2xl max-h-[85vh] flex flex-col"
+        style={{ background: "#FFFFFF", borderRadius: 20, boxShadow: "0 20px 60px rgba(10,22,41,0.25)" }}
+        onClick={e => e.stopPropagation()}>
+
+        <div className="flex items-center justify-between px-6 py-4 flex-shrink-0" style={{ borderBottom: "1px solid #F4F9FD" }}>
+          <div>
+            <h2 className="font-bold text-lg" style={{ color: "#0A1629" }}>{dept.name}</h2>
+            <p className="text-xs mt-0.5" style={{ color: "#91929E" }}>{tasks.length} ta biriktirilgan topshiriq</p>
+          </div>
+          <button onClick={onClose} className="w-9 h-9 flex items-center justify-center hover:opacity-70"
+            style={{ background: "#F4F9FD", borderRadius: 10 }}>
+            <X size={16} style={{ color: "#7D8592" }} />
+          </button>
+        </div>
+
+        <div className="flex-1 overflow-y-auto px-6 py-5">
+          {tasks.length === 0 ? (
+            <div className="text-center py-12" style={{ background: "#F4F9FD", borderRadius: 12 }}>
+              <FileText size={28} className="mx-auto mb-2" style={{ color: "#D0D9E8" }} />
+              <p className="text-sm" style={{ color: "#91929E" }}>Bu bo'limga hech qanday topshiriq biriktirilmagan</p>
+            </div>
+          ) : (
+            <div className="flex flex-col gap-3">
+              {tasks.map(d => {
+                const dl  = daysLeft(d.ijro_muddati);
+                const cfg = HOLATI_CFG[d.holati];
+                return (
+                  <button key={d.id} onClick={() => setTrackingDocId(d.id)}
+                    className="text-left p-4 hover:opacity-80 transition-opacity"
+                    style={{ background: "#F4F9FD", borderRadius: 12 }}>
+                    <div className="flex items-center justify-between gap-2 mb-1.5 flex-wrap">
+                      <span className="font-bold text-sm" style={{ color: "#3F8CFF" }}>№ {d.hujjat_raqami || `DOC-${d.id}`}</span>
+                      <span className="text-xs font-bold px-2 py-1" style={{ background: cfg.bg, color: cfg.color, borderRadius: 8 }}>
+                        {cfg.label}
+                      </span>
+                    </div>
+                    <p className="text-sm font-bold" style={{ color: "#0A1629" }}>{d.mazmun || d.sarlavha || "—"}</p>
+                    <div className="flex items-center gap-1 mt-2 text-xs font-bold" style={{ color: dl.color }}>
+                      <Clock size={11} /> {dl.text}
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {trackingDocId && (
+        <div onClick={e => e.stopPropagation()}>
+          <IjroTrackingModal
+            docId={trackingDocId}
+            depts={depts}
+            onClose={() => setTrackingDocId(null)}
+          />
+        </div>
+      )}
+    </div>
+  );
+}
+
+function BolimlarMetroGrid({ depts, docs }: { depts: Department[]; docs: IjroDoc[] }) {
+  const stats = computeDeptStats(depts, docs);
+  const [selectedDept, setSelectedDept] = useState<Department | null>(null);
+
+  if (depts.length === 0) return null;
+
+  return (
+    <div style={{ background: "#FFFFFF", borderRadius: 20, boxShadow: "0 4px 24px rgba(196,203,214,0.15)" }}>
+      <div className="flex items-center justify-between px-6 py-5" style={{ borderBottom: "1px solid #F4F9FD" }}>
+        <h2 className="font-bold text-lg" style={{ color: "#0A1629" }}>Bo'limlar bo'yicha topshiriqlar</h2>
+        <span className="text-xs font-bold px-2.5 py-1" style={{ background: "rgba(63,140,255,0.1)", color: "#3F8CFF", borderRadius: 8 }}>
+          {depts.length} ta bo'lim
+        </span>
+      </div>
+      {/* Bir xil o'lchamdagi katakchalar — 20 ta bo'lim ~3 qatorga (7 ustun) sig'adi */}
+      <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-7 gap-3 p-5">
+        {stats.map(s => (
+          <MetroTile key={s.dept.id} dept={s.dept} total={s.total} kamQoldi={s.kamQoldi} vaqtiBor={s.vaqtiBor}
+            urgent1={s.urgent1} within5={s.within5} onClick={() => setSelectedDept(s.dept)} />
+        ))}
+      </div>
+
+      {selectedDept && (
+        <DeptTasksModal dept={selectedDept} docs={docs} depts={depts} onClose={() => setSelectedDept(null)} />
+      )}
+    </div>
+  );
+}
+
+function daysLeft(dateStr: string | null): { text: string; color: string } {
+  if (!dateStr) return { text: "—", color: "#91929E" };
+  const diff = Math.ceil((new Date(dateStr).getTime() - Date.now()) / 86400000);
+  if (diff < 0)  return { text: `${Math.abs(diff)} kun o'tgan`, color: "#FF5C5C" };
+  if (diff === 0) return { text: "Bugun",            color: "#FF5C5C" };
+  if (diff <= 3)  return { text: `${diff} kun qoldi`, color: "#FFBD21" };
+  return           { text: `${diff} kun qoldi`,      color: "#00C48C" };
+}
+
+// ─── Small components ─────────────────────────────────────────────────────────
+
+function HolatiChip({ h }: { h: DocHolati }) {
+  const c = HOLATI_CFG[h];
+  return (
+    <span className="inline-flex items-center px-2.5 py-1 text-xs font-bold whitespace-nowrap"
+      style={{ background: c.bg, color: c.color, borderRadius: 8 }}>
+      {c.label}
+    </span>
+  );
+}
+
+// ─── Modal: Yangi hujjat ─────────────────────────────────────────────────────
+
+function YangiHujjatModal({ depts, onClose, onSaved, editDoc }:
+  { depts: Department[]; onClose: () => void; onSaved: () => void; editDoc?: IjroDoc }) {
+
+  const isEdit = !!editDoc;
+
+  const [saving, setSaving] = useState(false);
+  const [fileB64, setFileB64] = useState<string | null>(null);
+  const [fileName, setFileName] = useState<string | null>(editDoc?.fayl_name ?? null);
+  const [orinbosarlar, setOrinbosarlar] = useState<Employee[]>([]);
+  const [masulBolimlar, setMasulBolimlar] = useState<number[]>(() => {
+    if (!editDoc?.masul_bolimlar) return [];
+    try { return JSON.parse(editDoc.masul_bolimlar); } catch { return []; }
+  });
+  const [kelishuvchi, setKelishuvchi] = useState<string[]>(() =>
+    editDoc?.kelishuvchi_tashkilotlar ? editDoc.kelishuvchi_tashkilotlar.split(", ").filter(Boolean) : []
+  );
+
+  const [form, setForm] = useState({
+    tur:             (editDoc?.tur ?? "kiruvchi") as DocTur,
+    manba:           (editDoc?.manba ?? "") as DocManba | "",
+    hujjat_raqami:   editDoc?.hujjat_raqami   ?? "",
+    hujjat_sanasi:   editDoc?.hujjat_sanasi   ?? "",
+    sarlavha:        editDoc?.sarlavha         ?? "",
+    mazmun:          editDoc?.mazmun           ?? "",
+    masul_orinbosar_id: editDoc?.masul_orinbosar_id ?? null as number | null,
+    ijro_muddati:    editDoc?.ijro_muddati ? editDoc.ijro_muddati.replace("Z","").slice(0,16) : "",
+    davriyligi:      editDoc?.davriyligi   ?? "bir_martalik",
+  });
+
+  useEffect(() => {
+    apiFetch<Employee[]>("/employees")
+      .then(list => setOrinbosarlar(list.filter(e => e.role === "zamdirektor")))
+      .catch(() => {});
+  }, []);
+
+  function setF(k: string, v: unknown) { setForm(p => ({ ...p, [k]: v })); }
+
+  function toggleBolim(id: number) {
+    setMasulBolimlar(p => p.includes(id) ? p.filter(x => x !== id) : [...p, id]);
+  }
+  function toggleTashkilot(t: string) {
+    setKelishuvchi(p => p.includes(t) ? p.filter(x => x !== t) : [...p, t]);
+  }
+
+  function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setFileName(file.name);
+    const reader = new FileReader();
+    reader.onload = ev => setFileB64(ev.target?.result as string);
+    reader.readAsDataURL(file);
+  }
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!form.manba) return;
+    setSaving(true);
+    const payload = {
+      ...form,
+      manba:                    form.manba,
+      ijro_muddati:             form.ijro_muddati || null,
+      hujjat_sanasi:            form.hujjat_sanasi || null,
+      masul_bolimlar:           masulBolimlar.length ? JSON.stringify(masulBolimlar) : null,
+      kelishuvchi_tashkilotlar: kelishuvchi.length ? kelishuvchi.join(", ") : null,
+      fayl_name:                fileName,
+      fayl_b64:                 fileB64,
+    };
+    try {
+      if (isEdit) {
+        await apiFetch(`/ijro-docs/${editDoc!.id}`, { method: "PATCH", body: JSON.stringify(payload) });
+      } else {
+        await apiFetch("/ijro-docs/", { method: "POST", body: JSON.stringify(payload) });
+      }
+      onSaved();
+      onClose();
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Xatolik");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      style={{ background: "rgba(10,22,41,0.5)", backdropFilter: "blur(3px)" }}
+      onClick={onClose}>
+      <div className="w-full max-w-3xl max-h-[90vh] flex flex-col"
+        style={{ background: "#FFFFFF", borderRadius: 20, boxShadow: "0 20px 60px rgba(10,22,41,0.25)" }}
+        onClick={e => e.stopPropagation()}>
+
+        {/* Header */}
+        <div className="flex items-center justify-between px-6 py-4 flex-shrink-0"
+          style={{ borderBottom: "1px solid #F4F9FD" }}>
+          <h2 className="font-bold text-lg" style={{ color: "#0A1629" }}>{isEdit ? "Hujjatni tahrirlash" : "Yangi hujjatni ro'yxatga olish"}</h2>
+          <button onClick={onClose} className="w-9 h-9 flex items-center justify-center hover:opacity-70"
+            style={{ background: "#F4F9FD", borderRadius: 10 }}>
+            <X size={16} style={{ color: "#7D8592" }} />
+          </button>
+        </div>
+
+        {/* Body */}
+        <div className="flex-1 overflow-y-auto px-6 py-5">
+          <form id="doc-form" onSubmit={handleSubmit} className="flex flex-col gap-5">
+
+            {/* Hujjat turi (Kiruvchi/Chiquvchi/Ichki) */}
+            <div>
+              <p className="text-xs font-bold mb-2" style={{ color: "#91929E" }}>Hujjat turi</p>
+              <div className="flex gap-3 flex-wrap">
+                {([["kiruvchi","Kiruvchi"],["chiquvchi","Chiquvchi"],["ichki","Ichki"]] as const).map(([v, label]) => (
+                  <label key={v} className="flex items-center gap-2 cursor-pointer">
+                    <input type="radio" name="tur" value={v} checked={form.tur === v}
+                      onChange={() => setF("tur", v)} className="accent-[#3F8CFF]" />
+                    <span className="text-sm font-bold" style={{ color: form.tur === v ? "#3F8CFF" : "#7D8592" }}>{label}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+
+            {/* Hujjat manbasi */}
+            <div>
+              <label className="text-xs font-bold mb-2 block" style={{ color: "#91929E" }}>Hujjat manbasi *</label>
+              <div className="relative">
+                <select required value={form.manba} onChange={e => setF("manba", e.target.value)}
+                  className="w-full appearance-none px-4 py-3 text-sm font-bold outline-none"
+                  style={{ background: "#F4F9FD", borderRadius: 12, border: "1.5px solid #EEF2FF", color: form.manba ? "#0A1629" : "#91929E" }}>
+                  <option value="">Manbani tanlang...</option>
+                  <option value="pq_pf">Prezident Hujjatlari (PQ/PF)</option>
+                  <option value="vm">Vazirlar Mahkamasi (VM)</option>
+                  <option value="qv">Vazirlik (QV)</option>
+                  <option value="direktor">Institut direktori</option>
+                </select>
+                <ChevronDown size={15} className="absolute right-3 top-3.5 pointer-events-none" style={{ color: "#91929E" }} />
+              </div>
+            </div>
+
+            {/* Hujjat raqami + sanasi */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="text-xs font-bold mb-2 block" style={{ color: "#91929E" }}>Hujjat raqami</label>
+                <input value={form.hujjat_raqami} onChange={e => setF("hujjat_raqami", e.target.value)}
+                  placeholder="Masalan: 01-12/345" className="w-full px-4 py-3 text-sm font-bold outline-none"
+                  style={{ background: "#F4F9FD", borderRadius: 12, border: "1.5px solid #EEF2FF", color: "#0A1629" }} />
+              </div>
+              <div>
+                <label className="text-xs font-bold mb-2 block" style={{ color: "#91929E" }}>Hujjat sanasi</label>
+                <input type="date" value={form.hujjat_sanasi} onChange={e => setF("hujjat_sanasi", e.target.value)}
+                  className="w-full px-4 py-3 text-sm font-bold outline-none"
+                  style={{ background: "#F4F9FD", borderRadius: 12, border: "1.5px solid #EEF2FF", color: "#0A1629" }} />
+              </div>
+            </div>
+
+            {/* Sarlavha */}
+            <div>
+              <label className="text-xs font-bold mb-2 block" style={{ color: "#91929E" }}>Hujjat sarlavhasi</label>
+              <input value={form.sarlavha} onChange={e => setF("sarlavha", e.target.value)}
+                placeholder="Hujjatning qisqacha mazmuni yoki sarlavhasi"
+                className="w-full px-4 py-3 text-sm font-bold outline-none"
+                style={{ background: "#F4F9FD", borderRadius: 12, border: "1.5px solid #EEF2FF", color: "#0A1629" }} />
+            </div>
+
+            {/* Topshiriq mazmuni */}
+            <div>
+              <label className="text-xs font-bold mb-2 block" style={{ color: "#91929E" }}>Topshiriq mazmuni</label>
+              <textarea value={form.mazmun} onChange={e => setF("mazmun", e.target.value)}
+                placeholder="Bajarilishi kerak bo'lgan vazifalar va ko'rsatmalarni batafsil yozing..."
+                rows={4} className="w-full px-4 py-3 text-sm font-bold outline-none resize-y"
+                style={{ background: "#F4F9FD", borderRadius: 12, border: "1.5px solid #EEF2FF", color: "#0A1629" }} />
+            </div>
+
+            {/* Ijrochi (mas'ul direktor o'rinbosari) */}
+            <div>
+              <label className="text-xs font-bold mb-2 block" style={{ color: "#91929E" }}>Ijrochi</label>
+              <div className="relative">
+                <select
+                  value={form.masul_orinbosar_id ?? ""}
+                  onChange={e => setF("masul_orinbosar_id", e.target.value ? Number(e.target.value) : null)}
+                  className="w-full appearance-none px-4 py-3 text-sm font-bold outline-none"
+                  style={{ background: "#F4F9FD", borderRadius: 12, border: "1.5px solid #EEF2FF", color: form.masul_orinbosar_id ? "#0A1629" : "#91929E" }}>
+                  <option value="">Tanlanmagan</option>
+                  {orinbosarlar.map(e => (
+                    <option key={e.id} value={e.id}>{e.full_name}{e.position ? ` (${e.position})` : ""}</option>
+                  ))}
+                </select>
+                <ChevronDown size={15} className="absolute right-3 top-3.5 pointer-events-none" style={{ color: "#91929E" }} />
+              </div>
+            </div>
+
+            {/* Mas'ul bo'lim (multi-select checkboxes) */}
+            <div>
+              <label className="text-xs font-bold mb-2 block" style={{ color: "#91929E" }}>Mas'ul bo'lim</label>
+              <div className="p-3 max-h-40 overflow-y-auto flex flex-col gap-2"
+                style={{ background: "#F4F9FD", borderRadius: 12, border: "1.5px solid #EEF2FF" }}>
+                {depts.map(d => (
+                  <label key={d.id} className="flex items-center gap-2 cursor-pointer">
+                    <input type="checkbox" checked={masulBolimlar.includes(d.id)}
+                      onChange={() => toggleBolim(d.id)} className="accent-[#3F8CFF] w-4 h-4" />
+                    <span className="text-sm" style={{ color: "#0A1629" }}>{d.name}</span>
+                  </label>
+                ))}
+                {depts.length === 0 && <p className="text-xs" style={{ color: "#91929E" }}>Bo'limlar yuklanmoqda...</p>}
+              </div>
+            </div>
+
+            {/* Ijro muddati */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="text-xs font-bold mb-2 block" style={{ color: "#91929E" }}>Yakuniy ijro muddati</label>
+                <input type="datetime-local" value={form.ijro_muddati} onChange={e => setF("ijro_muddati", e.target.value)}
+                  className="w-full px-4 py-3 text-sm font-bold outline-none"
+                  style={{ background: "#F4F9FD", borderRadius: 12, border: "1.5px solid #EEF2FF", color: "#0A1629" }} />
+              </div>
+              <div>
+                <label className="text-xs font-bold mb-2 block" style={{ color: "#91929E" }}>Topshiriq davriyligi</label>
+                <div className="flex flex-col gap-2 pt-1">
+                  {([["bir_martalik","Bir martalik"],["har_chorakda","Har chorakda"],["har_yili","Har yili"]] as const).map(([v, label]) => (
+                    <label key={v} className="flex items-center gap-2 cursor-pointer">
+                      <input type="radio" name="davriyligi" value={v} checked={form.davriyligi === v}
+                        onChange={() => setF("davriyligi", v)} className="accent-[#3F8CFF]" />
+                      <span className="text-sm" style={{ color: "#0A1629" }}>{label}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* Kelishuvchi tashkilotlar */}
+            <div>
+              <label className="text-xs font-bold mb-2 block" style={{ color: "#91929E" }}>Kelishuvchi tashkilotlar</label>
+              <div className="p-3 flex flex-col gap-2"
+                style={{ background: "#F4F9FD", borderRadius: 12, border: "1.5px solid #EEF2FF" }}>
+                {TASHKILOTLAR.map(t => (
+                  <label key={t} className="flex items-center gap-2 cursor-pointer">
+                    <input type="checkbox" checked={kelishuvchi.includes(t)}
+                      onChange={() => toggleTashkilot(t)} className="accent-[#3F8CFF] w-4 h-4" />
+                    <span className="text-sm" style={{ color: "#0A1629" }}>{t}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+
+            {/* Fayl yuklash */}
+            <div>
+              <label className="text-xs font-bold mb-2 block" style={{ color: "#91929E" }}>Fayllarni biriktirish</label>
+              <label className="flex flex-col items-center justify-center gap-3 py-8 cursor-pointer hover:opacity-80 transition-opacity"
+                style={{ border: "2px dashed #D0D9E8", borderRadius: 14, background: "#FAFCFF" }}>
+                <div className="w-12 h-12 flex items-center justify-center"
+                  style={{ background: "rgba(0,196,140,0.1)", borderRadius: 12 }}>
+                  <CloudUpload size={22} style={{ color: "#3F8CFF" }} />
+                </div>
+                {fileName
+                  ? <p className="text-sm font-bold" style={{ color: "#00C48C" }}>{fileName}</p>
+                  : <>
+                    <p className="text-sm font-bold" style={{ color: "#0A1629" }}>Faylni tanlang yoki shu yerga tashlang</p>
+                    <p className="text-xs" style={{ color: "#91929E" }}>PDF, DOCX, ZIP (Maks. 20MB)</p>
+                  </>
+                }
+                <input type="file" accept=".pdf,.docx,.zip" className="hidden" onChange={handleFile} />
+              </label>
+            </div>
+
+          </form>
+        </div>
+
+        {/* Footer */}
+        <div className="flex items-center justify-end gap-3 px-6 py-4 flex-shrink-0"
+          style={{ borderTop: "1px solid #F4F9FD" }}>
+          <button type="button" onClick={onClose}
+            className="px-5 py-2.5 text-sm font-bold"
+            style={{ background: "#F4F9FD", borderRadius: 12, color: "#7D8592" }}>
+            Bekor qilish
+          </button>
+          <button type="submit" form="doc-form" disabled={saving}
+            className="flex items-center gap-2 px-5 py-2.5 text-sm font-bold text-white disabled:opacity-50"
+            style={{ background: "#3F8CFF", borderRadius: 12, boxShadow: "0 4px 12px rgba(63,140,255,0.3)" }}>
+            {saving ? <Loader2 size={15} className="animate-spin" /> : isEdit ? <Pencil size={15}/> : <Send size={15} />}
+            {isEdit ? "Saqlash" : "Topshiriqni yaratish"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Kuzatuv modal (Ijro uchun) ──────────────────────────────────────────────
+
+const BOLIM_H_CFG: Record<BolimHolati, { label: string; color: string; bg: string }> = {
+  yuborildi:     { label: "Yuborildi",     color: "#3F8CFF", bg: "rgba(63,140,255,0.1)"  },
+  qabul_qilindi: { label: "Qabul qilindi", color: "#00C48C", bg: "rgba(0,196,140,0.1)"   },
+  rad_etildi:    { label: "Rad etildi",    color: "#FF5C5C", bg: "rgba(255,92,92,0.1)"   },
+  bajarilmoqda:  { label: "Bajarilmoqda",  color: "#FFBD21", bg: "rgba(255,189,33,0.1)"  },
+  bajarildi:     { label: "Bajarildi",     color: "#00C48C", bg: "rgba(0,196,140,0.1)"   },
+};
+
+function fmtDt(d: string | null) {
+  if (!d) return "—";
+  return new Date(d).toLocaleDateString("uz-UZ", { day: "2-digit", month: "2-digit", year: "numeric" });
+}
+
+function IjroTrackingModal({ docId, depts, onClose }: {
+  docId: number;
+  depts: Department[];
+  onClose: () => void;
+}) {
+  const [tracking, setTracking] = useState<IjroTracking | null>(null);
+  const [loading,  setLoading]  = useState(true);
+  const [selBolim, setSelBolim] = useState<number | "">("");
+  const [adding,   setAdding]   = useState(false);
+
+  const load = () => {
+    setLoading(true);
+    apiFetch<IjroTracking>(`/ijro-docs/${docId}/tracking`)
+      .then(setTracking)
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  };
+
+  useEffect(() => { load(); }, []); // eslint-disable-line
+
+  async function handleAddBolim() {
+    if (!selBolim) return;
+    setAdding(true);
+    try {
+      const res = await apiFetch<IjroTracking>(`/ijro-docs/${docId}/add-bolim`, {
+        method: "POST",
+        body: JSON.stringify({ bolim_id: selBolim }),
+      });
+      setTracking(res);
+      setSelBolim("");
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Xatolik");
+    } finally {
+      setAdding(false);
+    }
+  }
+
+  const assignedIds = tracking?.bolimlar.map(b => b.bolim_id) ?? [];
+  const availableDepts = depts.filter(d => !assignedIds.includes(d.id));
+  const rejectedDepts  = tracking?.bolimlar.filter(b => b.holati === "rad_etildi") ?? [];
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      style={{ background: "rgba(10,22,41,0.55)", backdropFilter: "blur(3px)" }}
+      onClick={onClose}>
+      <div className="w-full max-w-2xl max-h-[88vh] flex flex-col"
+        style={{ background: "#FFFFFF", borderRadius: 20, boxShadow: "0 20px 60px rgba(10,22,41,0.25)" }}
+        onClick={e => e.stopPropagation()}>
+
+        {/* Header */}
+        <div className="flex items-center justify-between px-6 py-4 flex-shrink-0"
+          style={{ borderBottom: "1px solid #F4F9FD" }}>
+          <div>
+            <h2 className="font-bold text-base" style={{ color: "#0A1629" }}>Hujjat kuzatuvi</h2>
+            {tracking && (
+              <p className="text-xs mt-0.5" style={{ color: "#91929E" }}>
+                {tracking.doc.sarlavha || `№ ${tracking.doc.hujjat_raqami || docId}`}
+              </p>
+            )}
+          </div>
+          <button onClick={onClose} className="w-9 h-9 flex items-center justify-center hover:opacity-70"
+            style={{ background: "#F4F9FD", borderRadius: 10 }}>
+            <X size={16} style={{ color: "#7D8592" }} />
+          </button>
+        </div>
+
+        {/* Body */}
+        <div className="flex-1 overflow-y-auto px-6 py-5 flex flex-col gap-5">
+          {loading ? (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 size={28} className="animate-spin" style={{ color: "#3F8CFF" }} />
+            </div>
+          ) : !tracking ? (
+            <p className="text-sm text-center py-8" style={{ color: "#91929E" }}>Ma'lumot yuklanmadi</p>
+          ) : (
+            <>
+              {/* Bo'limlar holati */}
+              <div>
+                <p className="text-xs font-bold mb-3 uppercase tracking-wide" style={{ color: "#91929E" }}>
+                  Bo'limlar bo'yicha holat ({tracking.bolimlar.length} ta)
+                </p>
+                {tracking.bolimlar.length === 0 ? (
+                  <p className="text-sm" style={{ color: "#91929E" }}>Hali hech qaysi bo'limga biriktirilmagan</p>
+                ) : (
+                  <div className="flex flex-col gap-3">
+                    {tracking.bolimlar.map(b => {
+                      const cfg = BOLIM_H_CFG[b.holati];
+                      const steps: BolimHolati[] = ["yuborildi", "qabul_qilindi", "bajarilmoqda", "bajarildi"];
+                      const stepIdx = b.holati === "rad_etildi" ? 0 : steps.indexOf(b.holati);
+                      return (
+                        <div key={b.id} className="p-4"
+                          style={{
+                            background: b.holati === "rad_etildi" ? "rgba(255,92,92,0.04)" : "#FAFCFF",
+                            borderRadius: 14,
+                            border: `1px solid ${b.holati === "rad_etildi" ? "rgba(255,92,92,0.15)" : "#F0F4FB"}`,
+                          }}>
+                          {/* Bolim name + holat badge */}
+                          <div className="flex items-center justify-between mb-3">
+                            <span className="text-sm font-bold" style={{ color: "#0A1629" }}>
+                              {b.bolim_nomi || `Bo'lim #${b.bolim_id}`}
+                            </span>
+                            <span className="text-xs font-bold px-2.5 py-1"
+                              style={{ background: cfg.bg, color: cfg.color, borderRadius: 8 }}>
+                              {cfg.label}
+                            </span>
+                          </div>
+
+                          {/* Progress steps (only for non-rejected) */}
+                          {b.holati !== "rad_etildi" && (
+                            <div className="flex items-center gap-0 mb-3">
+                              {steps.map((s, i) => {
+                                const done = i <= stepIdx;
+                                return (
+                                  <div key={s} className="flex items-center flex-1">
+                                    <div className="w-3 h-3 rounded-full flex-shrink-0"
+                                      style={{ background: done ? "#3F8CFF" : "#E0E7F0" }} />
+                                    {i < steps.length - 1 && (
+                                      <div className="flex-1 h-0.5"
+                                        style={{ background: i < stepIdx ? "#3F8CFF" : "#E0E7F0" }} />
+                                    )}
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          )}
+
+                          {/* Rad izoh */}
+                          {b.holati === "rad_etildi" && b.izoh && (
+                            <div className="mb-2 px-3 py-2"
+                              style={{ background: "rgba(255,92,92,0.07)", borderRadius: 8 }}>
+                              <p className="text-xs font-bold mb-0.5" style={{ color: "#FF5C5C" }}>Rad etish sababi:</p>
+                              <p className="text-sm" style={{ color: "#0A1629" }}>&ldquo;{b.izoh}&rdquo;</p>
+                              {b.qaror_by_nomi && (
+                                <p className="text-xs mt-1" style={{ color: "#91929E" }}>— {b.qaror_by_nomi}</p>
+                              )}
+                            </div>
+                          )}
+
+                          {/* Meta */}
+                          <div className="flex gap-4 text-xs flex-wrap" style={{ color: "#91929E" }}>
+                            <span>Yuborildi: <b style={{ color: "#0A1629" }}>{fmtDt(b.assigned_at)}</b></span>
+                            {b.qaror_at && <span>Qaror: <b style={{ color: "#0A1629" }}>{fmtDt(b.qaror_at)}</b></span>}
+                            {b.qaror_by_nomi && <span>Kim: <b style={{ color: "#0A1629" }}>{b.qaror_by_nomi}</b></span>}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+
+              {/* Qayta biriktirish — rejected yoki yangi bo'lim */}
+              <div className="p-4" style={{ background: "#F4F9FD", borderRadius: 14 }}>
+                <p className="text-xs font-bold mb-3 uppercase tracking-wide" style={{ color: "#91929E" }}>
+                  {rejectedDepts.length > 0 ? "Qayta biriktirish yoki yangi bo'lim qo'shish" : "Yangi bo'limga biriktirish"}
+                </p>
+
+                {/* Rejected — quick re-send buttons */}
+                {rejectedDepts.length > 0 && (
+                  <div className="mb-3 flex flex-wrap gap-2">
+                    {rejectedDepts.map(b => (
+                      <button key={b.id}
+                        onClick={async () => {
+                          setAdding(true);
+                          try {
+                            const res = await apiFetch<IjroTracking>(`/ijro-docs/${docId}/add-bolim`, {
+                              method: "POST",
+                              body: JSON.stringify({ bolim_id: b.bolim_id }),
+                            });
+                            setTracking(res);
+                          } catch (err) {
+                            alert(err instanceof Error ? err.message : "Xatolik");
+                          } finally { setAdding(false); }
+                        }}
+                        disabled={adding}
+                        className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold disabled:opacity-50"
+                        style={{ background: "rgba(255,92,92,0.1)", color: "#FF5C5C", borderRadius: 8, border: "1px solid rgba(255,92,92,0.2)" }}>
+                        <RefreshCw size={11} />
+                        {b.bolim_nomi || `Bo'lim #${b.bolim_id}`} — qayta yuborish
+                      </button>
+                    ))}
+                  </div>
+                )}
+
+                {/* New bolim select */}
+                <div className="flex gap-2">
+                  <div className="relative flex-1">
+                    <select value={selBolim}
+                      onChange={e => setSelBolim(e.target.value ? Number(e.target.value) : "")}
+                      className="w-full appearance-none px-3 py-2.5 text-sm font-bold outline-none"
+                      style={{ background: "#FFFFFF", borderRadius: 10, border: "1.5px solid #E0E7F0", color: selBolim ? "#0A1629" : "#91929E" }}>
+                      <option value="">Bo'limni tanlang...</option>
+                      {availableDepts.map(d => (
+                        <option key={d.id} value={d.id}>{d.name}</option>
+                      ))}
+                    </select>
+                    <ChevronDown size={13} className="absolute right-2.5 top-3 pointer-events-none" style={{ color: "#91929E" }} />
+                  </div>
+                  <button onClick={handleAddBolim} disabled={!selBolim || adding}
+                    className="flex items-center gap-1.5 px-4 py-2.5 text-sm font-bold text-white disabled:opacity-40"
+                    style={{ background: "#3F8CFF", borderRadius: 10, whiteSpace: "nowrap" }}>
+                    {adding ? <Loader2 size={13} className="animate-spin" /> : <Send size={13} />}
+                    Biriktirish
+                  </button>
+                </div>
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Tab 1: Boshqaruv paneli ─────────────────────────────────────────────────
+
+function BoshqaruvPaneli({ docs, depts }: { docs: IjroDoc[]; depts: Department[]; onRefresh: () => void }) {
+  const stats = [
+    { label: "Jami hujjatlar",       value: docs.length,                                          color: "#3F8CFF", bg: "rgba(63,140,255,0.1)",  icon: FileText },
+    { label: "Bajarilgan",            value: docs.filter(d=>d.holati==="bajarildi").length,         color: "#00C48C", bg: "rgba(0,196,140,0.1)",   icon: CheckCircle2 },
+    { label: "Muddati yaqinlashgan",  value: docs.filter(d=>d.holati==="muddati_yaqin").length,     color: "#FFBD21", bg: "rgba(255,189,33,0.1)",  icon: AlertTriangle },
+    { label: "Muddati o'tgan",        value: docs.filter(d=>d.holati==="kechikmoqda").length,        color: "#FF5C5C", bg: "rgba(255,92,92,0.1)",   icon: AlertCircle },
+  ];
+
+  return (
+    <div className="flex flex-col gap-5">
+      {/* Stat cards */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        {stats.map(s => (
+          <div key={s.label} className="p-5 flex items-center gap-4"
+            style={{ background:"#FFFFFF", borderRadius:20, boxShadow:"0 4px 24px rgba(196,203,214,0.15)" }}>
+            <div className="w-12 h-12 flex-shrink-0 flex items-center justify-center" style={{ background:s.bg, borderRadius:14 }}>
+              <s.icon size={22} style={{ color:s.color }}/>
+            </div>
+            <div className="min-w-0">
+              <p className="text-xs font-bold truncate" style={{ color:"#91929E" }}>{s.label}</p>
+              <p className="text-2xl font-bold" style={{ color:"#0A1629" }}>{s.value}</p>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Bo'limlar Metro grid */}
+      <BolimlarMetroGrid depts={depts} docs={docs} />
+    </div>
+  );
+}
+
+// ─── Tab 2: Topshiriqlar ─────────────────────────────────────────────────────
+
+function Topshiriqlar({ docs, depts, onRefresh }:
+  { docs: IjroDoc[]; depts: Department[]; onRefresh: () => void }) {
+  const [activeManba, setActiveManba] = useState("all");
+  const [showModal, setShowModal]     = useState(false);
+  const [editDoc,    setEditDoc]      = useState<IjroDoc | null>(null);
+  const [deletingId, setDeletingId]   = useState<number | null>(null);
+  const [trackingDocId, setTrackingDocId] = useState<number | null>(null);
+
+  async function handleDelete(id: number) {
+    if (!confirm("Hujjatni o'chirishni tasdiqlaysizmi?")) return;
+    setDeletingId(id);
+    try {
+      await apiFetch(`/ijro-docs/${id}`, { method: "DELETE" });
+      onRefresh();
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Xatolik");
+    } finally {
+      setDeletingId(null);
+    }
+  }
+
+  const filtered = docs.filter(d => {
+    if (activeManba === "all")   return true;
+    if (activeManba === "pq_pf") return d.manba === "pq_pf";
+    return d.manba === activeManba;
+  });
+
+  const counts = {
+    pq_pf:    docs.filter(d => d.manba === "pq_pf").length,
+    vm:       docs.filter(d => d.manba === "vm").length,
+    direktor: docs.filter(d => d.manba === "direktor").length,
+  };
+
+  return (
+    <>
+      <div style={{ background:"#FFFFFF", borderRadius:20, boxShadow:"0 4px 24px rgba(196,203,214,0.15)" }}>
+        {/* Header */}
+        <div className="flex items-center justify-between px-6 py-5" style={{ borderBottom:"1px solid #F4F9FD" }}>
+          <div>
+            <h2 className="font-bold text-lg" style={{ color:"#0A1629" }}>Barcha topshiriqlar</h2>
+            <p className="text-xs mt-0.5" style={{ color:"#91929E" }}>Tizimdagi barcha turdagi hujjatlar va topshiriqlar monitoringi</p>
+          </div>
+          <button onClick={() => setShowModal(true)}
+            className="flex items-center gap-2 px-4 py-2.5 text-sm font-bold text-white"
+            style={{ background:"#3F8CFF", borderRadius:12, boxShadow:"0 4px 12px rgba(63,140,255,0.3)" }}>
+            <Plus size={16}/> Yangi hujjat ro'yxatga olish
+          </button>
+        </div>
+
+        {/* Manba tabs */}
+        <div className="flex items-center gap-1 px-6 pt-4 overflow-x-auto">
+          {[
+            { key:"all",      label:"Barchasi" },
+            { key:"pq_pf",    label:`PQ/PF (${counts.pq_pf})` },
+            { key:"vm",       label:`VM (${counts.vm})` },
+            { key:"qv",       label:"QV" },
+            { key:"direktor", label:`Direktor (${counts.direktor})` },
+          ].map(t => (
+            <button key={t.key} onClick={() => setActiveManba(t.key)}
+              className="px-4 py-2 text-sm font-bold whitespace-nowrap transition-all"
+              style={{
+                borderRadius:"10px 10px 0 0",
+                background: activeManba === t.key ? "#3F8CFF" : "transparent",
+                color: activeManba === t.key ? "#FFFFFF" : "#7D8592",
+              }}>
+              {t.label}
+            </button>
+          ))}
+        </div>
+        <div style={{ borderTop:"2px solid #F4F9FD" }} />
+
+        {/* Filters */}
+        <div className="flex items-center gap-3 flex-wrap px-6 py-4">
+          <div className="flex items-center gap-2 px-3 py-2.5 min-w-[160px]"
+            style={{ background:"#F4F9FD", borderRadius:10 }}>
+            <span className="text-xs" style={{ color:"#91929E" }}>Bo'lim bo'yicha</span>
+            <ChevronDown size={14} style={{ color:"#91929E", marginLeft:"auto" }}/>
+          </div>
+          <div className="flex items-center gap-2 px-3 py-2.5 min-w-[140px]"
+            style={{ background:"#F4F9FD", borderRadius:10 }}>
+            <Calendar size={13} style={{ color:"#91929E" }}/>
+            <span className="text-xs" style={{ color:"#91929E" }}>Sana oralig'i</span>
+          </div>
+          <div className="flex items-center gap-2 px-3 py-2.5 min-w-[130px]"
+            style={{ background:"#F4F9FD", borderRadius:10 }}>
+            <span className="text-xs" style={{ color:"#91929E" }}>Holat</span>
+            <ChevronDown size={14} style={{ color:"#91929E", marginLeft:"auto" }}/>
+          </div>
+          <button className="flex items-center gap-1.5 px-4 py-2.5 text-xs font-bold text-white"
+            style={{ background:"#3F8CFF", borderRadius:10 }}>
+            <Filter size={13}/> Saralash
+          </button>
+        </div>
+
+        {/* Table */}
+        <div className="overflow-x-auto">
+          <table className="w-full" style={{ minWidth:820 }}>
+            <thead>
+              <tr style={{ borderTop:"1px solid #F4F9FD", borderBottom:"1px solid #F4F9FD" }}>
+                {["HUJJAT № va SANA","MANBA","TOPSHIRIQ NOMI","MAS'UL BO'LIM","MUDDATI","HOLATI","AMALLAR"].map(h => (
+                  <th key={h} className="px-4 py-3 text-left text-xs font-bold"
+                    style={{ color:"#91929E", background:"#FAFCFF", letterSpacing:"0.04em", whiteSpace:"nowrap" }}>
+                    {h}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {filtered.length === 0 ? (
+                <tr>
+                  <td colSpan={7} className="py-14 text-center">
+                    <FileText size={32} className="mx-auto mb-3" style={{ color:"#D0D9E8" }}/>
+                    <p className="text-sm font-bold" style={{ color:"#91929E" }}>Hali hujjat yo'q</p>
+                    <p className="text-xs mt-1" style={{ color:"#91929E" }}>"Yangi hujjat ro'yxatga olish" tugmasini bosing</p>
+                  </td>
+                </tr>
+              ) : filtered.map((d, i) => {
+                const dl = daysLeft(d.ijro_muddati);
+                return (
+                  <tr key={d.id} className="hover:bg-[#FAFCFF] transition-colors"
+                    style={{ borderBottom: i < filtered.length-1 ? "1px solid #F4F9FD" : "none" }}>
+                    <td className="px-4 py-4">
+                      <p className="font-bold text-sm" style={{ color:"#3F8CFF" }}>№ {d.hujjat_raqami || `DOC-${d.id}`}</p>
+                      <p className="text-xs mt-0.5" style={{ color:"#91929E" }}>{d.hujjat_sanasi || "—"}</p>
+                    </td>
+                    <td className="px-4 py-4">
+                      <p className="text-sm font-bold" style={{ color:"#0A1629" }}>{MANBA_LABELS[d.manba]}</p>
+                    </td>
+                    <td className="px-4 py-4" style={{ maxWidth:240 }}>
+                      <p className="text-sm font-bold truncate" style={{ color:"#0A1629" }}>
+                        {d.sarlavha || d.mazmun?.slice(0,60) || "—"}
+                      </p>
+                    </td>
+                    <td className="px-4 py-4">
+                      {d.masul_bolimlar_info || d.masul_bolimlar_nomi ? (
+                        <div className="flex flex-col gap-1">
+                          {(() => {
+                            let items: BolimInfo[] = [];
+                            try { items = JSON.parse(d.masul_bolimlar_info || "[]"); } catch { /* noop */ }
+                            if (!items.length && d.masul_bolimlar_nomi)
+                              items = d.masul_bolimlar_nomi.split(", ").map((n, i) => ({ id: i, name: n, holati: "yuborildi" }));
+                            return items.map(b => {
+                              const isRad = b.holati === "rad_etildi";
+                              return (
+                                <span key={b.id} className="text-xs font-bold px-2 py-0.5 inline-flex items-center gap-1"
+                                  style={{
+                                    background: isRad ? "rgba(255,92,92,0.08)" : "rgba(63,140,255,0.08)",
+                                    color: isRad ? "#FF5C5C" : "#3F8CFF",
+                                    borderRadius: 6,
+                                    textDecoration: isRad ? "line-through" : "none",
+                                    opacity: isRad ? 0.7 : 1,
+                                  }}>
+                                  {b.name}
+                                </span>
+                              );
+                            });
+                          })()}
+                        </div>
+                      ) : (
+                        <p className="text-sm" style={{ color: "#91929E" }}>—</p>
+                      )}
+                    </td>
+                    <td className="px-4 py-4 whitespace-nowrap">
+                      <p className="text-sm font-bold" style={{ color: dl.color }}>{dl.text}</p>
+                    </td>
+                    <td className="px-4 py-4">
+                      <HolatiChip h={d.holati} />
+                    </td>
+                    <td className="px-4 py-4">
+                      <div className="flex items-center gap-1">
+                        <button onClick={() => setTrackingDocId(d.id)} title="Kuzatuv"
+                          className="w-8 h-8 flex items-center justify-center hover:opacity-80 transition-opacity"
+                          style={{ background: "rgba(109,93,211,0.1)", borderRadius: 8 }}>
+                          <Eye size={14} style={{ color: "#6D5DD3" }}/>
+                        </button>
+                        <button onClick={() => setEditDoc(d)} title="Tahrirlash"
+                          className="w-8 h-8 flex items-center justify-center hover:opacity-80 transition-opacity"
+                          style={{ background:"rgba(63,140,255,0.1)", borderRadius:8 }}>
+                          <Pencil size={14} style={{ color:"#3F8CFF" }}/>
+                        </button>
+                        <button onClick={() => handleDelete(d.id)} title="O'chirish"
+                          disabled={deletingId === d.id}
+                          className="w-8 h-8 flex items-center justify-center hover:opacity-80 transition-opacity disabled:opacity-40"
+                          style={{ background:"rgba(255,92,92,0.1)", borderRadius:8 }}>
+                          {deletingId === d.id
+                            ? <Loader2 size={14} className="animate-spin" style={{ color:"#FF5C5C" }}/>
+                            : <Trash2 size={14} style={{ color:"#FF5C5C" }}/>}
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+
+        {/* Pagination */}
+        <div className="flex items-center justify-between px-6 py-4" style={{ borderTop:"1px solid #F4F9FD" }}>
+          <p className="text-xs" style={{ color:"#91929E" }}>Jami {filtered.length} ta topshiriq ko'rsatilmoqda</p>
+          <div className="flex items-center gap-1">
+            <button className="w-8 h-8 flex items-center justify-center" style={{ background:"#F4F9FD", borderRadius:8 }}>
+              <ChevronLeft size={13} style={{ color:"#7D8592" }}/>
+            </button>
+            <button className="w-8 h-8 flex items-center justify-center text-xs font-bold text-white" style={{ background:"#3F8CFF", borderRadius:8 }}>1</button>
+            <button className="w-8 h-8 flex items-center justify-center" style={{ background:"#F4F9FD", borderRadius:8 }}>
+              <ChevronRight size={13} style={{ color:"#7D8592" }}/>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {showModal && (
+        <YangiHujjatModal
+          depts={depts}
+          onClose={() => setShowModal(false)}
+          onSaved={onRefresh}
+        />
+      )}
+      {editDoc && (
+        <YangiHujjatModal
+          depts={depts}
+          editDoc={editDoc}
+          onClose={() => setEditDoc(null)}
+          onSaved={() => { setEditDoc(null); onRefresh(); }}
+        />
+      )}
+      {trackingDocId && (
+        <IjroTrackingModal
+          docId={trackingDocId}
+          depts={depts}
+          onClose={() => setTrackingDocId(null)}
+        />
+      )}
+    </>
+  );
+}
+
+// ─── Tab 3: Kalandar ─────────────────────────────────────────────────────────
+
+const MONTH_NAMES = ["Yanvar","Fevral","Mart","Aprel","May","Iyun","Iyul","Avgust","Sentabr","Oktabr","Noyabr","Dekabr"];
+const WEEK_DAYS   = ["DUSHANBA","SESHANBA","CHORSHANBA","PAYSHANBA","JUMA","SHANBA","YAKSHANBA"];
+
+function KalendarTab({ docs }: { docs: IjroDoc[] }) {
+  const [cur, setCur] = useState(() => { const d = new Date(); return { y: d.getFullYear(), m: d.getMonth() }; });
+  const { y, m } = cur;
+
+  const today = new Date();
+  const isToday = (d: Date) =>
+    d.getDate() === today.getDate() && d.getMonth() === today.getMonth() && d.getFullYear() === today.getFullYear();
+
+  // Build doc map: day-of-month → docs
+  const docsByDay = new Map<number, IjroDoc[]>();
+  docs.forEach(doc => {
+    if (!doc.ijro_muddati) return;
+    const d = new Date(doc.ijro_muddati);
+    if (d.getFullYear() === y && d.getMonth() === m) {
+      const day = d.getDate();
+      if (!docsByDay.has(day)) docsByDay.set(day, []);
+      docsByDay.get(day)!.push(doc);
+    }
+  });
+
+  // Build calendar grid (Mon-first)
+  const firstDow = new Date(y, m, 1).getDay(); // 0=Sun
+  const padLeft  = firstDow === 0 ? 6 : firstDow - 1;
+  const daysInMonth = new Date(y, m + 1, 0).getDate();
+  const cells: (number | null)[] = [
+    ...Array(padLeft).fill(null),
+    ...Array.from({ length: daysInMonth }, (_, i) => i + 1),
+  ];
+  while (cells.length % 7 !== 0) cells.push(null);
+  const weeks: (number | null)[][] = [];
+  for (let i = 0; i < cells.length; i += 7) weeks.push(cells.slice(i, i + 7));
+
+  const prev = () => setCur(p => p.m === 0 ? { y: p.y - 1, m: 11 } : { y: p.y, m: p.m - 1 });
+  const next = () => setCur(p => p.m === 11 ? { y: p.y + 1, m: 0  } : { y: p.y, m: p.m + 1 });
+
+  return (
+    <div style={{ background:"#FFFFFF", borderRadius:20, boxShadow:"0 4px 24px rgba(196,203,214,0.15)", overflow:"hidden" }}>
+      {/* Header */}
+      <div className="flex items-center justify-between px-6 py-5" style={{ borderBottom:"1px solid #F4F9FD" }}>
+        <h2 className="font-bold text-lg" style={{ color:"#0A1629" }}>{MONTH_NAMES[m]} {y}</h2>
+        <div className="flex items-center gap-2">
+          <button onClick={prev} className="w-8 h-8 flex items-center justify-center"
+            style={{ background:"#F4F9FD", borderRadius:8 }}>
+            <ChevronLeft size={14} style={{ color:"#7D8592" }}/>
+          </button>
+          <button onClick={() => { const n = new Date(); setCur({ y: n.getFullYear(), m: n.getMonth() }); }}
+            className="px-3 py-1.5 text-xs font-bold text-white" style={{ background:"#3F8CFF", borderRadius:8 }}>
+            Bugun
+          </button>
+          <button onClick={next} className="w-8 h-8 flex items-center justify-center"
+            style={{ background:"#F4F9FD", borderRadius:8 }}>
+            <ChevronRight size={14} style={{ color:"#7D8592" }}/>
+          </button>
+        </div>
+      </div>
+
+      {/* Day-of-week headers */}
+      <div className="grid grid-cols-7" style={{ borderBottom:"1px solid #F4F9FD" }}>
+        {WEEK_DAYS.map(d => (
+          <div key={d} className="py-3 text-center text-xs font-bold" style={{ color:"#91929E", letterSpacing:"0.03em" }}>
+            {d}
+          </div>
+        ))}
+      </div>
+
+      {/* Weeks */}
+      {weeks.map((week, wi) => (
+        <div key={wi} className="grid grid-cols-7"
+          style={{ borderBottom: wi < weeks.length - 1 ? "1px solid #F4F9FD" : "none" }}>
+          {week.map((day, di) => {
+            if (!day) {
+              return (
+                <div key={di} className="min-h-[100px]"
+                  style={{ borderLeft: di > 0 ? "1px solid #F4F9FD" : "none", background:"#FAFCFF" }}/>
+              );
+            }
+            const dayDocs = docsByDay.get(day) || [];
+            const cur_day = isToday(new Date(y, m, day));
+            return (
+              <div key={di} className="min-h-[100px] p-2 flex flex-col"
+                style={{
+                  borderLeft:  di > 0 ? "1px solid #F4F9FD" : "none",
+                  border:      cur_day ? "2px solid #00C48C" : undefined,
+                  background:  cur_day ? "rgba(0,196,140,0.03)" : undefined,
+                }}>
+                <span className="text-sm font-bold text-right block mb-1"
+                  style={{ color: cur_day ? "#00C48C" : "#0A1629" }}>
+                  {day}
+                </span>
+                {dayDocs.length > 0 && (
+                  <div className="flex flex-col gap-1 mt-1">
+                    <div className="flex items-center gap-1">
+                      <span className="text-xs font-bold" style={{ color:"#3F8CFF" }}>● {dayDocs.length}</span>
+                    </div>
+                    {dayDocs.slice(0, 3).map(doc => (
+                      <div key={doc.id} className="h-[3px] rounded-full w-full"
+                        style={{ background: HOLATI_CFG[doc.holati].color }}/>
+                    ))}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      ))}
+
+      {/* Legend */}
+      <div className="flex items-center gap-4 flex-wrap px-6 py-4" style={{ borderTop:"1px solid #F4F9FD" }}>
+        {Object.values(HOLATI_CFG).map(c => (
+          <div key={c.label} className="flex items-center gap-1.5">
+            <div className="w-3 h-1.5 rounded-full" style={{ background: c.color }}/>
+            <span className="text-xs" style={{ color:"#91929E" }}>{c.label}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ─── Main Page ────────────────────────────────────────────────────────────────
+
+export default function IjroNazoratPage() {
+  const [tab,   setTab]   = useState<"panel" | "tasks" | "calendar">("panel");
+  const [docs,  setDocs]  = useState<IjroDoc[]>([]);
+  const [depts, setDepts] = useState<Department[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const user     = typeof window !== "undefined" ? getUser() : null;
+  const initials = user ? user.full_name.split(" ").filter(Boolean).map((w: string) => w[0]).join("").toUpperCase().slice(0,2) : "IJ";
+
+  const loadDocs = useCallback(async () => {
+    setLoading(true);
+    try {
+      const data = await apiFetch<IjroDoc[]>("/ijro-docs/");
+      setDocs(data);
+    } catch (e) { console.error(e); }
+    finally { setLoading(false); }
+  }, []);
+
+  useEffect(() => {
+    loadDocs();
+    apiFetch<Department[]>("/departments/").then(setDepts).catch(() => {});
+  }, [loadDocs]);
+
+  return (
+    <div>
+      {/* Header */}
+      <header className="flex items-center justify-between flex-wrap gap-4 mb-6">
+        <div>
+          <h1 className="font-bold text-xl sm:text-2xl" style={{ color:"#0A1629" }}>Ijro intizomi nazorati</h1>
+          <p className="text-xs mt-1" style={{ color:"#91929E" }}>Hujjatlar va topshiriqlar bajarilishini kuzatib boring</p>
+        </div>
+        <div className="flex items-center gap-2 flex-shrink-0">
+          <div className="hidden md:flex items-center gap-2 px-4 py-2.5"
+            style={{ background:"#FFFFFF", borderRadius:12, boxShadow:"0 4px 16px rgba(196,203,214,0.15)", minWidth:200 }}>
+            <Search size={16} style={{ color:"#91929E" }}/>
+            <input type="text" placeholder="Topshiriqlardan izlash..."
+              className="bg-transparent outline-none text-sm flex-1" style={{ color:"#0A1629" }}/>
+          </div>
+          <div className="relative w-10 h-10 flex items-center justify-center"
+            style={{ background:"#FFFFFF", borderRadius:12, boxShadow:"0 4px 16px rgba(196,203,214,0.15)" }}>
+            <Bell size={18} style={{ color:"#0A1629" }}/>
+            <span className="absolute top-2 right-2 w-2 h-2" style={{ background:"#FF5C5C", borderRadius:"50%" }}/>
+          </div>
+          <div className="flex items-center gap-2 px-3 py-2"
+            style={{ background:"#FFFFFF", borderRadius:12, boxShadow:"0 4px 16px rgba(196,203,214,0.15)" }}>
+            <div className="w-8 h-8 flex items-center justify-center text-white text-xs font-bold"
+              style={{ background:"#3F8CFF", borderRadius:9 }}>
+              {initials}
+            </div>
+            <div className="hidden sm:block">
+              <p className="font-bold text-xs" style={{ color:"#0A1629" }}>{user?.full_name || "Foydalanuvchi"}</p>
+              <p className="text-xs" style={{ color:"#91929E" }}>Ijro xodimi</p>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      {/* Tab switcher */}
+      <div className="flex items-center gap-1 mb-5 p-1"
+        style={{ background:"#FFFFFF", borderRadius:14, display:"inline-flex", boxShadow:"0 4px 16px rgba(196,203,214,0.15)" }}>
+        <button onClick={() => setTab("panel")}
+          className="flex items-center gap-2 px-5 py-2.5 text-sm font-bold transition-all"
+          style={{ borderRadius:10, background: tab==="panel"?"#3F8CFF":"transparent", color: tab==="panel"?"#FFFFFF":"#7D8592" }}>
+          <LayoutDashboard size={16}/> Boshqaruv paneli
+        </button>
+        <button onClick={() => setTab("tasks")}
+          className="flex items-center gap-2 px-5 py-2.5 text-sm font-bold transition-all"
+          style={{ borderRadius:10, background: tab==="tasks"?"#3F8CFF":"transparent", color: tab==="tasks"?"#FFFFFF":"#7D8592" }}>
+          <List size={16}/> Topshiriqlar
+        </button>
+        <button onClick={() => setTab("calendar")}
+          className="flex items-center gap-2 px-5 py-2.5 text-sm font-bold transition-all"
+          style={{ borderRadius:10, background: tab==="calendar"?"#3F8CFF":"transparent", color: tab==="calendar"?"#FFFFFF":"#7D8592" }}>
+          <Calendar size={16}/> Kalandar
+        </button>
+      </div>
+
+      {/* Content */}
+      {loading ? (
+        <div className="flex items-center justify-center py-20">
+          <Loader2 size={28} className="animate-spin" style={{ color:"#3F8CFF" }}/>
+        </div>
+      ) : tab === "panel" ? (
+        <BoshqaruvPaneli docs={docs} depts={depts} onRefresh={loadDocs} />
+      ) : tab === "tasks" ? (
+        <Topshiriqlar docs={docs} depts={depts} onRefresh={loadDocs} />
+      ) : (
+        <KalendarTab docs={docs} />
+      )}
+    </div>
+  );
+}

@@ -1,4 +1,5 @@
-from fastapi import Depends, HTTPException, status
+import os
+from fastapi import Depends, Header, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.orm import Session
 from .database import get_db
@@ -49,3 +50,10 @@ def require_manager(
     if current.role not in allowed:
         raise HTTPException(status_code=403, detail="Ruxsat yo'q")
     return current
+
+
+def require_bot_secret(x_bot_secret: str = Header(...)) -> None:
+    """Faqat add_account_bot ichki xizmati chaqira oladigan endpointlar uchun."""
+    expected = os.getenv("BOT_INTERNAL_SECRET")
+    if not expected or x_bot_secret != expected:
+        raise HTTPException(status_code=403, detail="Ruxsat yo'q")
