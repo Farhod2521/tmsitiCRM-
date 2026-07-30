@@ -1,8 +1,10 @@
 import SidebarXodim from "@/components/layout/SidebarXodim";
+import PostLoginPrompts from "@/components/auth/PostLoginPrompts";
 
 export default function EmployeeLayout({ children }: { children: React.ReactNode }) {
   return (
     <div style={{ background: "#F4F9FD", minHeight: "100vh" }}>
+      <PostLoginPrompts />
       <SidebarXodim />
       <main
         className="lg:ml-[260px] lg:w-[calc(100%-260px)] pt-20 px-4 pb-6 lg:p-6"

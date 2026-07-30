@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 import { getUser, saveAuth, getProfileExtra, saveProfileExtra } from "@/lib/auth";
 import { apiFetch } from "@/lib/api";
+import { openTelegramStatic, openTelegramLink } from "@/lib/telegram";
 import AttendanceCalendar from "@/components/profile/AttendanceCalendar";
 import WeeklyReportCard from "@/components/reports/WeeklyReportCard";
 
@@ -29,33 +30,6 @@ interface Employee {
   is_active: boolean;
   telegram_id?: number | null;
   telegram_username?: string | null;
-}
-
-const TELEGRAM_BOT_USERNAME = (process.env.NEXT_PUBLIC_TELEGRAM_BOT_USERNAME || "").replace(/^@/, "");
-
-function openTelegram(startPayload: string) {
-  if (!TELEGRAM_BOT_USERNAME) {
-    alert("Telegram bot sozlanmagan. Administratorga murojaat qiling.");
-    return;
-  }
-  window.open(`https://t.me/${TELEGRAM_BOT_USERNAME}?start=${startPayload}`, "_blank", "noopener,noreferrer");
-}
-
-async function openTelegramLink() {
-  if (!TELEGRAM_BOT_USERNAME) {
-    alert("Telegram bot sozlanmagan. Administratorga murojaat qiling.");
-    return;
-  }
-  // Oyna darhol (sinxron) ochiladi — aks holda brauzer popup-blocker
-  // await'dan keyingi window.open'ni bloklashi mumkin.
-  const win = window.open("", "_blank");
-  try {
-    const { token } = await apiFetch<{ token: string; expires_in: number }>("/employees/me/telegram-link-token", { method: "POST" });
-    if (win) win.location.href = `https://t.me/${TELEGRAM_BOT_USERNAME}?start=link_${token}`;
-  } catch {
-    win?.close();
-    alert("Havola olishda xatolik yuz berdi. Qaytadan urinib ko'ring.");
-  }
 }
 
 function getInitials(name: string): string {
@@ -343,7 +317,7 @@ export default function ProfilePage() {
               </div>
 
               {emp.telegram_id ? (
-                <button onClick={() => openTelegram("reset")}
+                <button onClick={() => openTelegramStatic("reset")}
                   className="flex items-center gap-2 px-4 py-2.5 text-sm font-bold text-white flex-shrink-0 hover:opacity-90 transition-opacity"
                   style={{ background: "#229ED9", borderRadius: 12 }}>
                   <Send size={15} />
