@@ -231,10 +231,12 @@ def delete_employee(
     db.query(models.IjroDocBolim).filter(models.IjroDocBolim.qaror_by == emp_id).update({"qaror_by": None})
     db.query(models.WeeklyReport).filter(models.WeeklyReport.employee_id == emp_id).delete()
     db.query(models.WeeklyReport).filter(models.WeeklyReport.confirmed_by == emp_id).update({"confirmed_by": None})
+    db.query(models.TelegramLinkToken).filter(models.TelegramLinkToken.employee_id == emp_id).delete()
 
     db.delete(emp)
     try:
         db.commit()
-    except IntegrityError:
+    except IntegrityError as exc:
         db.rollback()
+        print(f"[delete_employee] IntegrityError for emp_id={emp_id}: {exc}")
         raise HTTPException(status_code=400, detail="Xodimni o'chirib bo'lmadi — unga bog'liq ma'lumotlar mavjud")
