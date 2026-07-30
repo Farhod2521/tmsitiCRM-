@@ -47,7 +47,7 @@ async function loadFaceApi(): Promise<any> {
   return _faceApiPromise;
 }
 
-type Phase = "loading" | "scanning" | "match" | "nophoto" | "error";
+type Phase = "loading" | "camera-ready" | "scanning" | "match" | "nophoto" | "error";
 
 interface Props {
   onSuccess: () => void;
@@ -73,6 +73,30 @@ export default function FaceVerifyModal({ onSuccess, onClose }: Props) {
     let cancelled = false;
     matchedRef.current = false;
 
+    // Kamerani ENG BIRINCHI, boshqa hamma narsadan mustaqil so'raymiz —
+    // shunda ruxsat oynasi/video AI yuklanishini kutmasdan darhol chiqadi.
+    const cameraPromise = navigator.mediaDevices.getUserMedia({
+      video: { facingMode: "user", width: { ideal: 640 }, height: { ideal: 480 } },
+    });
+    let cameraAttached = false;
+    cameraPromise
+      .then((stream) => {
+        if (cancelled) { stream.getTracks().forEach(t => t.stop()); return; }
+        streamRef.current = stream;
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream;
+          videoRef.current.play().catch(() => {});
+        }
+        cameraAttached = true;
+        setPhase(p => (p === "loading" ? "camera-ready" : p));
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setPhase("error");
+          setStatus("Kameraga ruxsat berilmadi yoki topilmadi. Brauzer sozlamalarini tekshiring.");
+        }
+      });
+
     (async () => {
       try {
         // 1 ── Profildan rasm olish
@@ -86,7 +110,7 @@ export default function FaceVerifyModal({ onSuccess, onClose }: Props) {
         }
         if (cancelled) return;
 
-        // 2 ── face-api.js + modellari
+        // 2 ── face-api.js + modellari (kamera shu payt allaqachon ochilgan bo'lishi mumkin)
         setStatus("AI modellari yuklanmoqda (birinchi marta ~15 sek)…");
         const fa = await loadFaceApi();
         if (cancelled) return;
@@ -111,17 +135,16 @@ export default function FaceVerifyModal({ onSuccess, onClose }: Props) {
         }
         if (cancelled) return;
 
-        // 4 ── Kamera ochish
+        // 4 ── Kamera streamini kutamiz (odatda bu paytda allaqachon tayyor)
         setStatus("Kamera ochilmoqda…");
-        const stream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: "user", width: { ideal: 640 }, height: { ideal: 480 } },
-        });
+        const stream = await cameraPromise;
         if (cancelled) { stream.getTracks().forEach(t => t.stop()); return; }
-
-        streamRef.current = stream;
-        if (videoRef.current) {
-          videoRef.current.srcObject = stream;
-          await videoRef.current.play();
+        if (!cameraAttached) {
+          streamRef.current = stream;
+          if (videoRef.current) {
+            videoRef.current.srcObject = stream;
+            await videoRef.current.play();
+          }
         }
 
         setPhase("scanning");
@@ -170,7 +193,7 @@ export default function FaceVerifyModal({ onSuccess, onClose }: Props) {
   function handleClose() { stopAll(); onClose(); }
 
   const COLOR: Record<Phase, string> = {
-    loading: "#3F8CFF", scanning: "#3F8CFF",
+    loading: "#3F8CFF", "camera-ready": "#3F8CFF", scanning: "#3F8CFF",
     match: "#00A578", nophoto: "#E0A400", error: "#FF5C5C",
   };
   const c = COLOR[phase];
@@ -216,15 +239,24 @@ export default function FaceVerifyModal({ onSuccess, onClose }: Props) {
               muted
               playsInline
               className="w-full h-full object-cover"
-              style={{ display: phase === "scanning" || phase === "match" ? "block" : "none" }}
+              style={{ display: phase === "scanning" || phase === "match" || phase === "camera-ready" ? "block" : "none" }}
             />
 
             {/* Placeholder icon for non-video phases */}
-            {phase !== "scanning" && phase !== "match" && (
+            {phase !== "scanning" && phase !== "match" && phase !== "camera-ready" && (
               <div className="flex flex-col items-center gap-3">
                 {(phase === "loading") && <Loader2 size={48} className="animate-spin" style={{ color: "#3F8CFF" }} />}
                 {phase === "nophoto" && <UserX size={56} style={{ color: "#E0A400" }} />}
                 {phase === "error"   && <AlertTriangle size={52} style={{ color: "#FF5C5C" }} />}
+              </div>
+            )}
+
+            {/* Kamera tayyor, AI hali yuklanmoqda — video ustida kichik indikator */}
+            {phase === "camera-ready" && (
+              <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex items-center gap-1.5 px-3 py-1.5"
+                style={{ background: "rgba(10,22,41,0.6)", borderRadius: 999 }}>
+                <Loader2 size={12} className="animate-spin" style={{ color: "#fff" }} />
+                <span className="text-[11px] font-bold text-white">AI yuklanmoqda…</span>
               </div>
             )}
 
