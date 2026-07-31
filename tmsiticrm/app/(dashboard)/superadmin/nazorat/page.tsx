@@ -29,6 +29,7 @@ interface IjroDocOut {
   davriyligi: string;
   kelishuvchi_tashkilotlar: string | null;
   fayl_name: string | null;
+  fayl_b64: string | null;
   holati: DocHolati;
   created_at: string | null;
 }
@@ -39,6 +40,8 @@ interface AssignLogEntry {
   assigned_by_nomi: string | null;
   assigned_at: string | null;
 }
+
+interface YakunlashFayl { name: string; b64: string; }
 
 interface DocBolimRow {
   id: number;
@@ -52,6 +55,10 @@ interface DocBolimRow {
   xodim_nomi: string | null;
   xodim_assigned_at: string | null;
   assign_log: AssignLogEntry[];
+  yakunlash_izohi: string | null;
+  yakunlash_fayllar: YakunlashFayl[];
+  yakunlangan_at: string | null;
+  yakunlagan_by_nomi: string | null;
 }
 
 interface Tracking {
@@ -135,6 +142,14 @@ function fmt(d: string | null) {
   if (!d) return "—";
   return new Date(d).toLocaleDateString("uz-UZ", { day: "2-digit", month: "2-digit", year: "numeric" });
 }
+function downloadBase64(name: string, b64: string) {
+  const a = document.createElement("a");
+  a.href = b64;
+  a.download = name;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+}
 function daysLeft(d: string | null) {
   if (!d) return null;
   const diff = Math.ceil((new Date(d).getTime() - Date.now()) / 86400000);
@@ -208,12 +223,14 @@ function TrackingModal({ docId, onClose }: { docId: number; onClose: () => void 
                   <p className="text-sm mt-3 leading-relaxed" style={{ color: "#7D8592" }}>{tracking.doc.mazmun}</p>
                 )}
                 {tracking.doc.fayl_name && (
-                  <div className="flex items-center gap-2 mt-3 px-3 py-2"
+                  <button onClick={() => tracking.doc.fayl_b64 && downloadBase64(tracking.doc.fayl_name!, tracking.doc.fayl_b64)}
+                    disabled={!tracking.doc.fayl_b64}
+                    className="flex items-center gap-2 mt-3 px-3 py-2 w-full hover:opacity-80 disabled:opacity-40"
                     style={{ background: "#FFFFFF", borderRadius: 9, border: "1px dashed #D0D9E8" }}>
                     <FileText size={14} style={{ color: "#3F8CFF" }} />
                     <span className="text-xs font-bold" style={{ color: "#0A1629" }}>{tracking.doc.fayl_name}</span>
                     <Download size={13} className="ml-auto" style={{ color: "#3F8CFF" }} />
-                  </div>
+                  </button>
                 )}
               </div>
 
@@ -307,6 +324,35 @@ function TrackingModal({ docId, onClose }: { docId: number; onClose: () => void 
                                     </p>
                                   ))}
                                 </div>
+                              )}
+                            </div>
+                          )}
+
+                          {b.holati === "bajarildi" && (b.yakunlash_izohi || b.yakunlash_fayllar.length > 0) && (
+                            <div className="mt-2 pt-2" style={{ borderTop: `1px solid ${cfg.color}22` }}>
+                              <p className="text-xs font-bold mb-1" style={{ color: "#00A578" }}>Yakunlash hisoboti:</p>
+                              {b.yakunlash_izohi && (
+                                <p className="text-xs mb-1.5" style={{ color: "#0A1629" }}>{b.yakunlash_izohi}</p>
+                              )}
+                              {b.yakunlash_fayllar.length > 0 && (
+                                <div className="flex flex-col gap-1">
+                                  {b.yakunlash_fayllar.map((f, i) => (
+                                    <button key={i} onClick={() => downloadBase64(f.name, f.b64)}
+                                      className="flex items-center justify-between px-2 py-1.5 hover:opacity-80"
+                                      style={{ background: "rgba(255,255,255,0.7)", borderRadius: 6 }}>
+                                      <span className="flex items-center gap-1.5 text-[11px] font-bold truncate" style={{ color: "#0A1629" }}>
+                                        <FileText size={12} style={{ color: "#00A578" }} /> {f.name}
+                                      </span>
+                                      <Download size={12} style={{ color: "#00A578" }} />
+                                    </button>
+                                  ))}
+                                </div>
+                              )}
+                              {(b.yakunlagan_by_nomi || b.yakunlangan_at) && (
+                                <p className="text-[11px] mt-1" style={{ color: "#91929E" }}>
+                                  {b.yakunlagan_by_nomi && `${b.yakunlagan_by_nomi} tomonidan`}
+                                  {b.yakunlangan_at && `, ${fmt(b.yakunlangan_at)}`}
+                                </p>
                               )}
                             </div>
                           )}

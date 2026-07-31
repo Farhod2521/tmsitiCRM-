@@ -327,6 +327,7 @@ class IjroDocOut(BaseModel):
     davriyligi:               IjroDocDavriyligi
     kelishuvchi_tashkilotlar: Optional[str]      = None
     fayl_name:                Optional[str]      = None
+    fayl_b64:                 Optional[str]      = None
     holati:                   IjroDocHolati
     qayta_sabab:              Optional[str]      = None
     created_by:               Optional[int]      = None
@@ -360,6 +361,11 @@ class IjroDocBolimOut(BaseModel):
     xodim_nomi:       Optional[str] = None
     xodim_assigned_at: Optional[datetime] = None
     assign_log:    List[IjroDocBolimAssignLogOut] = []
+    # Topshiriqni yakunlash (bajarildi deb belgilash) — izoh + fayllar
+    yakunlash_izohi:    Optional[str] = None
+    yakunlash_fayllar:  List["YakunlashFayl"] = []
+    yakunlangan_at:     Optional[datetime] = None
+    yakunlagan_by_nomi: Optional[str] = None
     # doc preview fields (for list display)
     doc_sarlavha:      Optional[str] = None
     doc_manba:         Optional[str] = None
@@ -370,6 +376,14 @@ class IjroDocBolimOut(BaseModel):
 class IjroDocBolimQaror(BaseModel):
     holati: IjroDocBolimHolati
     izoh:   Optional[str] = None
+
+class YakunlashFayl(BaseModel):
+    name: str
+    b64:  str
+
+class IjroDocBolimYakunlashIn(BaseModel):
+    izoh:    Optional[str] = None
+    fayllar: List[YakunlashFayl] = []
 
 class AssignXodimIn(BaseModel):
     xodim_id: int

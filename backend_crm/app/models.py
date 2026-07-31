@@ -213,10 +213,20 @@ class IjroDocBolim(Base):
     xodim_id         = Column(Integer, ForeignKey("employees.id"), nullable=True)
     xodim_assigned_at= Column(DateTime, nullable=True)
 
+    # Topshiriqni yakunlash (bajarildi deb belgilash): izoh + bir nechta fayl.
+    yakunlash_izohi   = Column(Text, nullable=True)
+    # Pydantic schemasidagi "yakunlash_fayllar" (List[...]) bilan avtomatik
+    # from_attributes to'qnashuvining oldini olish uchun atribut nomi boshqacha,
+    # DB ustun nomi esa saqlanib qolgan.
+    yakunlash_fayllar_raw = Column("yakunlash_fayllar", Text, nullable=True)   # JSON: [{"name":..,"b64":..}, ...]
+    yakunlangan_at    = Column(DateTime, nullable=True)
+    yakunlagan_by     = Column(Integer, ForeignKey("employees.id"), nullable=True)
+
     document        = relationship("IjroDocument", back_populates="bolim_assignments")
     bolim           = relationship("Department")
     qaror_beruvchi  = relationship("Employee", foreign_keys=[qaror_by])
     xodim           = relationship("Employee", foreign_keys=[xodim_id])
+    yakunlovchi     = relationship("Employee", foreign_keys=[yakunlagan_by])
 
 
 class IjroDocBolimAssignLog(Base):

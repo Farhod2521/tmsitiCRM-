@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import {
   Search, CheckCircle2, XCircle, Clock, FileText, ChevronDown,
   Download, AlertTriangle, Loader2, RefreshCw, Building2,
-  Calendar, Send, ClipboardCheck, UserCog, History,
+  Calendar, Send, ClipboardCheck, UserCog, History, Paperclip, X,
 } from "lucide-react";
 import { apiFetch } from "@/lib/api";
 
@@ -35,11 +35,17 @@ interface DocBolimRow {
   xodim_nomi: string | null;
   xodim_assigned_at: string | null;
   assign_log: AssignLogEntry[];
+  yakunlash_izohi: string | null;
+  yakunlash_fayllar: YakunlashFayl[];
+  yakunlangan_at: string | null;
+  yakunlagan_by_nomi: string | null;
   doc_sarlavha: string | null;
   doc_manba: string | null;
   doc_hujjat_raqami: string | null;
   doc_ijro_muddati: string | null;
 }
+
+interface YakunlashFayl { name: string; b64: string; }
 
 interface Employee { id: number; full_name: string; position: string; }
 
@@ -56,6 +62,7 @@ interface IjroDocOut {
   davriyligi: string;
   kelishuvchi_tashkilotlar: string | null;
   fayl_name: string | null;
+  fayl_b64: string | null;
   holati: string;
   created_at: string | null;
 }
@@ -93,6 +100,24 @@ function HolatiChip({ h }: { h: BolimHolati }) {
   );
 }
 
+function downloadBase64(name: string, b64: string) {
+  const a = document.createElement("a");
+  a.href = b64;
+  a.download = name;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+}
+
+function fileToBase64(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
 function fmt(d: string | null) {
   if (!d) return "—";
   return new Date(d).toLocaleDateString("uz-UZ", { day: "2-digit", month: "2-digit", year: "numeric" });
@@ -122,6 +147,10 @@ function DetailPanel({
   const [selectedXodim, setSelectedXodim] = useState<number | "">("");
   const [assigning, setAssigning] = useState(false);
   const [assignError, setAssignError] = useState<string | null>(null);
+  const [yakunlashIzoh, setYakunlashIzoh] = useState("");
+  const [yakunlashFayllar, setYakunlashFayllar] = useState<YakunlashFayl[]>([]);
+  const [yakunlashing, setYakunlashing] = useState(false);
+  const [yakunlashError, setYakunlashError] = useState<string | null>(null);
 
   const loadDetail = useCallback(() => {
     setLoading(true);
@@ -177,6 +206,36 @@ function DetailPanel({
       setAssignError(e instanceof Error ? e.message : "Xatolik yuz berdi");
     } finally {
       setAssigning(false);
+    }
+  }
+
+  async function handleFilesPicked(e: React.ChangeEvent<HTMLInputElement>) {
+    const files = Array.from(e.target.files || []);
+    if (!files.length) return;
+    const encoded = await Promise.all(files.map(async f => ({ name: f.name, b64: await fileToBase64(f) })));
+    setYakunlashFayllar(p => [...p, ...encoded]);
+    e.target.value = "";
+  }
+
+  function removeYakunlashFayl(idx: number) {
+    setYakunlashFayllar(p => p.filter((_, i) => i !== idx));
+  }
+
+  async function handleYakunlash() {
+    setYakunlashError(null);
+    setYakunlashing(true);
+    try {
+      await apiFetch(`/ijro-docs/bolim-inbox/${row.id}/yakunlash`, {
+        method: "POST",
+        body: JSON.stringify({ izoh: yakunlashIzoh || null, fayllar: yakunlashFayllar }),
+      });
+      setYakunlashIzoh("");
+      setYakunlashFayllar([]);
+      await loadDetail();
+    } catch (e) {
+      setYakunlashError(e instanceof Error ? e.message : "Xatolik yuz berdi");
+    } finally {
+      setYakunlashing(false);
     }
   }
 
@@ -251,7 +310,9 @@ function DetailPanel({
               <FileText size={16} style={{ color: "#3F8CFF" }} />
               <span className="text-sm font-bold" style={{ color: "#0A1629" }}>{doc.fayl_name}</span>
             </div>
-            <button className="w-8 h-8 flex items-center justify-center hover:opacity-70"
+            <button onClick={() => doc.fayl_b64 && downloadBase64(doc.fayl_name!, doc.fayl_b64)}
+              disabled={!doc.fayl_b64}
+              className="w-8 h-8 flex items-center justify-center hover:opacity-70 disabled:opacity-40"
               style={{ background: "#FFFFFF", borderRadius: 8 }}>
               <Download size={14} style={{ color: "#3F8CFF" }} />
             </button>
@@ -343,6 +404,82 @@ function DetailPanel({
                 </div>
               </div>
             )}
+          </div>
+        )}
+
+        {/* Topshiriqni yakunlash — qabul qilingandan keyin, hali yakunlanmagan bo'lsa */}
+        {(myRow.holati === "qabul_qilindi" || myRow.holati === "bajarilmoqda") && (
+          <div className="p-4" style={{ background: "#F4F9FD", borderRadius: 14 }}>
+            <p className="text-xs font-bold mb-2 uppercase tracking-wide flex items-center gap-1.5" style={{ color: "#91929E" }}>
+              <CheckCircle2 size={13} /> Topshiriqni yakunlash
+            </p>
+            <textarea
+              value={yakunlashIzoh} onChange={e => setYakunlashIzoh(e.target.value)}
+              placeholder="Bajarilgan ish haqida izoh yozing..."
+              rows={3} className="w-full px-3 py-2.5 text-sm outline-none resize-none"
+              style={{ background: "#FFFFFF", borderRadius: 10, border: "1.5px solid #EEF2FF", color: "#0A1629" }}
+            />
+
+            <label className="mt-3 flex items-center justify-center gap-2 py-2.5 text-sm font-bold cursor-pointer"
+              style={{ background: "#FFFFFF", border: "1.5px dashed #D0D9E8", borderRadius: 10, color: "#3F8CFF" }}>
+              <Paperclip size={14} /> Fayl biriktirish
+              <input type="file" multiple className="hidden" onChange={handleFilesPicked} />
+            </label>
+
+            {yakunlashFayllar.length > 0 && (
+              <div className="flex flex-col gap-1.5 mt-2">
+                {yakunlashFayllar.map((f, i) => (
+                  <div key={i} className="flex items-center justify-between px-3 py-2"
+                    style={{ background: "#FFFFFF", borderRadius: 8, border: "1px solid #EEF2FF" }}>
+                    <span className="text-xs font-bold truncate" style={{ color: "#0A1629" }}>{f.name}</span>
+                    <button onClick={() => removeYakunlashFayl(i)}
+                      className="w-6 h-6 flex items-center justify-center flex-shrink-0 hover:opacity-70">
+                      <X size={12} style={{ color: "#FF5C5C" }} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <button onClick={handleYakunlash} disabled={yakunlashing}
+              className="w-full flex items-center justify-center gap-2 py-3 mt-3 text-sm font-bold text-white disabled:opacity-50"
+              style={{ background: "#00C48C", borderRadius: 12 }}>
+              {yakunlashing ? <Loader2 size={14} className="animate-spin" /> : <CheckCircle2 size={14} />}
+              Bajarildi deb belgilash
+            </button>
+            {yakunlashError && (
+              <p className="text-xs font-bold mt-2" style={{ color: "#FF5C5C" }}>{yakunlashError}</p>
+            )}
+          </div>
+        )}
+
+        {/* Yakunlangan topshiriq — izoh va fayllar */}
+        {myRow.holati === "bajarildi" && (
+          <div className="p-4" style={{ background: "rgba(0,196,140,0.06)", border: "1px solid rgba(0,196,140,0.15)", borderRadius: 14 }}>
+            <p className="text-xs font-bold mb-2 uppercase tracking-wide flex items-center gap-1.5" style={{ color: "#00A578" }}>
+              <CheckCircle2 size={13} /> Topshiriq yakunlandi
+            </p>
+            {myRow.yakunlash_izohi && (
+              <p className="text-sm mb-2" style={{ color: "#0A1629" }}>{myRow.yakunlash_izohi}</p>
+            )}
+            {myRow.yakunlash_fayllar.length > 0 && (
+              <div className="flex flex-col gap-1.5 mb-2">
+                {myRow.yakunlash_fayllar.map((f, i) => (
+                  <button key={i} onClick={() => downloadBase64(f.name, f.b64)}
+                    className="flex items-center justify-between px-3 py-2 hover:opacity-80"
+                    style={{ background: "#FFFFFF", borderRadius: 8, border: "1px solid #D6F0E8" }}>
+                    <span className="flex items-center gap-2 text-xs font-bold truncate" style={{ color: "#0A1629" }}>
+                      <FileText size={13} style={{ color: "#00A578" }} /> {f.name}
+                    </span>
+                    <Download size={13} style={{ color: "#00A578" }} />
+                  </button>
+                ))}
+              </div>
+            )}
+            <p className="text-xs" style={{ color: "#7D8592" }}>
+              {myRow.yakunlagan_by_nomi && `${myRow.yakunlagan_by_nomi} tomonidan`}
+              {myRow.yakunlangan_at && `, ${fmt(myRow.yakunlangan_at)}`}
+            </p>
           </div>
         )}
 

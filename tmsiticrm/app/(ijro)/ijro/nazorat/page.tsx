@@ -10,7 +10,7 @@ import {
   Crown, Scale, Wallet, Settings2, BookOpen, Globe, Award,
   ShieldCheck, Zap, FlaskConical, GraduationCap, Megaphone,
   ClipboardCheck, Calculator, Monitor, MapPinned, ShieldAlert,
-  PenTool, Wrench, Layers, Briefcase, Building2, Users,
+  PenTool, Wrench, Layers, Briefcase, Building2, Users, Download,
 } from "lucide-react";
 import { getUser } from "@/lib/auth";
 import { apiFetch } from "@/lib/api";
@@ -41,6 +41,7 @@ interface IjroDoc {
   davriyligi: string;
   kelishuvchi_tashkilotlar: string | null;
   fayl_name: string | null;
+  fayl_b64: string | null;
   holati: DocHolati;
   qayta_sabab: string | null;
   created_at: string | null;
@@ -70,7 +71,13 @@ interface DocBolimRow {
   xodim_nomi: string | null;
   xodim_assigned_at: string | null;
   assign_log: AssignLogEntry[];
+  yakunlash_izohi: string | null;
+  yakunlash_fayllar: YakunlashFayl[];
+  yakunlangan_at: string | null;
+  yakunlagan_by_nomi: string | null;
 }
+
+interface YakunlashFayl { name: string; b64: string; }
 
 interface IjroTracking {
   doc: IjroDoc;
@@ -252,7 +259,15 @@ function MetroTile({ dept, total, kamQoldi, size, onClick }: {
 // ─── Bo'limga biriktirilgan topshiriqlar modali ───────────────────────────────
 
 function DeptTasksModal({ dept, docs, depts, onClose }: { dept: Department; docs: IjroDoc[]; depts: Department[]; onClose: () => void }) {
-  const tasks = assignedDocs(dept, docs);
+  // Muddati kam qolgan (yoki o'tib ketgan) topshiriqlar birinchi bo'lib chiqadi
+  const tasks = [...assignedDocs(dept, docs)].sort((a, b) => {
+    const da = daysUntil(a.ijro_muddati);
+    const db = daysUntil(b.ijro_muddati);
+    if (da === null && db === null) return 0;
+    if (da === null) return 1;
+    if (db === null) return -1;
+    return da - db;
+  });
   const [trackingDocId, setTrackingDocId] = useState<number | null>(null);
 
   return (
@@ -321,7 +336,8 @@ function DeptTasksModal({ dept, docs, depts, onClose }: { dept: Department; docs
 }
 
 function BolimlarMetroGrid({ depts, docs }: { depts: Department[]; docs: IjroDoc[] }) {
-  const stats = computeDeptStats(depts, docs);
+  // Topshiriqlar soni ko'p bo'lgan bo'lim birinchi bo'lib chiqadi
+  const stats = computeDeptStats(depts, docs).sort((a, b) => b.total - a.total);
   const [selectedDept, setSelectedDept] = useState<Department | null>(null);
 
   if (depts.length === 0) return null;
@@ -742,6 +758,15 @@ function fmtDt(d: string | null) {
   return new Date(d).toLocaleDateString("uz-UZ", { day: "2-digit", month: "2-digit", year: "numeric" });
 }
 
+function downloadBase64(name: string, b64: string) {
+  const a = document.createElement("a");
+  a.href = b64;
+  a.download = name;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+}
+
 function IjroTrackingModal({ docId, depts, onClose }: {
   docId: number;
   depts: Department[];
@@ -818,6 +843,23 @@ function IjroTrackingModal({ docId, depts, onClose }: {
             <p className="text-sm text-center py-8" style={{ color: "#91929E" }}>Ma'lumot yuklanmadi</p>
           ) : (
             <>
+              {/* Hujjatga biriktirilgan fayl */}
+              {tracking.doc.fayl_name && (
+                <div className="flex items-center justify-between p-3"
+                  style={{ background: "#F4F9FD", borderRadius: 12, border: "1px dashed #D0D9E8" }}>
+                  <div className="flex items-center gap-2">
+                    <FileText size={16} style={{ color: "#3F8CFF" }} />
+                    <span className="text-sm font-bold" style={{ color: "#0A1629" }}>{tracking.doc.fayl_name}</span>
+                  </div>
+                  <button onClick={() => tracking.doc.fayl_b64 && downloadBase64(tracking.doc.fayl_name!, tracking.doc.fayl_b64)}
+                    disabled={!tracking.doc.fayl_b64}
+                    className="w-8 h-8 flex items-center justify-center hover:opacity-70 disabled:opacity-40"
+                    style={{ background: "#FFFFFF", borderRadius: 8 }}>
+                    <Download size={14} style={{ color: "#3F8CFF" }} />
+                  </button>
+                </div>
+              )}
+
               {/* Bo'limlar holati */}
               <div>
                 <p className="text-xs font-bold mb-3 uppercase tracking-wide" style={{ color: "#91929E" }}>
@@ -904,6 +946,36 @@ function IjroTrackingModal({ docId, depts, onClose }: {
                                     </p>
                                   ))}
                                 </div>
+                              )}
+                            </div>
+                          )}
+
+                          {/* Yakunlash izohi va fayllari */}
+                          {b.holati === "bajarildi" && (b.yakunlash_izohi || b.yakunlash_fayllar.length > 0) && (
+                            <div className="mt-2.5 pt-2.5" style={{ borderTop: "1px solid #F0F4FB" }}>
+                              <p className="text-xs font-bold mb-1.5" style={{ color: "#00A578" }}>Yakunlash hisoboti:</p>
+                              {b.yakunlash_izohi && (
+                                <p className="text-sm mb-1.5" style={{ color: "#0A1629" }}>{b.yakunlash_izohi}</p>
+                              )}
+                              {b.yakunlash_fayllar.length > 0 && (
+                                <div className="flex flex-col gap-1.5">
+                                  {b.yakunlash_fayllar.map((f, i) => (
+                                    <button key={i} onClick={() => downloadBase64(f.name, f.b64)}
+                                      className="flex items-center justify-between px-3 py-2 hover:opacity-80"
+                                      style={{ background: "#FFFFFF", borderRadius: 8, border: "1px solid #D6F0E8" }}>
+                                      <span className="flex items-center gap-2 text-xs font-bold truncate" style={{ color: "#0A1629" }}>
+                                        <FileText size={13} style={{ color: "#00A578" }} /> {f.name}
+                                      </span>
+                                      <Download size={13} style={{ color: "#00A578" }} />
+                                    </button>
+                                  ))}
+                                </div>
+                              )}
+                              {(b.yakunlagan_by_nomi || b.yakunlangan_at) && (
+                                <p className="text-xs mt-1.5" style={{ color: "#91929E" }}>
+                                  {b.yakunlagan_by_nomi && `${b.yakunlagan_by_nomi} tomonidan`}
+                                  {b.yakunlangan_at && `, ${fmtDt(b.yakunlangan_at)}`}
+                                </p>
                               )}
                             </div>
                           )}

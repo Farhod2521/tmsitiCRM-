@@ -76,6 +76,12 @@ def _make_bolim_out(ab: models.IjroDocBolim, db: Optional[Session] = None) -> sc
     out.bolim_nomi = ab.bolim.name if ab.bolim else None
     out.qaror_by_nomi = ab.qaror_beruvchi.full_name if ab.qaror_beruvchi else None
     out.xodim_nomi = ab.xodim.full_name if ab.xodim else None
+    out.yakunlagan_by_nomi = ab.yakunlovchi.full_name if ab.yakunlovchi else None
+    if ab.yakunlash_fayllar_raw:
+        try:
+            out.yakunlash_fayllar = [schemas.YakunlashFayl(**f) for f in json.loads(ab.yakunlash_fayllar_raw)]
+        except (json.JSONDecodeError, TypeError):
+            out.yakunlash_fayllar = []
     if ab.document:
         out.doc_id            = ab.document.id
         out.doc_sarlavha      = ab.document.sarlavha
@@ -278,6 +284,35 @@ def assign_xodim(
     ab.xodim_assigned_at = datetime.utcnow()
     db.flush()
     _log_assignment(db, ab.id, xodim.id, current.id)
+    db.commit()
+    db.refresh(ab)
+    return _make_bolim_out(ab, db)
+
+
+@router.post("/bolim-inbox/{doc_bolim_id}/yakunlash", response_model=schemas.IjroDocBolimOut)
+def yakunlash(
+    doc_bolim_id: int,
+    data:    schemas.IjroDocBolimYakunlashIn,
+    db:      Session = Depends(get_db),
+    current: models.Employee = Depends(get_current_employee),
+):
+    """Bo'lim qabul qilgan topshiriqni yakunlash: izoh + bir nechta fayl bilan
+    'bajarildi' deb belgilash. Direktor/ijro rollar tracking orqali ko'radi."""
+    if current.role not in (_BOLIM_ROLES | _ADMIN_ROLES | _ALLOWED):
+        raise HTTPException(status_code=403, detail="Ruxsat yo'q")
+    ab = db.query(models.IjroDocBolim).filter(models.IjroDocBolim.id == doc_bolim_id).first()
+    if not ab:
+        raise HTTPException(status_code=404, detail="Topilmadi")
+    if current.role in _BOLIM_ROLES and ab.bolim_id != current.department_id:
+        raise HTTPException(status_code=403, detail="Bu sizning bo'limingiz emas")
+    if ab.holati not in (models.IjroDocBolimHolati.qabul_qilindi, models.IjroDocBolimHolati.bajarilmoqda):
+        raise HTTPException(status_code=400, detail="Avval topshiriqni qabul qilish kerak")
+
+    ab.holati = models.IjroDocBolimHolati.bajarildi
+    ab.yakunlash_izohi = data.izoh
+    ab.yakunlash_fayllar_raw = json.dumps([f.model_dump() for f in data.fayllar], ensure_ascii=False) if data.fayllar else None
+    ab.yakunlangan_at = datetime.utcnow()
+    ab.yakunlagan_by = current.id
     db.commit()
     db.refresh(ab)
     return _make_bolim_out(ab, db)
