@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import {
-  Search, Bell, Settings, Eye, ArrowRight, Filter,
+  Search, Bell, Settings, Eye, ArrowRight,
   ChevronDown, Clock, CheckCircle2, AlertTriangle, AlertCircle,
   FileText, Calendar, Upload, LayoutDashboard, List,
   X, Loader2, Plus, CloudUpload, RefreshCw,
@@ -1093,6 +1093,27 @@ function Topshiriqlar({ docs, depts, onRefresh }:
   const [deletingId, setDeletingId]   = useState<number | null>(null);
   const [trackingDocId, setTrackingDocId] = useState<number | null>(null);
 
+  const [filterBolimIds, setFilterBolimIds] = useState<number[]>([]);
+  const [bolimDropdownOpen, setBolimDropdownOpen] = useState(false);
+  const [filterSanaFrom, setFilterSanaFrom] = useState("");
+  const [filterSanaTo,   setFilterSanaTo]   = useState("");
+  const [filterHolat,    setFilterHolat]    = useState("all");
+  const bolimDropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function onDocClick(e: MouseEvent) {
+      if (bolimDropdownRef.current && !bolimDropdownRef.current.contains(e.target as Node)) {
+        setBolimDropdownOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", onDocClick);
+    return () => document.removeEventListener("mousedown", onDocClick);
+  }, []);
+
+  function toggleFilterBolim(id: number) {
+    setFilterBolimIds(p => p.includes(id) ? p.filter(x => x !== id) : [...p, id]);
+  }
+
   async function handleDelete(id: number) {
     if (!confirm("Hujjatni o'chirishni tasdiqlaysizmi?")) return;
     setDeletingId(id);
@@ -1107,9 +1128,24 @@ function Topshiriqlar({ docs, depts, onRefresh }:
   }
 
   const filtered = docs.filter(d => {
-    if (activeManba === "all")   return true;
-    if (activeManba === "pq_pf") return d.manba === "pq_pf";
-    return d.manba === activeManba;
+    if (activeManba !== "all" && d.manba !== activeManba) return false;
+
+    if (filterBolimIds.length) {
+      let ids: number[] = [];
+      try { ids = JSON.parse(d.masul_bolimlar || "[]"); } catch { /* noop */ }
+      if (!ids.some(id => filterBolimIds.includes(id))) return false;
+    }
+
+    if (filterHolat !== "all" && d.holati !== filterHolat) return false;
+
+    if (filterSanaFrom || filterSanaTo) {
+      if (!d.ijro_muddati) return false;
+      const dd = d.ijro_muddati.slice(0, 10);
+      if (filterSanaFrom && dd < filterSanaFrom) return false;
+      if (filterSanaTo   && dd > filterSanaTo)   return false;
+    }
+
+    return true;
   });
 
   const counts = {
@@ -1158,25 +1194,68 @@ function Topshiriqlar({ docs, depts, onRefresh }:
 
         {/* Filters */}
         <div className="flex items-center gap-3 flex-wrap px-6 py-4">
-          <div className="flex items-center gap-2 px-3 py-2.5 min-w-[160px]"
-            style={{ background:"#F4F9FD", borderRadius:10 }}>
-            <span className="text-xs" style={{ color:"#91929E" }}>Bo'lim bo'yicha</span>
-            <ChevronDown size={14} style={{ color:"#91929E", marginLeft:"auto" }}/>
+          {/* Bo'lim bo'yicha — checkbox popover */}
+          <div className="relative" ref={bolimDropdownRef}>
+            <button onClick={() => setBolimDropdownOpen(v => !v)}
+              className="flex items-center gap-2 px-3 py-2.5 min-w-[160px]"
+              style={{ background:"#F4F9FD", borderRadius:10 }}>
+              <span className="text-xs font-bold" style={{ color: filterBolimIds.length ? "#0A1629" : "#91929E" }}>
+                {filterBolimIds.length ? `Bo'lim (${filterBolimIds.length})` : "Bo'lim bo'yicha"}
+              </span>
+              <ChevronDown size={14} style={{ color:"#91929E", marginLeft:"auto" }}/>
+            </button>
+            {bolimDropdownOpen && (
+              <div className="absolute top-full left-0 mt-1 z-20 p-2 max-h-64 overflow-y-auto"
+                style={{ background:"#FFFFFF", borderRadius:12, boxShadow:"0 8px 24px rgba(10,22,41,0.15)", minWidth:260, border:"1px solid #F0F4FB" }}>
+                {depts.map(d => (
+                  <label key={d.id} className="flex items-center gap-2 px-2 py-1.5 cursor-pointer hover:bg-[#F4F9FD] rounded-lg">
+                    <input type="checkbox" checked={filterBolimIds.includes(d.id)}
+                      onChange={() => toggleFilterBolim(d.id)} className="accent-[#3F8CFF] w-4 h-4" />
+                    <span className="text-sm" style={{ color:"#0A1629" }}>{d.name}</span>
+                  </label>
+                ))}
+                {filterBolimIds.length > 0 && (
+                  <button onClick={() => setFilterBolimIds([])}
+                    className="w-full text-center mt-1 pt-2 text-xs font-bold" style={{ color:"#FF5C5C", borderTop:"1px solid #F4F9FD" }}>
+                    Tozalash
+                  </button>
+                )}
+              </div>
+            )}
           </div>
-          <div className="flex items-center gap-2 px-3 py-2.5 min-w-[140px]"
+
+          {/* Sana oralig'i */}
+          <div className="flex items-center gap-2 px-3 py-2.5"
             style={{ background:"#F4F9FD", borderRadius:10 }}>
-            <Calendar size={13} style={{ color:"#91929E" }}/>
-            <span className="text-xs" style={{ color:"#91929E" }}>Sana oralig'i</span>
+            <Calendar size={13} style={{ color:"#91929E", flexShrink:0 }}/>
+            <input type="date" value={filterSanaFrom} onChange={e => setFilterSanaFrom(e.target.value)}
+              className="bg-transparent text-xs font-bold outline-none" style={{ color: filterSanaFrom ? "#0A1629" : "#91929E", width:120 }} />
+            <span className="text-xs" style={{ color:"#91929E" }}>—</span>
+            <input type="date" value={filterSanaTo} onChange={e => setFilterSanaTo(e.target.value)}
+              className="bg-transparent text-xs font-bold outline-none" style={{ color: filterSanaTo ? "#0A1629" : "#91929E", width:120 }} />
           </div>
-          <div className="flex items-center gap-2 px-3 py-2.5 min-w-[130px]"
+
+          {/* Holat */}
+          <div className="relative flex items-center px-3 py-2.5 min-w-[150px]"
             style={{ background:"#F4F9FD", borderRadius:10 }}>
-            <span className="text-xs" style={{ color:"#91929E" }}>Holat</span>
-            <ChevronDown size={14} style={{ color:"#91929E", marginLeft:"auto" }}/>
+            <select value={filterHolat} onChange={e => setFilterHolat(e.target.value)}
+              className="appearance-none bg-transparent text-xs font-bold outline-none w-full pr-5"
+              style={{ color: filterHolat === "all" ? "#91929E" : "#0A1629" }}>
+              <option value="all">Holat: barchasi</option>
+              {(Object.keys(HOLATI_CFG) as DocHolati[]).map(h => (
+                <option key={h} value={h}>{HOLATI_CFG[h].label}</option>
+              ))}
+            </select>
+            <ChevronDown size={14} style={{ color:"#91929E", position:"absolute", right:10, pointerEvents:"none" }}/>
           </div>
-          <button className="flex items-center gap-1.5 px-4 py-2.5 text-xs font-bold text-white"
-            style={{ background:"#3F8CFF", borderRadius:10 }}>
-            <Filter size={13}/> Saralash
-          </button>
+
+          {(filterBolimIds.length > 0 || filterSanaFrom || filterSanaTo || filterHolat !== "all") && (
+            <button onClick={() => { setFilterBolimIds([]); setFilterSanaFrom(""); setFilterSanaTo(""); setFilterHolat("all"); }}
+              className="flex items-center gap-1.5 px-4 py-2.5 text-xs font-bold"
+              style={{ background:"#FFFFFF", border:"1.5px solid #F0F4FB", color:"#7D8592", borderRadius:10 }}>
+              <X size={13}/> Tozalash
+            </button>
+          )}
         </div>
 
         {/* Table */}
