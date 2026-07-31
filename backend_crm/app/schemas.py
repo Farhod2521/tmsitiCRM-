@@ -1,5 +1,5 @@
 from pydantic import BaseModel
-from typing import Optional, List
+from typing import Optional, List, Literal
 from datetime import datetime, date
 from .models import RoleEnum, DeptTypeEnum, EmployeeStatusEnum, IjroDocManba, IjroDocHolati, IjroDocTur, IjroDocDavriyligi, IjroDocBolimHolati
 
@@ -384,6 +384,10 @@ class YakunlashFayl(BaseModel):
 class IjroDocBolimYakunlashIn(BaseModel):
     izoh:    Optional[str] = None
     fayllar: List[YakunlashFayl] = []
+
+class IjroReviewIn(BaseModel):
+    qaror: Literal["yechish", "rad_etish"]
+    izoh:  Optional[str] = None
 
 class AssignXodimIn(BaseModel):
     xodim_id: int

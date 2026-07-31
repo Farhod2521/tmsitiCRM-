@@ -10,7 +10,7 @@ import {
   Crown, Scale, Wallet, Settings2, BookOpen, Globe, Award,
   ShieldCheck, Zap, FlaskConical, GraduationCap, Megaphone,
   ClipboardCheck, Calculator, Monitor, MapPinned, ShieldAlert,
-  PenTool, Wrench, Layers, Briefcase, Building2, Users, Download,
+  PenTool, Wrench, Layers, Briefcase, Building2, Users, Download, XCircle,
 } from "lucide-react";
 import { getUser } from "@/lib/auth";
 import { apiFetch } from "@/lib/api";
@@ -753,6 +753,18 @@ const BOLIM_H_CFG: Record<BolimHolati, { label: string; color: string; bg: strin
   bajarildi:     { label: "Bajarildi",     color: "#00C48C", bg: "rgba(0,196,140,0.1)"   },
 };
 
+// Bo'limlar holatidan hujjatning umumiy (agregat) holatini chiqaradi — hujjatning
+// o'zidagi "holati" maydoni faqat to'liq yopilganda o'zgaradi, jadvalda esa
+// bo'limlar real holatini ko'rsatish kerak.
+function aggregateBolimHolati(items: BolimInfo[]): BolimHolati {
+  if (items.some(i => i.holati === "bajarilmoqda")) return "bajarilmoqda";
+  if (items.some(i => i.holati === "qabul_qilindi")) return "qabul_qilindi";
+  const nonRejected = items.filter(i => i.holati !== "rad_etildi");
+  if (nonRejected.length > 0 && nonRejected.every(i => i.holati === "bajarildi")) return "bajarildi";
+  if (items.length > 0 && items.every(i => i.holati === "rad_etildi")) return "rad_etildi";
+  return "yuborildi";
+}
+
 function fmtDt(d: string | null) {
   if (!d) return "—";
   return new Date(d).toLocaleDateString("uz-UZ", { day: "2-digit", month: "2-digit", year: "numeric" });
@@ -776,6 +788,7 @@ function IjroTrackingModal({ docId, depts, onClose }: {
   const [loading,  setLoading]  = useState(true);
   const [selBolim, setSelBolim] = useState<number | "">("");
   const [adding,   setAdding]   = useState(false);
+  const [reviewingId, setReviewingId] = useState<number | null>(null);
 
   const load = () => {
     setLoading(true);
@@ -786,6 +799,22 @@ function IjroTrackingModal({ docId, depts, onClose }: {
   };
 
   useEffect(() => { load(); }, []); // eslint-disable-line
+
+  async function handleIjroQaror(bolimId: number, qaror: "yechish" | "rad_etish") {
+    if (qaror === "rad_etish" && !confirm("Bo'lim hisobotini rad etishni tasdiqlaysizmi?")) return;
+    setReviewingId(bolimId);
+    try {
+      await apiFetch(`/ijro-docs/bolim-inbox/${bolimId}/ijro-qaror`, {
+        method: "POST",
+        body: JSON.stringify({ qaror }),
+      });
+      load();
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Xatolik");
+    } finally {
+      setReviewingId(null);
+    }
+  }
 
   async function handleAddBolim() {
     if (!selBolim) return;
@@ -977,6 +1006,24 @@ function IjroTrackingModal({ docId, depts, onClose }: {
                                   {b.yakunlangan_at && `, ${fmtDt(b.yakunlangan_at)}`}
                                 </p>
                               )}
+                            </div>
+                          )}
+
+                          {/* Ijro nazorati ko'rib chiqishi — yakunlangan hisobotni tasdiqlash yoki rad etish */}
+                          {b.holati === "bajarildi" && (
+                            <div className="flex gap-2 mt-3 pt-3" style={{ borderTop: "1px solid #F0F4FB" }}>
+                              <button onClick={() => handleIjroQaror(b.id, "yechish")} disabled={reviewingId === b.id}
+                                className="flex-1 flex items-center justify-center gap-1.5 py-2 text-xs font-bold text-white disabled:opacity-50"
+                                style={{ background: "#00C48C", borderRadius: 10 }}>
+                                {reviewingId === b.id ? <Loader2 size={12} className="animate-spin" /> : <CheckCircle2 size={12} />}
+                                Ijro nazoratdan yechish
+                              </button>
+                              <button onClick={() => handleIjroQaror(b.id, "rad_etish")} disabled={reviewingId === b.id}
+                                className="flex-1 flex items-center justify-center gap-1.5 py-2 text-xs font-bold disabled:opacity-50"
+                                style={{ background: "#FFFFFF", border: "1.5px solid #FF5C5C", color: "#FF5C5C", borderRadius: 10 }}>
+                                <XCircle size={12} />
+                                Rad etish
+                              </button>
                             </div>
                           )}
                         </div>
@@ -1330,7 +1377,20 @@ function Topshiriqlar({ docs, depts, onRefresh }:
                       <p className="text-sm font-bold" style={{ color: dl.color }}>{dl.text}</p>
                     </td>
                     <td className="px-4 py-4">
-                      <HolatiChip h={d.holati} />
+                      {(() => {
+                        let items: BolimInfo[] = [];
+                        try { items = JSON.parse(d.masul_bolimlar_info || "[]"); } catch { /* noop */ }
+                        if (d.holati === "bajarildi" || items.length === 0) {
+                          return <HolatiChip h={d.holati} />;
+                        }
+                        const cfg = BOLIM_H_CFG[aggregateBolimHolati(items)];
+                        return (
+                          <span className="inline-flex items-center px-2.5 py-1 text-xs font-bold whitespace-nowrap"
+                            style={{ background: cfg.bg, color: cfg.color, borderRadius: 8 }}>
+                            {cfg.label}
+                          </span>
+                        );
+                      })()}
                     </td>
                     <td className="px-4 py-4">
                       <div className="flex items-center gap-1">

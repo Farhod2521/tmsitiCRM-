@@ -318,6 +318,42 @@ def yakunlash(
     return _make_bolim_out(ab, db)
 
 
+@router.post("/bolim-inbox/{doc_bolim_id}/ijro-qaror", response_model=schemas.IjroDocBolimOut)
+def ijro_qaror(
+    doc_bolim_id: int,
+    data:    schemas.IjroReviewIn,
+    db:      Session = Depends(get_db),
+    current: models.Employee = Depends(get_current_employee),
+):
+    """Bo'lim yakunlab yuborgan hisobotni ijro nazorati (direktor/ijro) ko'rib
+    chiqadi: 'yechish' — tasdiqlab, bo'lim bo'yicha nazoratdan olib tashlaydi
+    (barcha bo'limlar yechilsa, hujjat ham 'bajarildi' deb yopiladi); 'rad_etish'
+    — hisobotni rad etadi, bo'lim qayta 'rad etildi' holatiga o'tadi."""
+    if current.role not in (_ADMIN_ROLES | _ALLOWED):
+        raise HTTPException(status_code=403, detail="Ruxsat yo'q")
+    ab = db.query(models.IjroDocBolim).filter(models.IjroDocBolim.id == doc_bolim_id).first()
+    if not ab:
+        raise HTTPException(status_code=404, detail="Topilmadi")
+    if ab.holati != models.IjroDocBolimHolati.bajarildi:
+        raise HTTPException(status_code=400, detail="Bo'lim hali topshiriqni yakunlamagan")
+
+    if data.qaror == "rad_etish":
+        ab.holati   = models.IjroDocBolimHolati.rad_etildi
+        ab.izoh     = data.izoh
+        ab.qaror_at = datetime.utcnow()
+        ab.qaror_by = current.id
+    else:
+        # "yechish" — bo'lim allaqachon bajarildi, endi butun hujjat holatini tekshiramiz
+        doc = ab.document
+        siblings = db.query(models.IjroDocBolim).filter(models.IjroDocBolim.doc_id == ab.doc_id).all()
+        if doc and all(s.holati in (models.IjroDocBolimHolati.bajarildi, models.IjroDocBolimHolati.rad_etildi) for s in siblings):
+            doc.holati = models.IjroDocHolati.bajarildi
+
+    db.commit()
+    db.refresh(ab)
+    return _make_bolim_out(ab, db)
+
+
 @router.get("/my-tasks", response_model=List[schemas.IjroDocBolimOut])
 def my_tasks(
     db:      Session = Depends(get_db),
