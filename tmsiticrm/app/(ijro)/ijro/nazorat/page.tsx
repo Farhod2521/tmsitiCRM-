@@ -206,23 +206,33 @@ function tileSize(dept: Department, isHero: boolean): TileSize {
 }
 const TILE_SPAN: Record<TileSize, string> = { s: "", w: "col-span-2", l: "col-span-2 row-span-2" };
 
+// Topshirig'i yo'q bo'limlar uchun — shaffof, kulrang, "noactive" ko'rinish,
+// rangli mavzudan aniq ajralib turishi uchun.
+const EMPTY_TILE_THEME = { bg: "#FAFCFF", text: "#B0B8C4", iconBg: "rgba(176,184,196,0.12)", border: "#EDF1F7" };
+
 function MetroTile({ dept, total, kamQoldi, size, onClick }: {
   dept: Department; total: number; kamQoldi: number; size: TileSize; onClick: () => void;
 }) {
   const Icon = deptIcon(dept.name, dept.dept_type);
-  const theme = tileTheme(dept.id);
+  const isEmpty = total === 0;
+  const theme = isEmpty ? EMPTY_TILE_THEME : tileTheme(dept.id);
   const isPriority = dept.dept_type === "rahbariyat";
 
   return (
     <button onClick={onClick}
       className={`group relative flex flex-col justify-between p-5 text-left transition-all duration-200 hover:-translate-y-1 hover:shadow-xl ${TILE_SPAN[size]}`}
-      style={{ background: theme.bg, borderRadius: 12, border: `1px solid ${theme.border || "transparent"}` }}>
+      style={{
+        background: theme.bg,
+        borderRadius: 12,
+        border: `1px ${isEmpty ? "dashed" : "solid"} ${theme.border || "transparent"}`,
+        opacity: isEmpty ? 0.7 : 1,
+      }}>
 
       <div className="flex items-start justify-between">
         <div className="p-2.5 rounded-lg flex items-center justify-center transition-colors" style={{ background: theme.iconBg }}>
           <Icon size={size === "l" ? 26 : 20} style={{ color: theme.text }} />
         </div>
-        {isPriority && (
+        {isPriority && !isEmpty && (
           <span className="text-[9px] font-bold border px-2 py-1 tracking-widest uppercase rounded flex-shrink-0"
             style={{ borderColor: `${theme.text}4D`, color: theme.text }}>
             Priority
@@ -247,7 +257,7 @@ function MetroTile({ dept, total, kamQoldi, size, onClick }: {
               <AlertTriangle size={11} /> {kamQoldi}
             </span>
           )}
-          <span className="text-[10px] font-bold px-2 py-1 rounded-full flex-shrink-0" style={{ background: `${theme.text}22`, color: theme.text }}>
+          <span className="text-[10px] font-bold px-2 py-1 rounded-full flex-shrink-0" style={{ background: isEmpty ? "rgba(176,184,196,0.15)" : `${theme.text}22`, color: theme.text }}>
             {total} jami
           </span>
         </div>
@@ -299,11 +309,8 @@ function DeptTasksModal({ dept, docs, depts, onClose }: { dept: Department; docs
             <div className="flex flex-col gap-3">
               {tasks.map(d => {
                 const dl  = daysLeft(d.ijro_muddati);
-                let items: BolimInfo[] = [];
-                try { items = JSON.parse(d.masul_bolimlar_info || "[]"); } catch { /* noop */ }
-                const cfg = (d.holati === "bajarildi" || items.length === 0)
-                  ? HOLATI_CFG[d.holati]
-                  : BOLIM_H_CFG[aggregateBolimHolati(items)];
+                const agg = docAggHolati(d);
+                const cfg = agg === "none" ? HOLATI_CFG[d.holati] : BOLIM_H_CFG[agg];
                 return (
                   <button key={d.id} onClick={() => setTrackingDocId(d.id)}
                     className="text-left p-4 hover:opacity-80 transition-opacity"
@@ -769,6 +776,17 @@ function aggregateBolimHolati(items: BolimInfo[]): BolimHolati {
   return "yuborildi";
 }
 
+// Hujjatning ko'rsatiladigan/filtrlanadigan holati — bo'limlar bo'yicha agregat,
+// hali birorta bo'limga yuborilmagan bo'lsa "none" (hujjatning o'z "holati"
+// maydoni fallback sifatida ishlatiladi).
+function docAggHolati(d: IjroDoc): BolimHolati | "none" {
+  if (d.holati === "bajarildi") return "bajarildi";
+  let items: BolimInfo[] = [];
+  try { items = JSON.parse(d.masul_bolimlar_info || "[]"); } catch { /* noop */ }
+  if (items.length === 0) return "none";
+  return aggregateBolimHolati(items);
+}
+
 function fmtDt(d: string | null) {
   if (!d) return "—";
   return new Date(d).toLocaleDateString("uz-UZ", { day: "2-digit", month: "2-digit", year: "numeric" });
@@ -1106,11 +1124,7 @@ function BoshqaruvPaneli({ docs, depts }: { docs: IjroDoc[]; depts: Department[]
   // Hujjatning haqiqiy bajarilish holati bo'limlar holatidan chiqariladi —
   // hujjatning o'z "holati" maydoni faqat butunlay yopilganda o'zgaradi.
   function isDocDone(d: IjroDoc): boolean {
-    if (d.holati === "bajarildi") return true;
-    try {
-      const items: BolimInfo[] = JSON.parse(d.masul_bolimlar_info || "[]");
-      return items.length > 0 && aggregateBolimHolati(items) === "bajarildi";
-    } catch { return false; }
+    return docAggHolati(d) === "bajarildi";
   }
 
   const stats = [
@@ -1205,7 +1219,7 @@ function Topshiriqlar({ docs, depts, onRefresh }:
       if (!ids.some(id => filterBolimIds.includes(id))) return false;
     }
 
-    if (filterHolat !== "all" && d.holati !== filterHolat) return false;
+    if (filterHolat !== "all" && docAggHolati(d) !== filterHolat) return false;
 
     if (filterSanaFrom || filterSanaTo) {
       if (!d.ijro_muddati) return false;
@@ -1311,8 +1325,8 @@ function Topshiriqlar({ docs, depts, onRefresh }:
               className="appearance-none bg-transparent text-xs font-bold outline-none w-full pr-5"
               style={{ color: filterHolat === "all" ? "#91929E" : "#0A1629" }}>
               <option value="all">Holat: barchasi</option>
-              {(Object.keys(HOLATI_CFG) as DocHolati[]).map(h => (
-                <option key={h} value={h}>{HOLATI_CFG[h].label}</option>
+              {(Object.keys(BOLIM_H_CFG) as BolimHolati[]).map(h => (
+                <option key={h} value={h}>{BOLIM_H_CFG[h].label}</option>
               ))}
             </select>
             <ChevronDown size={14} style={{ color:"#91929E", position:"absolute", right:10, pointerEvents:"none" }}/>
@@ -1400,12 +1414,9 @@ function Topshiriqlar({ docs, depts, onRefresh }:
                     </td>
                     <td className="px-4 py-4">
                       {(() => {
-                        let items: BolimInfo[] = [];
-                        try { items = JSON.parse(d.masul_bolimlar_info || "[]"); } catch { /* noop */ }
-                        if (d.holati === "bajarildi" || items.length === 0) {
-                          return <HolatiChip h={d.holati} />;
-                        }
-                        const cfg = BOLIM_H_CFG[aggregateBolimHolati(items)];
+                        const agg = docAggHolati(d);
+                        if (agg === "none") return <HolatiChip h={d.holati} />;
+                        const cfg = BOLIM_H_CFG[agg];
                         return (
                           <span className="inline-flex items-center px-2.5 py-1 text-xs font-bold whitespace-nowrap"
                             style={{ background: cfg.bg, color: cfg.color, borderRadius: 8 }}>
