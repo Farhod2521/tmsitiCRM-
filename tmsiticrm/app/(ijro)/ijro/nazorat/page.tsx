@@ -299,7 +299,11 @@ function DeptTasksModal({ dept, docs, depts, onClose }: { dept: Department; docs
             <div className="flex flex-col gap-3">
               {tasks.map(d => {
                 const dl  = daysLeft(d.ijro_muddati);
-                const cfg = HOLATI_CFG[d.holati];
+                let items: BolimInfo[] = [];
+                try { items = JSON.parse(d.masul_bolimlar_info || "[]"); } catch { /* noop */ }
+                const cfg = (d.holati === "bajarildi" || items.length === 0)
+                  ? HOLATI_CFG[d.holati]
+                  : BOLIM_H_CFG[aggregateBolimHolati(items)];
                 return (
                   <button key={d.id} onClick={() => setTrackingDocId(d.id)}
                     className="text-left p-4 hover:opacity-80 transition-opacity"
@@ -1099,11 +1103,29 @@ function IjroTrackingModal({ docId, depts, onClose }: {
 // ─── Tab 1: Boshqaruv paneli ─────────────────────────────────────────────────
 
 function BoshqaruvPaneli({ docs, depts }: { docs: IjroDoc[]; depts: Department[]; onRefresh: () => void }) {
+  // Hujjatning haqiqiy bajarilish holati bo'limlar holatidan chiqariladi —
+  // hujjatning o'z "holati" maydoni faqat butunlay yopilganda o'zgaradi.
+  function isDocDone(d: IjroDoc): boolean {
+    if (d.holati === "bajarildi") return true;
+    try {
+      const items: BolimInfo[] = JSON.parse(d.masul_bolimlar_info || "[]");
+      return items.length > 0 && aggregateBolimHolati(items) === "bajarildi";
+    } catch { return false; }
+  }
+
   const stats = [
-    { label: "Jami hujjatlar",       value: docs.length,                                          color: "#3F8CFF", bg: "rgba(63,140,255,0.1)",  icon: FileText },
-    { label: "Bajarilgan",            value: docs.filter(d=>d.holati==="bajarildi").length,         color: "#00C48C", bg: "rgba(0,196,140,0.1)",   icon: CheckCircle2 },
-    { label: "Muddati yaqinlashgan",  value: docs.filter(d=>d.holati==="muddati_yaqin").length,     color: "#FFBD21", bg: "rgba(255,189,33,0.1)",  icon: AlertTriangle },
-    { label: "Muddati o'tgan",        value: docs.filter(d=>d.holati==="kechikmoqda").length,        color: "#FF5C5C", bg: "rgba(255,92,92,0.1)",   icon: AlertCircle },
+    { label: "Jami hujjatlar",       value: docs.length, color: "#3F8CFF", bg: "rgba(63,140,255,0.1)",  icon: FileText },
+    { label: "Bajarilgan",           value: docs.filter(isDocDone).length, color: "#00C48C", bg: "rgba(0,196,140,0.1)",   icon: CheckCircle2 },
+    { label: "Muddati yaqinlashgan", value: docs.filter(d => {
+        if (isDocDone(d)) return false;
+        const dd = daysUntil(d.ijro_muddati);
+        return dd !== null && dd >= 0 && dd <= 5;
+      }).length, color: "#FFBD21", bg: "rgba(255,189,33,0.1)",  icon: AlertTriangle },
+    { label: "Muddati o'tgan",       value: docs.filter(d => {
+        if (isDocDone(d)) return false;
+        const dd = daysUntil(d.ijro_muddati);
+        return dd !== null && dd < 0;
+      }).length, color: "#FF5C5C", bg: "rgba(255,92,92,0.1)",   icon: AlertCircle },
   ];
 
   return (
