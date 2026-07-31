@@ -31,6 +31,7 @@ interface IjroDoc {
   hujjat_sanasi: string | null;
   sarlavha: string | null;
   mazmun: string | null;
+  qoshimcha_malumot: string | null;
   masul_orinbosar_id: number | null;
   masul_orinbosar_nomi: string | null;
   masul_bolimlar: string | null;
@@ -424,6 +425,7 @@ function YangiHujjatModal({ depts, onClose, onSaved, editDoc }:
     hujjat_sanasi:   editDoc?.hujjat_sanasi   ?? "",
     sarlavha:        editDoc?.sarlavha         ?? "",
     mazmun:          editDoc?.mazmun           ?? "",
+    qoshimcha_malumot: editDoc?.qoshimcha_malumot ?? "",
     masul_orinbosar_id: editDoc?.masul_orinbosar_id ?? null as number | null,
     ijro_muddati:    editDoc?.ijro_muddati ? editDoc.ijro_muddati.replace("Z","").slice(0,16) : "",
     davriyligi:      editDoc?.davriyligi   ?? "bir_martalik",
@@ -530,20 +532,6 @@ function YangiHujjatModal({ depts, onClose, onSaved, editDoc }:
         <div className="flex-1 overflow-y-auto px-6 py-5">
           <form id="doc-form" onSubmit={handleSubmit} className="flex flex-col gap-5">
 
-            {/* Hujjat turi (Kiruvchi/Chiquvchi/Ichki) */}
-            <div>
-              <p className="text-xs font-bold mb-2" style={{ color: "#91929E" }}>Hujjat turi</p>
-              <div className="flex gap-3 flex-wrap">
-                {([["kiruvchi","Kiruvchi"],["chiquvchi","Chiquvchi"],["ichki","Ichki"]] as const).map(([v, label]) => (
-                  <label key={v} className="flex items-center gap-2 cursor-pointer">
-                    <input type="radio" name="tur" value={v} checked={form.tur === v}
-                      onChange={() => setF("tur", v)} className="accent-[#3F8CFF]" />
-                    <span className="text-sm font-bold" style={{ color: form.tur === v ? "#3F8CFF" : "#7D8592" }}>{label}</span>
-                  </label>
-                ))}
-              </div>
-            </div>
-
             {/* Hujjat manbasi */}
             <div>
               <label className="text-xs font-bold mb-2 block" style={{ color: "#91929E" }}>Hujjat manbasi *</label>
@@ -579,7 +567,7 @@ function YangiHujjatModal({ depts, onClose, onSaved, editDoc }:
 
             {/* Sarlavha */}
             <div>
-              <label className="text-xs font-bold mb-2 block" style={{ color: "#91929E" }}>Hujjat sarlavhasi</label>
+              <label className="text-xs font-bold mb-2 block" style={{ color: "#91929E" }}>Hujjat bandi</label>
               <input value={form.sarlavha} onChange={e => setF("sarlavha", e.target.value)}
                 placeholder="Hujjatning qisqacha mazmuni yoki sarlavhasi"
                 className="w-full px-4 py-3 text-sm font-bold outline-none"
@@ -592,6 +580,15 @@ function YangiHujjatModal({ depts, onClose, onSaved, editDoc }:
               <textarea value={form.mazmun} onChange={e => setF("mazmun", e.target.value)}
                 placeholder="Bajarilishi kerak bo'lgan vazifalar va ko'rsatmalarni batafsil yozing..."
                 rows={4} className="w-full px-4 py-3 text-sm font-bold outline-none resize-y"
+                style={{ background: "#F4F9FD", borderRadius: 12, border: "1.5px solid #EEF2FF", color: "#0A1629" }} />
+            </div>
+
+            {/* Qo'shimcha ma'lumot */}
+            <div>
+              <label className="text-xs font-bold mb-2 block" style={{ color: "#91929E" }}>Qo'shimcha ma'lumot</label>
+              <textarea value={form.qoshimcha_malumot} onChange={e => setF("qoshimcha_malumot", e.target.value)}
+                placeholder="Qo'shimcha izoh yoki ma'lumot..."
+                rows={3} className="w-full px-4 py-3 text-sm font-bold outline-none resize-y"
                 style={{ background: "#F4F9FD", borderRadius: 12, border: "1.5px solid #EEF2FF", color: "#0A1629" }} />
             </div>
 

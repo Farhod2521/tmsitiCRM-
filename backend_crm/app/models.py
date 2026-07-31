@@ -174,6 +174,7 @@ class IjroDocument(Base):
     hujjat_sanasi            = Column(String(20),   nullable=True)
     sarlavha                 = Column(String(500),  nullable=True)
     mazmun                   = Column(Text,         nullable=True)
+    qoshimcha_malumot        = Column(Text,         nullable=True)
     masul_orinbosar_id       = Column(Integer, ForeignKey("employees.id"), nullable=True)
     masul_bolimlar           = Column(String(500),  nullable=True)   # JSON: "[1,3,5]"
     ijro_muddati             = Column(DateTime,     nullable=True)

@@ -298,6 +298,7 @@ class IjroDocIn(BaseModel):
     hujjat_sanasi:            Optional[str]      = None
     sarlavha:                 Optional[str]      = None
     mazmun:                   Optional[str]      = None
+    qoshimcha_malumot:        Optional[str]      = None
     masul_orinbosar_id:       Optional[int]      = None
     masul_bolimlar:           Optional[str]      = None   # JSON "[1,3]"
     masul_bolimlar_xodimlar:  Optional[str]      = None   # JSON {"1": 12, "3": 45} — bo'lim_id -> boshlang'ich ijrochi xodim_id
@@ -315,6 +316,7 @@ class IjroDocOut(BaseModel):
     hujjat_sanasi:            Optional[str]      = None
     sarlavha:                 Optional[str]      = None
     mazmun:                   Optional[str]      = None
+    qoshimcha_malumot:        Optional[str]      = None
     masul_orinbosar_id:       Optional[int]      = None
     masul_orinbosar_nomi:     Optional[str]      = None
     masul_bolimlar:           Optional[str]      = None
@@ -387,6 +389,7 @@ class IjroDocUpdate(BaseModel):
     hujjat_sanasi:            Optional[str]                = None
     sarlavha:                 Optional[str]                = None
     mazmun:                   Optional[str]                = None
+    qoshimcha_malumot:        Optional[str]                = None
     masul_orinbosar_id:       Optional[int]                = None
     masul_bolimlar:           Optional[str]                = None
     ijro_muddati:             Optional[datetime]           = None
