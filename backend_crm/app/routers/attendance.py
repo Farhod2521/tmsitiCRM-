@@ -213,6 +213,99 @@ def admin_day(
     return rows
 
 
+_BOLIM_HEAD_ROLES = {models.RoleEnum.bolim_boshligi, models.RoleEnum.boshqarma_boshligi}
+
+
+def _note_out(n: models.AttendanceNote) -> schemas.AttendanceNoteOut:
+    out = schemas.AttendanceNoteOut.model_validate(n)
+    if n.employee:
+        out.employee_nomi = n.employee.full_name
+        out.position = n.employee.position
+        out.department_nomi = n.employee.department.name if n.employee.department else None
+    return out
+
+
+@router.post("/notes", response_model=schemas.AttendanceNoteOut)
+def create_note(
+    data:    schemas.AttendanceNoteIn,
+    db:      Session = Depends(get_db),
+    current: models.Employee = Depends(get_current_employee),
+):
+    """Bugungi kechikish/kelmaslik haqida izoh yozish. Oddiy xodim yozsa —
+    bo'lim boshlig'i va kadr roliga; bo'lim boshlig'i yozsa — kadr roliga
+    ko'rinadi. Kuniga bitta — qayta yozilsa yangilanadi."""
+    today = datetime.now(TZ_UZ).strftime("%Y-%m-%d")
+    note = (
+        db.query(models.AttendanceNote)
+        .filter(
+            models.AttendanceNote.employee_id == current.id,
+            models.AttendanceNote.note_date == today,
+        )
+        .first()
+    )
+    if note:
+        note.note_type = data.note_type
+        note.text = data.text
+        note.created_at = datetime.utcnow()
+    else:
+        note = models.AttendanceNote(
+            employee_id=current.id,
+            note_type=data.note_type,
+            text=data.text,
+            note_date=today,
+        )
+        db.add(note)
+    db.commit()
+    db.refresh(note)
+    return _note_out(note)
+
+
+@router.get("/notes/mine", response_model=schemas.AttendanceNoteOut | None)
+def my_today_note(
+    db:      Session = Depends(get_db),
+    current: models.Employee = Depends(get_current_employee),
+):
+    """Joriy foydalanuvchining bugungi izohi (yozgan bo'lsa)."""
+    today = datetime.now(TZ_UZ).strftime("%Y-%m-%d")
+    note = (
+        db.query(models.AttendanceNote)
+        .filter(
+            models.AttendanceNote.employee_id == current.id,
+            models.AttendanceNote.note_date == today,
+        )
+        .first()
+    )
+    return _note_out(note) if note else None
+
+
+@router.get("/notes", response_model=List[schemas.AttendanceNoteOut])
+def inbox_notes(
+    db:      Session = Depends(get_db),
+    current: models.Employee = Depends(get_current_employee),
+):
+    """Bo'lim boshlig'i — o'z bo'limidagi oddiy xodimlarning izohlarini,
+    kadr roli — barcha (jumladan bo'lim boshliqlaridan kelgan) izohlarni ko'radi."""
+    if current.role in _BOLIM_HEAD_ROLES:
+        if not current.department_id:
+            return []
+        q = (
+            db.query(models.AttendanceNote)
+            .join(models.Employee, models.AttendanceNote.employee_id == models.Employee.id)
+            .filter(
+                models.Employee.department_id == current.department_id,
+                models.Employee.id != current.id,
+                models.Employee.role.notin_(_BOLIM_HEAD_ROLES),
+            )
+        )
+    elif current.role == models.RoleEnum.kadr:
+        q = db.query(models.AttendanceNote)
+    else:
+        raise HTTPException(status_code=403, detail="Ruxsat yo'q")
+
+    notes = q.order_by(models.AttendanceNote.created_at.desc()).limit(200).all()
+    return [_note_out(n) for n in notes]
+
+
 @router.get("/office")
 def office_info():
     """Frontend uchun ofis koordinatasi va radius."""

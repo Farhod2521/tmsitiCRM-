@@ -106,6 +106,25 @@ class Attendance(Base):
     employee    = relationship("Employee", foreign_keys=[employee_id])
 
 
+class AttendanceNote(Base):
+    """Xodimning kechikish/kelmaslik haqidagi izohi. Oddiy xodim yozsa —
+    bo'lim boshlig'i va kadr roliga; bo'lim boshlig'i yozsa — faqat kadr
+    roliga ko'rinadi (kuniga bitta, qayta yozilsa yangilanadi)."""
+    __tablename__ = "attendance_notes"
+    __table_args__ = (
+        UniqueConstraint("employee_id", "note_date", name="uq_attendance_note_day"),
+    )
+
+    id          = Column(Integer, primary_key=True, index=True)
+    employee_id = Column(Integer, ForeignKey("employees.id"), nullable=False)
+    note_type   = Column(String(20), nullable=False)   # "kechikish" | "kelmaslik"
+    text        = Column(Text, nullable=True)
+    note_date   = Column(String(10), nullable=False)   # "2026-06-09"
+    created_at  = Column(DateTime, default=datetime.utcnow)
+
+    employee    = relationship("Employee", foreign_keys=[employee_id])
+
+
 class Score(Base):
     """Oylik ball baholash jadvali."""
     __tablename__ = "scores"

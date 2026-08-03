@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
-import { MapPin, CheckCircle2, Clock, Calendar as CalIcon, Loader2, Footprints, Map as MapIcon, X, Crosshair, XCircle, Fingerprint, ArrowRight, Check } from "lucide-react";
+import { MapPin, CheckCircle2, Clock, Calendar as CalIcon, Loader2, Footprints, Map as MapIcon, X, Crosshair, XCircle, Fingerprint, ArrowRight, Check, MessageSquareWarning, AlarmClock, UserX } from "lucide-react";
 import { apiFetch } from "@/lib/api";
 import FaceVerifyModal from "@/components/profile/FaceVerifyModal";
 
@@ -15,6 +15,15 @@ interface Attendance {
   distance_m: number | null;
   late_minutes: number;          // ish boshlanishidan kechikish (daqiqa)
   check_in_local: string | null; // "HH:MM" — UTC+5 mahalliy vaqt
+}
+
+type NoteType = "kechikish" | "kelmaslik";
+interface AttendanceNote {
+  id: number;
+  note_type: NoteType;
+  text: string | null;
+  note_date: string;
+  created_at: string;
 }
 
 interface Office {
@@ -79,6 +88,42 @@ export default function AttendanceCalendar() {
   const [office, setOffice] = useState<Office | null>(null);
   const [showMap, setShowMap] = useState(false);
   const [showFace, setShowFace] = useState(false);
+
+  const [myNote, setMyNote] = useState<AttendanceNote | null>(null);
+  const [noteEditing, setNoteEditing] = useState(false);
+  const [noteType, setNoteType] = useState<NoteType>("kechikish");
+  const [noteText, setNoteText] = useState("");
+  const [noteSaving, setNoteSaving] = useState(false);
+
+  const loadNote = useCallback(() => {
+    apiFetch<AttendanceNote | null>("/attendance/notes/mine").then(setMyNote).catch(() => {});
+  }, []);
+
+  useEffect(() => { loadNote(); }, [loadNote]);
+
+  async function handleSendNote() {
+    setNoteSaving(true);
+    try {
+      const res = await apiFetch<AttendanceNote>("/attendance/notes", {
+        method: "POST",
+        body: JSON.stringify({ note_type: noteType, text: noteText || null }),
+      });
+      setMyNote(res);
+      setNoteEditing(false);
+    } catch {
+      // sokin — forma ochiq qoladi, foydalanuvchi qayta urinishi mumkin
+    } finally {
+      setNoteSaving(false);
+    }
+  }
+
+  function openNoteEdit() {
+    if (myNote) {
+      setNoteType(myNote.note_type);
+      setNoteText(myNote.text || "");
+    }
+    setNoteEditing(true);
+  }
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -289,6 +334,75 @@ export default function AttendanceCalendar() {
                   {msg.text}
                 </div>
               )}
+
+              {/* Kechikish / kelmaslik haqida xabar — bo'lim boshlig'i va kadr ko'radi */}
+              <div className="mt-3 p-4" style={{ background: "#FFFBF0", border: "1px solid #FBE8B8", borderRadius: 14 }}>
+                {myNote && !noteEditing ? (
+                  <div className="flex items-start gap-3">
+                    <div className="w-9 h-9 flex-shrink-0 flex items-center justify-center rounded-full"
+                      style={{ background: myNote.note_type === "kelmaslik" ? "rgba(255,92,92,0.12)" : "rgba(224,164,0,0.15)" }}>
+                      {myNote.note_type === "kelmaslik"
+                        ? <UserX size={16} style={{ color: "#FF5C5C" }} />
+                        : <AlarmClock size={16} style={{ color: "#E0A400" }} />}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-bold" style={{ color: "#0A1629" }}>
+                        {myNote.note_type === "kelmaslik" ? "Bugun kelmasligingiz haqida xabar berdingiz" : "Bugun kechikishingiz haqida xabar berdingiz"}
+                      </p>
+                      {myNote.text && <p className="text-xs mt-1" style={{ color: "#7D8592" }}>{myNote.text}</p>}
+                    </div>
+                    <button onClick={openNoteEdit}
+                      className="text-xs font-bold flex-shrink-0 hover:opacity-70" style={{ color: "#3F8CFF" }}>
+                      O'zgartirish
+                    </button>
+                  </div>
+                ) : (
+                  <>
+                    <p className="text-sm font-bold mb-2.5 flex items-center gap-2" style={{ color: "#0A1629" }}>
+                      <MessageSquareWarning size={16} style={{ color: "#E0A400" }} />
+                      Bugun kechikasizmi yoki kelolmaysizmi?
+                    </p>
+                    <div className="flex gap-2 mb-2.5">
+                      <button onClick={() => setNoteType("kechikish")}
+                        className="flex-1 py-2 text-xs font-bold"
+                        style={{
+                          borderRadius: 10, border: "1.5px solid #FBE8B8",
+                          background: noteType === "kechikish" ? "#E0A400" : "#FFFFFF",
+                          color: noteType === "kechikish" ? "#FFFFFF" : "#7D8592",
+                        }}>
+                        Kechikaman
+                      </button>
+                      <button onClick={() => setNoteType("kelmaslik")}
+                        className="flex-1 py-2 text-xs font-bold"
+                        style={{
+                          borderRadius: 10, border: "1.5px solid #FBE8B8",
+                          background: noteType === "kelmaslik" ? "#FF5C5C" : "#FFFFFF",
+                          color: noteType === "kelmaslik" ? "#FFFFFF" : "#7D8592",
+                        }}>
+                        Kelmayman
+                      </button>
+                    </div>
+                    <textarea value={noteText} onChange={e => setNoteText(e.target.value)}
+                      placeholder="Sababini yozing (ixtiyoriy)..."
+                      rows={2} className="w-full px-3 py-2 text-sm outline-none resize-none"
+                      style={{ background: "#FFFFFF", borderRadius: 10, border: "1.5px solid #FBE8B8", color: "#0A1629" }} />
+                    <div className="flex gap-2 mt-2.5">
+                      <button onClick={handleSendNote} disabled={noteSaving}
+                        className="flex-1 flex items-center justify-center gap-2 py-2.5 text-sm font-bold text-white disabled:opacity-50"
+                        style={{ background: "#E0A400", borderRadius: 10 }}>
+                        {noteSaving ? <Loader2 size={13} className="animate-spin" /> : "Yuborish"}
+                      </button>
+                      {myNote && (
+                        <button onClick={() => setNoteEditing(false)}
+                          className="px-4 py-2.5 text-sm font-bold"
+                          style={{ background: "#FFFFFF", borderRadius: 10, color: "#7D8592", border: "1.5px solid #FBE8B8" }}>
+                          Bekor qilish
+                        </button>
+                      )}
+                    </div>
+                  </>
+                )}
+              </div>
             </div>
           )}
 

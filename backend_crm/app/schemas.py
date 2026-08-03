@@ -160,6 +160,24 @@ class PhotoIn(BaseModel):
     photo_base64: str  # "data:image/jpeg;base64,..."
 
 
+# ── Attendance Note (kechikish / kelmaslik izohi) ──────────────────────────────
+class AttendanceNoteIn(BaseModel):
+    note_type: Literal["kechikish", "kelmaslik"]
+    text: Optional[str] = None
+
+class AttendanceNoteOut(BaseModel):
+    id: int
+    employee_id: int
+    employee_nomi: Optional[str] = None
+    position: Optional[str] = None
+    department_nomi: Optional[str] = None
+    note_type: str
+    text: Optional[str] = None
+    note_date: str
+    created_at: datetime
+    model_config = {"from_attributes": True}
+
+
 # ── Attendance Admin ─────────────────────────────────────────────────────────
 class AdminDavomatRow(BaseModel):
     employee_id: int
