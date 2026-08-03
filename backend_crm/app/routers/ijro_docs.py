@@ -85,6 +85,8 @@ def _make_bolim_out(ab: models.IjroDocBolim, db: Optional[Session] = None) -> sc
     if ab.document:
         out.doc_id            = ab.document.id
         out.doc_sarlavha      = ab.document.sarlavha
+        out.doc_mazmun        = ab.document.mazmun
+        out.doc_qoshimcha_malumot = ab.document.qoshimcha_malumot
         out.doc_manba         = ab.document.manba.value if ab.document.manba else None
         out.doc_hujjat_raqami = ab.document.hujjat_raqami
         out.doc_ijro_muddati  = ab.document.ijro_muddati
@@ -210,11 +212,11 @@ def bolim_doc_detail(
     current: models.Employee = Depends(get_current_employee),
 ):
     """Hujjatning to'liq tafsilotlari: doc + barcha bolim holatlari."""
-    if current.role not in (_BOLIM_ROLES | _ADMIN_ROLES | _ALLOWED):
-        raise HTTPException(status_code=403, detail="Ruxsat yo'q")
     ab = db.query(models.IjroDocBolim).filter(models.IjroDocBolim.id == doc_bolim_id).first()
     if not ab:
         raise HTTPException(status_code=404, detail="Topilmadi")
+    if current.role not in (_BOLIM_ROLES | _ADMIN_ROLES | _ALLOWED) and ab.xodim_id != current.id:
+        raise HTTPException(status_code=403, detail="Ruxsat yo'q")
     doc = ab.document
     doc_out = schemas.IjroDocOut.model_validate(doc)
     if doc.masul_orinbosar:
@@ -297,13 +299,15 @@ def yakunlash(
     current: models.Employee = Depends(get_current_employee),
 ):
     """Bo'lim qabul qilgan topshiriqni yakunlash: izoh + bir nechta fayl bilan
-    'bajarildi' deb belgilash. Direktor/ijro rollar tracking orqali ko'radi."""
-    if current.role not in (_BOLIM_ROLES | _ADMIN_ROLES | _ALLOWED):
-        raise HTTPException(status_code=403, detail="Ruxsat yo'q")
+    'bajarildi' deb belgilash. Bo'lim boshlig'i yoki topshiriq shaxsan biriktirilgan
+    xodimning o'zi yakunlashi mumkin. Direktor/ijro rollar tracking orqali ko'radi."""
     ab = db.query(models.IjroDocBolim).filter(models.IjroDocBolim.id == doc_bolim_id).first()
     if not ab:
         raise HTTPException(status_code=404, detail="Topilmadi")
-    if current.role in _BOLIM_ROLES and ab.bolim_id != current.department_id:
+    is_assigned_xodim = ab.xodim_id == current.id
+    if current.role not in (_BOLIM_ROLES | _ADMIN_ROLES | _ALLOWED) and not is_assigned_xodim:
+        raise HTTPException(status_code=403, detail="Ruxsat yo'q")
+    if current.role in _BOLIM_ROLES and ab.bolim_id != current.department_id and not is_assigned_xodim:
         raise HTTPException(status_code=403, detail="Bu sizning bo'limingiz emas")
     if ab.holati not in (models.IjroDocBolimHolati.qabul_qilindi, models.IjroDocBolimHolati.bajarilmoqda):
         raise HTTPException(status_code=400, detail="Avval topshiriqni qabul qilish kerak")

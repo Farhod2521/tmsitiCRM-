@@ -3,14 +3,15 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useState } from "react";
-import { Star, User, LogOut, X } from "lucide-react";
+import { Star, User, LogOut, X, CalendarCheck } from "lucide-react";
 import LottiePlayer from "@/components/ui/LottiePlayer";
 import MobileTopBar from "@/components/layout/MobileTopBar";
 import { clearAuth } from "@/lib/auth";
 
 const navItems = [
-  { href: "/kadr/ball",    icon: Star, label: "Ball berish" },
-  { href: "/kadr/profile", icon: User, label: "Profil"      },
+  { href: "/kadr/ball",    icon: Star,          label: "Ball berish" },
+  { href: "/kadr/davomat", icon: CalendarCheck, label: "Davomat"     },
+  { href: "/kadr/profile", icon: User,          label: "Profil"      },
 ];
 
 export default function SidebarKadr() {

@@ -10,7 +10,6 @@ import {
 import { getUser, saveAuth, getProfileExtra, saveProfileExtra } from "@/lib/auth";
 import { apiFetch } from "@/lib/api";
 import { openTelegramStatic, openTelegramLink } from "@/lib/telegram";
-import AttendanceCalendar from "@/components/profile/AttendanceCalendar";
 import MyIjroTasksCard from "@/components/profile/MyIjroTasksCard";
 import WeeklyReportCard from "@/components/reports/WeeklyReportCard";
 
@@ -378,11 +377,6 @@ export default function ProfilePage() {
       {/* ── Haftalik hisobotlar ── */}
       <div className="mt-5">
         <WeeklyReportCard />
-      </div>
-
-      {/* ── Davomat kalendari ── */}
-      <div className="mt-5">
-        <AttendanceCalendar />
       </div>
 
       {/* ── Edit Modal ── */}

@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { clearAuth, getUser } from "@/lib/auth";
-import { Target, User, LogOut, Star, X } from "lucide-react";
+import { Target, User, LogOut, Star, CalendarCheck, ClipboardCheck, X } from "lucide-react";
 import LottiePlayer from "@/components/ui/LottiePlayer";
 import MobileTopBar from "@/components/layout/MobileTopBar";
 
@@ -39,12 +39,14 @@ export default function SidebarXodim() {
   const accent = ROLE_COLOR[role] ?? "#3F8CFF";
 
   const navItems = [
-    { href: "/xodim/kpi",     icon: Target, label: "KPI"          },
+    { href: "/xodim/kpi",           icon: Target,         label: "KPI"           },
     ...(BALL_ROLES.includes(role)
       ? [{ href: "/xodim/ball", icon: Star, label: "Ball berish" }]
       : []
     ),
-    { href: "/xodim/profile", icon: User,   label: "Profil"       },
+    { href: "/xodim/ijro-nazorati", icon: ClipboardCheck, label: "Ijro nazorati" },
+    { href: "/xodim/davomat",       icon: CalendarCheck,  label: "Davomat"       },
+    { href: "/xodim/profile",       icon: User,           label: "Profil"        },
   ];
 
   return (

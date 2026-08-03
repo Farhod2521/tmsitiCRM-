@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
-import { MapPin, CheckCircle2, Clock, Calendar as CalIcon, Loader2, Footprints, Map as MapIcon, X, Crosshair, ScanFace } from "lucide-react";
+import { MapPin, CheckCircle2, Clock, Calendar as CalIcon, Loader2, Footprints, Map as MapIcon, X, Crosshair, XCircle, Fingerprint, ArrowRight, Check } from "lucide-react";
 import { apiFetch } from "@/lib/api";
 import FaceVerifyModal from "@/components/profile/FaceVerifyModal";
 
@@ -163,92 +163,253 @@ export default function AttendanceCalendar() {
     if (month === 12) { setMonth(1); setYear(year + 1); }
     else setMonth(month + 1);
   }
+  function goToday() {
+    setYear(today.getFullYear());
+    setMonth(today.getMonth() + 1);
+  }
+
+  const onTimeCount  = records.filter(r => r.late_minutes <= 10).length;
+  const lateCount    = records.filter(r => r.late_minutes > 10 && r.late_minutes <= 30).length;
+  const veryLateCount = records.filter(r => r.late_minutes > 30).length;
+  function pct(n: number) { return presentCount > 0 ? Math.round((n / presentCount) * 100) : 0; }
+
+  const STATS = [
+    { icon: CheckCircle2, label: "Vaqtida kelgan kunlar",   value: onTimeCount,   percent: pct(onTimeCount),   color: "#00A578", bg: "rgba(0,165,120,0.1)" },
+    { icon: Clock,        label: "Kechikkan kunlar",        value: lateCount,     percent: pct(lateCount),     color: "#E0A400", bg: "rgba(224,164,0,0.1)" },
+    { icon: XCircle,      label: "Katta kechikkan kunlar",  value: veryLateCount, percent: pct(veryLateCount), color: "#FF5C5C", bg: "rgba(255,92,92,0.1)" },
+    { icon: CalIcon,      label: "Umumiy kunlar",           value: presentCount,  percent: null as number | null, color: "#3F8CFF", bg: "rgba(63,140,255,0.1)" },
+  ];
 
   return (
     <div className="p-6"
       style={{ background: "#FFFFFF", boxShadow: "0px 6px 58px rgba(196,203,214,0.103611)", borderRadius: 24 }}>
 
-      {/* Header */}
-      <div className="flex items-center justify-between mb-5">
-        <div className="flex items-center gap-2.5">
-          <div className="w-10 h-10 flex items-center justify-center"
-            style={{ background: "rgba(63,140,255,0.1)", borderRadius: 12 }}>
-            <CalIcon size={20} style={{ color: "#3F8CFF" }} />
-          </div>
-          <div>
-            <h3 className="font-bold text-base" style={{ color: "#0A1629" }}>Davomat kalendari</h3>
-            <p className="text-xs" style={{ color: "#91929E" }}>
-              {MONTHS_UZ[month - 1]} {year} · {presentCount} kun kelgan · ish {office?.work_start ?? "09:00"} da
-            </p>
-          </div>
-        </div>
-        <div className="flex items-center gap-1.5">
-          <button onClick={prevMonth}
-            className="w-8 h-8 flex items-center justify-center font-bold hover:opacity-80"
-            style={{ background: "#F4F9FD", borderRadius: 10, color: "#7D8592" }}>‹</button>
-          <button onClick={nextMonth}
-            className="w-8 h-8 flex items-center justify-center font-bold hover:opacity-80"
-            style={{ background: "#F4F9FD", borderRadius: 10, color: "#7D8592" }}>›</button>
-        </div>
-      </div>
+      <div className="flex gap-6 flex-col lg:flex-row">
+        {/* ── Chap ustun: kalendar ── */}
+        <div className="flex-1 min-w-0">
 
-      {/* "Keldim" tugmasi */}
-      {isCurrentMonth && (
-        <div className="mb-5">
-          {todayRec ? (
-            <div className="flex items-center gap-3 px-4 py-3.5"
-              style={{ background: "rgba(0,196,140,0.08)", borderRadius: 14 }}>
-              <CheckCircle2 size={22} style={{ color: "#00C48C" }} />
-              <div className="flex-1">
-                <p className="font-bold text-sm" style={{ color: "#0A1629" }}>
-                  Bugun ishga kelgansiz
-                </p>
-                <p className="text-xs flex items-center gap-1.5 flex-wrap" style={{ color: "#91929E" }}>
-                  <span className="flex items-center gap-1">
-                    <Clock size={11} /> Soat {todayRec.check_in_local ?? fmtTime(todayRec.check_in)}
-                  </span>
-                  <span className="font-bold" style={{ color: lateColor(todayRec.late_minutes) }}>
-                    · {lateText(todayRec.late_minutes)}
-                  </span>
-                  {todayRec.distance_m != null && (
-                    <span>· binodan {Math.round(todayRec.distance_m)} m</span>
-                  )}
+          {/* Header */}
+          <div className="flex items-center justify-between mb-5 flex-wrap gap-3">
+            <div className="flex items-center gap-2.5">
+              <div className="w-10 h-10 flex items-center justify-center"
+                style={{ background: "rgba(63,140,255,0.1)", borderRadius: 12 }}>
+                <CalIcon size={20} style={{ color: "#3F8CFF" }} />
+              </div>
+              <div>
+                <h3 className="font-bold text-base" style={{ color: "#0A1629" }}>Davomat kalendari</h3>
+                <p className="text-xs" style={{ color: "#91929E" }}>
+                  {MONTHS_UZ[month - 1]} {year} · {presentCount} kun kelgan · {office?.work_start ?? "09:00"} da ish boshlaysiz
                 </p>
               </div>
             </div>
-          ) : (
-            <div className="flex gap-2.5">
-              {/* Ishga keldim: avval yuz tekshiruvi, keyin GPS */}
-              <button
-                onClick={() => setShowFace(true)}
-                disabled={checking}
-                className="flex-1 py-3.5 flex items-center justify-center gap-2 font-bold text-sm text-white hover:opacity-90 transition-opacity disabled:opacity-60"
-                style={{ background: "#3F8CFF", borderRadius: 14, boxShadow: "0px 6px 12px rgba(63,140,255,0.263686)" }}
-              >
-                {checking
-                  ? <><Loader2 size={17} className="animate-spin" /> Joylashuv aniqlanmoqda...</>
-                  : <><ScanFace size={17} /> Ishga keldim</>}
-              </button>
-              <button onClick={() => setShowMap(true)}
-                className="px-5 py-3.5 flex items-center justify-center gap-2 font-bold text-sm hover:opacity-90 transition-opacity"
-                style={{ background: "rgba(63,140,255,0.1)", borderRadius: 14, color: "#3F8CFF" }}>
-                <MapIcon size={17} /> Xarita
-              </button>
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <button onClick={prevMonth}
+                className="w-8 h-8 flex items-center justify-center font-bold hover:opacity-80"
+                style={{ background: "#F4F9FD", borderRadius: 10, color: "#7D8592" }}>‹</button>
+              <button onClick={nextMonth}
+                className="w-8 h-8 flex items-center justify-center font-bold hover:opacity-80"
+                style={{ background: "#F4F9FD", borderRadius: 10, color: "#7D8592" }}>›</button>
+              {!isCurrentMonth && (
+                <button onClick={goToday}
+                  className="flex items-center gap-1.5 px-3 py-2 text-xs font-bold hover:opacity-80"
+                  style={{ background: "#F4F9FD", borderRadius: 10, color: "#7D8592" }}>
+                  <CalIcon size={13} /> Bugun
+                </button>
+              )}
+              {office && (
+                <button onClick={() => setShowMap(true)}
+                  className="flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold text-white hover:opacity-90"
+                  style={{ background: "#3F8CFF", borderRadius: 10 }}>
+                  <MapIcon size={13} /> Xarita
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* "Keldim" tugmasi */}
+          {isCurrentMonth && (
+            <div className="mb-5">
+              {todayRec ? (
+                <div className="flex items-center gap-3 px-4 py-3.5"
+                  style={{ background: "rgba(0,196,140,0.08)", borderRadius: 14 }}>
+                  <CheckCircle2 size={22} style={{ color: "#00C48C" }} />
+                  <div className="flex-1">
+                    <p className="font-bold text-sm" style={{ color: "#0A1629" }}>
+                      Bugun ishga kelgansiz
+                    </p>
+                    <p className="text-xs flex items-center gap-1.5 flex-wrap" style={{ color: "#91929E" }}>
+                      <span className="flex items-center gap-1">
+                        <Clock size={11} /> Soat {todayRec.check_in_local ?? fmtTime(todayRec.check_in)}
+                      </span>
+                      <span className="font-bold" style={{ color: lateColor(todayRec.late_minutes) }}>
+                        · {lateText(todayRec.late_minutes)}
+                      </span>
+                      {todayRec.distance_m != null && (
+                        <span>· binodan {Math.round(todayRec.distance_m)} m</span>
+                      )}
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                <button
+                  onClick={() => setShowFace(true)}
+                  disabled={checking}
+                  className="w-full py-4 px-5 flex items-center gap-3.5 text-left hover:opacity-90 transition-opacity disabled:opacity-60"
+                  style={{
+                    background: "linear-gradient(135deg, #7C6CF6 0%, #3F8CFF 100%)",
+                    borderRadius: 16,
+                    boxShadow: "0px 10px 24px rgba(90,100,240,0.35)",
+                  }}
+                >
+                  <div className="w-11 h-11 flex-shrink-0 flex items-center justify-center"
+                    style={{ background: "rgba(255,255,255,0.2)", borderRadius: 12 }}>
+                    {checking
+                      ? <Loader2 size={20} className="animate-spin" style={{ color: "#FFFFFF" }} />
+                      : <Fingerprint size={22} style={{ color: "#FFFFFF" }} />}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-bold text-sm" style={{ color: "#FFFFFF" }}>
+                      {checking ? "Joylashuv aniqlanmoqda..." : "Ishga keldim"}
+                    </p>
+                    <p className="text-xs" style={{ color: "rgba(255,255,255,0.85)" }}>
+                      Bosish orqali davomatni belgilang
+                    </p>
+                  </div>
+                  <ArrowRight size={18} style={{ color: "#FFFFFF" }} className="flex-shrink-0" />
+                </button>
+              )}
+
+              {msg && (
+                <div className="mt-2.5 px-4 py-2.5 text-sm font-bold"
+                  style={{
+                    background: msg.type === "ok" ? "rgba(0,196,140,0.1)" : "rgba(255,92,92,0.08)",
+                    color: msg.type === "ok" ? "#00A578" : "#FF5C5C",
+                    borderRadius: 12,
+                  }}>
+                  {msg.text}
+                </div>
+              )}
             </div>
           )}
 
-          {msg && (
-            <div className="mt-2.5 px-4 py-2.5 text-sm font-bold"
-              style={{
-                background: msg.type === "ok" ? "rgba(0,196,140,0.1)" : "rgba(255,92,92,0.08)",
-                color: msg.type === "ok" ? "#00A578" : "#FF5C5C",
-                borderRadius: 12,
-              }}>
-              {msg.text}
+          {/* Kalendar */}
+          {loading ? (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 size={28} className="animate-spin" style={{ color: "#3F8CFF" }} />
             </div>
+          ) : (
+            <>
+              <div className="grid grid-cols-7 gap-1.5 mb-2">
+                {WEEKDAYS_UZ.map((w, i) => (
+                  <div key={w} className="text-center text-xs font-bold py-1"
+                    style={{ color: i >= 5 ? "#FF5C5C" : "#91929E" }}>
+                    {w}
+                  </div>
+                ))}
+              </div>
+              <div className="grid grid-cols-7 gap-1.5">
+                {cells.map((d, idx) => {
+                  if (d === null) return <div key={`e${idx}`} />;
+                  const dow = (firstDow + d - 1) % 7;
+                  const isWeekend = dow >= 5;
+                  const present = presentDays.has(d);
+                  const rec = recByDay.get(d);
+                  const isToday = isCurrentMonth && d === todayDay;
+
+                  const dotColor = isToday ? "#3F8CFF" : rec ? lateColor(rec.late_minutes) : "#00A578";
+                  return (
+                    <div key={d}
+                      title={rec ? `Soat ${rec.check_in_local ?? ""} — ${lateText(rec.late_minutes)}` : undefined}
+                      className="flex flex-col items-center justify-center relative"
+                      style={{
+                        minHeight: 66,
+                        background: "#FFFFFF",
+                        borderRadius: 12,
+                        border: isToday ? "2px solid #3F8CFF" : "1px solid #F0F3F8",
+                      }}>
+                      {isToday && todayRec && (
+                        <span className="absolute -top-1.5 -right-1.5 w-4 h-4 flex items-center justify-center rounded-full"
+                          style={{ background: "#3F8CFF", border: "2px solid #FFFFFF" }}>
+                          <Check size={9} style={{ color: "#FFFFFF" }} strokeWidth={3} />
+                        </span>
+                      )}
+                      <span className="text-base font-bold leading-none"
+                        style={{ color: isWeekend ? "#FF8C8C" : "#0A1629" }}>
+                        {d}
+                      </span>
+                      {present && (
+                        <span className="w-1.5 h-1.5 rounded-full mt-2" style={{ background: dotColor }} />
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Legend — kechikish ranglari */}
+              <div className="flex items-center gap-4 flex-wrap mt-4 pt-4" style={{ borderTop: "1px solid #F0F3F8" }}>
+                <div className="flex items-center gap-1.5">
+                  <span className="w-3 h-3 rounded-full" style={{ background: "#00A578" }} />
+                  <span className="text-xs" style={{ color: "#91929E" }}>≤10 daq (vaqtida)</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className="w-3 h-3 rounded-full" style={{ background: "#E0A400" }} />
+                  <span className="text-xs" style={{ color: "#91929E" }}>10–30 daq</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className="w-3 h-3 rounded-full" style={{ background: "#FF5C5C" }} />
+                  <span className="text-xs" style={{ color: "#91929E" }}>30 daq dan ko'p</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className="w-3 h-3 rounded-full" style={{ background: "#3F8CFF" }} />
+                  <span className="text-xs" style={{ color: "#91929E" }}>Bugun</span>
+                </div>
+              </div>
+            </>
           )}
+
+          {/* Statistika — mobil/tablet uchun (o'ng ustun yashirilganda) */}
+          <div className="grid grid-cols-2 gap-3 mt-4 lg:hidden">
+            {STATS.map(s => (
+              <div key={s.label} className="flex items-center gap-2.5 p-3"
+                style={{ background: "#FAFCFF", borderRadius: 14, border: "1px solid #F0F3F8" }}>
+                <div className="w-8 h-8 flex-shrink-0 flex items-center justify-center rounded-full" style={{ background: s.bg }}>
+                  <s.icon size={15} style={{ color: s.color }} />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-[10px] leading-tight truncate" style={{ color: "#91929E" }}>{s.label}</p>
+                  <p className="font-bold text-sm" style={{ color: "#0A1629" }}>{s.value} kun</p>
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
-      )}
+
+        {/* ── O'ng ustun: rasm + statistika ── */}
+        <div className="hidden lg:flex flex-col flex-shrink-0" style={{ width: 220 }}>
+          <img src="/calendar.png" alt="" draggable={false}
+            className="w-full h-auto mb-5 select-none pointer-events-none" />
+          <h4 className="font-bold text-sm mb-3" style={{ color: "#0A1629" }}>Davomat statistikasi</h4>
+          <div className="flex flex-col gap-3">
+            {STATS.map(s => (
+              <div key={s.label} className="flex items-center gap-3 p-3"
+                style={{ background: "#FAFCFF", borderRadius: 14, border: "1px solid #F0F3F8" }}>
+                <div className="w-9 h-9 flex-shrink-0 flex items-center justify-center rounded-full" style={{ background: s.bg }}>
+                  <s.icon size={16} style={{ color: s.color }} />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-[11px] leading-tight" style={{ color: "#91929E" }}>{s.label}</p>
+                  <p className="font-bold text-sm" style={{ color: "#0A1629" }}>{s.value} kun</p>
+                </div>
+                {s.percent !== null && (
+                  <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full flex-shrink-0" style={{ background: s.bg, color: s.color }}>
+                    {s.percent}%
+                  </span>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
 
       {/* ── Yuz tekshiruv modali ── */}
       {showFace && (
@@ -261,82 +422,6 @@ export default function AttendanceCalendar() {
       {/* ── Xarita modali ── */}
       {showMap && office && (
         <MapModal office={office} onClose={() => setShowMap(false)} />
-      )}
-
-      {/* Kalendar */}
-      {loading ? (
-        <div className="flex items-center justify-center py-12">
-          <Loader2 size={28} className="animate-spin" style={{ color: "#3F8CFF" }} />
-        </div>
-      ) : (
-        <>
-          <div className="grid grid-cols-7 gap-1.5 mb-2">
-            {WEEKDAYS_UZ.map((w, i) => (
-              <div key={w} className="text-center text-xs font-bold py-1"
-                style={{ color: i >= 5 ? "#FF5C5C" : "#91929E" }}>
-                {w}
-              </div>
-            ))}
-          </div>
-          <div className="grid grid-cols-7 gap-1.5">
-            {cells.map((d, idx) => {
-              if (d === null) return <div key={`e${idx}`} />;
-              const dow = (firstDow + d - 1) % 7;
-              const isWeekend = dow >= 5;
-              const present = presentDays.has(d);
-              const rec = recByDay.get(d);
-              const isToday = isCurrentMonth && d === todayDay;
-
-              const lc = rec ? lateColor(rec.late_minutes) : "#00A578";
-              return (
-                <div key={d}
-                  title={rec ? `Soat ${rec.check_in_local ?? ""} — ${lateText(rec.late_minutes)}` : undefined}
-                  className="flex flex-col items-center justify-center relative"
-                  style={{
-                    minHeight: 66,
-                    background: present ? "rgba(0,196,140,0.10)" : "#F4F9FD",
-                    borderRadius: 12,
-                    border: isToday ? "2px solid #3F8CFF" : "2px solid transparent",
-                  }}>
-                  <span className="text-base font-bold leading-none"
-                    style={{ color: present ? "#0A1629" : isWeekend ? "#FF8C8C" : "#0A1629" }}>
-                    {d}
-                  </span>
-                  {present && rec && (
-                    <>
-                      <span className="text-[12px] font-bold leading-none mt-1.5" style={{ color: "#0A1629" }}>
-                        {rec.check_in_local ?? fmtTime(rec.check_in)}
-                      </span>
-                      <span className="text-[10px] font-bold leading-none mt-1" style={{ color: lc }}>
-                        {rec.late_minutes > 0 ? `+${rec.late_minutes} daq` : "✓"}
-                      </span>
-                    </>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-
-          {/* Legend — kechikish ranglari */}
-          <div className="flex items-center gap-4 flex-wrap mt-4 pt-4" style={{ borderTop: "1px solid #F0F3F8" }}>
-            <div className="flex items-center gap-1.5">
-              <span className="w-3 h-3 rounded-full" style={{ background: "#00A578" }} />
-              <span className="text-xs" style={{ color: "#91929E" }}>≤10 daq (vaqtida)</span>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <span className="w-3 h-3 rounded-full" style={{ background: "#E0A400" }} />
-              <span className="text-xs" style={{ color: "#91929E" }}>10–30 daq</span>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <span className="w-3 h-3 rounded-full" style={{ background: "#FF5C5C" }} />
-              <span className="text-xs" style={{ color: "#91929E" }}>30 daq dan ko'p</span>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <span className="w-3 h-3" style={{ border: "2px solid #3F8CFF", borderRadius: 4 }} />
-              <span className="text-xs" style={{ color: "#91929E" }}>Bugun</span>
-            </div>
-          </div>
-        </>
       )}
     </div>
   );

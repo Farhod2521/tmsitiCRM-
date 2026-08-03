@@ -368,6 +368,8 @@ class IjroDocBolimOut(BaseModel):
     yakunlagan_by_nomi: Optional[str] = None
     # doc preview fields (for list display)
     doc_sarlavha:      Optional[str] = None
+    doc_mazmun:        Optional[str] = None
+    doc_qoshimcha_malumot: Optional[str] = None
     doc_manba:         Optional[str] = None
     doc_hujjat_raqami: Optional[str] = None
     doc_ijro_muddati:  Optional[datetime] = None

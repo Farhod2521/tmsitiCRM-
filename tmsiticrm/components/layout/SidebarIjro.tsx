@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useState } from "react";
-import { Star, User, LogOut, X, ClipboardCheck, Target } from "lucide-react";
+import { Star, User, LogOut, X, ClipboardCheck, Target, CalendarCheck } from "lucide-react";
 import LottiePlayer from "@/components/ui/LottiePlayer";
 import MobileTopBar from "@/components/layout/MobileTopBar";
 import { clearAuth } from "@/lib/auth";
@@ -12,6 +12,7 @@ const navItems = [
   { href: "/ijro/nazorat", icon: ClipboardCheck, label: "Ijro nazorati" },
   { href: "/ijro/kpi",     icon: Target,         label: "KPI"           },
   { href: "/ijro/ball",    icon: Star,           label: "Ball berish"   },
+  { href: "/ijro/davomat", icon: CalendarCheck,  label: "Davomat"       },
   { href: "/ijro/profile", icon: User,           label: "Profil"        },
 ];
 
