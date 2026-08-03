@@ -122,6 +122,27 @@ class AttendanceNote(Base):
     note_date   = Column(String(10), nullable=False)   # "2026-06-09"
     created_at  = Column(DateTime, default=datetime.utcnow)
 
+    # Kadr roli tomonidan ko'rib chiqilishi: "kutilmoqda" | "sababli" | "sababsiz"
+    review_status = Column(String(20), nullable=False, default="kutilmoqda")
+    reviewed_by   = Column(Integer, ForeignKey("employees.id"), nullable=True)
+    reviewed_at   = Column(DateTime, nullable=True)
+
+    employee    = relationship("Employee", foreign_keys=[employee_id])
+    reviewer    = relationship("Employee", foreign_keys=[reviewed_by])
+
+
+class PasswordResetCode(Base):
+    """Profil sahifasidan parolni o'zgartirish uchun Telegram orqali
+    yuboriladigan 5 xonali tasdiqlash kodi (3 daqiqa amal qiladi)."""
+    __tablename__ = "password_reset_codes"
+
+    id          = Column(Integer, primary_key=True, index=True)
+    employee_id = Column(Integer, ForeignKey("employees.id"), nullable=False)
+    code        = Column(String(5), nullable=False)
+    expires_at  = Column(DateTime, nullable=False)
+    used_at     = Column(DateTime, nullable=True)
+    created_at  = Column(DateTime, default=datetime.utcnow)
+
     employee    = relationship("Employee", foreign_keys=[employee_id])
 
 

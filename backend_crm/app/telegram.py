@@ -6,11 +6,20 @@ import urllib.parse
 
 
 def send_telegram_message(text: str) -> bool:
-    """TELEGRAM_BOT_TOKEN va TELEGRAM_CHAT_ID muhit o'zgaruvchilari orqali sozlanadi."""
+    """TELEGRAM_BOT_TOKEN va TELEGRAM_CHAT_ID muhit o'zgaruvchilari orqali sozlanadi
+    (guruhga xabar yuborish uchun)."""
     token = os.getenv("TELEGRAM_BOT_TOKEN")
     chat_id = os.getenv("TELEGRAM_CHAT_ID")
     if not token or not chat_id:
         raise RuntimeError("TELEGRAM_BOT_TOKEN yoki TELEGRAM_CHAT_ID sozlanmagan")
+    return send_telegram_message_to(chat_id, text)
+
+
+def send_telegram_message_to(chat_id, text: str) -> bool:
+    """Berilgan chat_id (shaxsiy yoki guruh) ga xabar yuboradi."""
+    token = os.getenv("TELEGRAM_BOT_TOKEN")
+    if not token:
+        raise RuntimeError("TELEGRAM_BOT_TOKEN sozlanmagan")
 
     url = f"https://api.telegram.org/bot{token}/sendMessage"
     data = urllib.parse.urlencode({"chat_id": chat_id, "text": text}).encode("utf-8")

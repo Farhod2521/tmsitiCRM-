@@ -175,7 +175,26 @@ class AttendanceNoteOut(BaseModel):
     text: Optional[str] = None
     note_date: str
     created_at: datetime
+    review_status: str = "kutilmoqda"
+    reviewed_by_nomi: Optional[str] = None
+    reviewed_at: Optional[datetime] = None
     model_config = {"from_attributes": True}
+
+class AttendanceNoteReviewIn(BaseModel):
+    status: Literal["sababli", "sababsiz"]
+
+
+# ── Parolni Telegram orqali tiklash ────────────────────────────────────────────
+class PasswordResetRequestOut(BaseModel):
+    sent: bool
+    expires_in_seconds: int
+
+class PasswordResetVerifyIn(BaseModel):
+    code: str
+
+class PasswordResetConfirmIn(BaseModel):
+    code: str
+    new_password: str
 
 
 # ── Attendance Admin ─────────────────────────────────────────────────────────

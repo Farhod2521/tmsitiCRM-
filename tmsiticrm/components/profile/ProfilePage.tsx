@@ -6,10 +6,11 @@ import Badge from "@/components/ui/Badge";
 import {
   Phone, Mail, Building2, Calendar, Edit3,
   X, Save, Briefcase, Award, Star, Camera, Send, ShieldCheck, KeyRound,
+  Loader2, Clock, CheckCircle2, RefreshCw,
 } from "lucide-react";
 import { getUser, saveAuth, getProfileExtra, saveProfileExtra } from "@/lib/auth";
 import { apiFetch } from "@/lib/api";
-import { openTelegramStatic, openTelegramLink } from "@/lib/telegram";
+import { openTelegramLink } from "@/lib/telegram";
 import MyIjroTasksCard from "@/components/profile/MyIjroTasksCard";
 import WeeklyReportCard from "@/components/reports/WeeklyReportCard";
 
@@ -62,6 +63,16 @@ export default function ProfilePage() {
   const [form, setForm]     = useState({ full_name: "", phone: "", email: "", ish_staji: "" });
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState("");
+
+  // Parolni Telegram orqali (kod bilan) yangilash
+  const [showPwReset, setShowPwReset] = useState(false);
+  const [pwStep, setPwStep] = useState<"sending" | "code" | "password" | "success">("sending");
+  const [pwCode, setPwCode] = useState("");
+  const [pwNewPassword, setPwNewPassword] = useState("");
+  const [pwNewPassword2, setPwNewPassword2] = useState("");
+  const [pwError, setPwError] = useState<string | null>(null);
+  const [pwSubmitting, setPwSubmitting] = useState(false);
+  const [pwSecondsLeft, setPwSecondsLeft] = useState(180);
 
   // Profil rasmi
   const [photo, setPhoto]         = useState<string | null>(null);
@@ -171,6 +182,66 @@ export default function ProfilePage() {
       setSaveError(err instanceof Error ? err.message : "Saqlashda xato yuz berdi");
     } finally {
       setSaving(false);
+    }
+  }
+
+  // Countdown — kod amal qilish muddati
+  useEffect(() => {
+    if (!showPwReset || pwStep !== "code" || pwSecondsLeft <= 0) return;
+    const t = setInterval(() => setPwSecondsLeft(s => Math.max(0, s - 1)), 1000);
+    return () => clearInterval(t);
+  }, [showPwReset, pwStep, pwSecondsLeft]);
+
+  async function openPasswordReset() {
+    setShowPwReset(true);
+    setPwStep("sending");
+    setPwError(null);
+    setPwCode("");
+    setPwNewPassword("");
+    setPwNewPassword2("");
+    try {
+      const res = await apiFetch<{ sent: boolean; expires_in_seconds: number }>(
+        "/employees/me/password-reset/request", { method: "POST" }
+      );
+      setPwSecondsLeft(res.expires_in_seconds);
+      setPwStep("code");
+    } catch (e) {
+      setPwError(e instanceof Error ? e.message : "Kod yuborilmadi");
+    }
+  }
+
+  async function handleVerifyCode() {
+    if (pwCode.length !== 5) return;
+    setPwSubmitting(true);
+    setPwError(null);
+    try {
+      await apiFetch("/employees/me/password-reset/verify", {
+        method: "POST",
+        body: JSON.stringify({ code: pwCode }),
+      });
+      setPwStep("password");
+    } catch (e) {
+      setPwError(e instanceof Error ? e.message : "Kod noto'g'ri");
+    } finally {
+      setPwSubmitting(false);
+    }
+  }
+
+  async function handleConfirmNewPassword() {
+    setPwError(null);
+    if (pwNewPassword.length < 6) { setPwError("Parol kamida 6 belgidan iborat bo'lishi kerak"); return; }
+    if (pwNewPassword !== pwNewPassword2) { setPwError("Parollar mos kelmadi"); return; }
+    setPwSubmitting(true);
+    try {
+      await apiFetch("/employees/me/password-reset/confirm", {
+        method: "POST",
+        body: JSON.stringify({ code: pwCode, new_password: pwNewPassword }),
+      });
+      setPwStep("success");
+    } catch (e) {
+      setPwError(e instanceof Error ? e.message : "Xatolik yuz berdi");
+    } finally {
+      setPwSubmitting(false);
     }
   }
 
@@ -317,10 +388,10 @@ export default function ProfilePage() {
               </div>
 
               {emp.telegram_id ? (
-                <button onClick={() => openTelegramStatic("reset")}
+                <button onClick={openPasswordReset}
                   className="flex items-center gap-2 px-4 py-2.5 text-sm font-bold text-white flex-shrink-0 hover:opacity-90 transition-opacity"
                   style={{ background: "#229ED9", borderRadius: 12 }}>
-                  <Send size={15} />
+                  <KeyRound size={15} />
                   Parolni o'zgartirish
                 </button>
               ) : (
@@ -452,6 +523,131 @@ export default function ProfilePage() {
                 {saving ? "Saqlanmoqda..." : "Saqlash"}
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Parolni Telegram orqali yangilash modali ── */}
+      {showPwReset && (
+        <div className="fixed inset-0 flex items-center justify-center z-50 p-4"
+          style={{ background: "rgba(10,22,41,0.45)", backdropFilter: "blur(6px)" }}
+          onClick={() => setShowPwReset(false)}>
+          <div className="w-full max-w-[440px] p-7 relative"
+            style={{ background: "#FFFFFF", borderRadius: 24, boxShadow: "0px 30px 80px rgba(0,0,0,0.18)" }}
+            onClick={e => e.stopPropagation()}>
+
+            <button onClick={() => setShowPwReset(false)}
+              className="absolute top-5 right-5 w-8 h-8 flex items-center justify-center"
+              style={{ background: "#F4F9FD", borderRadius: 10 }}>
+              <X size={15} style={{ color: "#91929E" }} />
+            </button>
+
+            <div className="flex items-center gap-3 mb-6">
+              <div className="w-12 h-12 flex items-center justify-center"
+                style={{ background: "rgba(34,158,217,0.1)", borderRadius: 14 }}>
+                <KeyRound size={20} style={{ color: "#229ED9" }} />
+              </div>
+              <div>
+                <h3 className="font-bold text-lg" style={{ color: "#0A1629" }}>Parolni o'zgartirish</h3>
+                <p className="text-xs" style={{ color: "#91929E" }}>Telegram orqali tasdiqlash</p>
+              </div>
+            </div>
+
+            {pwStep === "sending" && (
+              <div className="flex flex-col items-center justify-center py-10 text-center">
+                {pwError ? (
+                  <>
+                    <p className="text-sm font-bold" style={{ color: "#FF5C5C" }}>{pwError}</p>
+                    <button onClick={openPasswordReset}
+                      className="mt-4 flex items-center gap-2 px-5 py-2.5 font-bold text-sm text-white"
+                      style={{ background: "#229ED9", borderRadius: 12 }}>
+                      <RefreshCw size={14} /> Qayta urinish
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <Loader2 size={26} className="animate-spin mb-3" style={{ color: "#229ED9" }} />
+                    <p className="text-sm" style={{ color: "#91929E" }}>Telegramga kod yuborilmoqda...</p>
+                  </>
+                )}
+              </div>
+            )}
+
+            {pwStep === "code" && (
+              <>
+                <p className="text-sm" style={{ color: "#7D8592" }}>
+                  Telegramingizga 5 xonali kod yuborildi. Kodni quyida kiriting.
+                </p>
+                <input
+                  value={pwCode}
+                  onChange={e => setPwCode(e.target.value.replace(/\D/g, "").slice(0, 5))}
+                  placeholder="•••••"
+                  inputMode="numeric"
+                  maxLength={5}
+                  className="w-full mt-4 px-4 py-3.5 text-center text-2xl font-bold tracking-[0.5em] outline-none"
+                  style={{ background: "#F4F9FD", borderRadius: 14, border: "1.5px solid #EEF2FF", color: "#0A1629" }}
+                />
+                <div className="flex items-center justify-between mt-3">
+                  <span className="flex items-center gap-1.5 text-xs font-bold" style={{ color: pwSecondsLeft <= 30 ? "#FF5C5C" : "#91929E" }}>
+                    <Clock size={12} />
+                    {pwSecondsLeft > 0
+                      ? `${Math.floor(pwSecondsLeft / 60)}:${String(pwSecondsLeft % 60).padStart(2, "0")} qoldi`
+                      : "Muddati tugadi"}
+                  </span>
+                  {pwSecondsLeft <= 0 && (
+                    <button onClick={openPasswordReset} className="text-xs font-bold" style={{ color: "#229ED9" }}>
+                      Kodni qayta yuborish
+                    </button>
+                  )}
+                </div>
+                {pwError && <p className="text-xs font-bold mt-2" style={{ color: "#FF5C5C" }}>{pwError}</p>}
+                <button onClick={handleVerifyCode} disabled={pwCode.length !== 5 || pwSubmitting || pwSecondsLeft <= 0}
+                  className="w-full flex items-center justify-center gap-2 py-3.5 mt-5 font-bold text-sm text-white disabled:opacity-50"
+                  style={{ background: "#229ED9", borderRadius: 14 }}>
+                  {pwSubmitting ? <Loader2 size={15} className="animate-spin" /> : <ShieldCheck size={15} />}
+                  Tasdiqlash
+                </button>
+              </>
+            )}
+
+            {pwStep === "password" && (
+              <>
+                <p className="text-sm mb-4" style={{ color: "#7D8592" }}>
+                  Kod tasdiqlandi. Endi yangi parolingizni kiriting.
+                </p>
+                <label className="text-xs font-bold mb-1.5 block" style={{ color: "#91929E" }}>Yangi parol</label>
+                <input type="password" value={pwNewPassword} onChange={e => setPwNewPassword(e.target.value)}
+                  placeholder="Kamida 6 belgi"
+                  className="w-full px-4 py-3 text-sm outline-none"
+                  style={{ background: "#F4F9FD", borderRadius: 12, border: "1.5px solid #EEF2FF", color: "#0A1629" }} />
+                <label className="text-xs font-bold mb-1.5 mt-3 block" style={{ color: "#91929E" }}>Yangi parolni takrorlang</label>
+                <input type="password" value={pwNewPassword2} onChange={e => setPwNewPassword2(e.target.value)}
+                  placeholder="Parolni qayta yozing"
+                  className="w-full px-4 py-3 text-sm outline-none"
+                  style={{ background: "#F4F9FD", borderRadius: 12, border: "1.5px solid #EEF2FF", color: "#0A1629" }} />
+                {pwError && <p className="text-xs font-bold mt-2" style={{ color: "#FF5C5C" }}>{pwError}</p>}
+                <button onClick={handleConfirmNewPassword} disabled={pwSubmitting}
+                  className="w-full flex items-center justify-center gap-2 py-3.5 mt-5 font-bold text-sm text-white disabled:opacity-50"
+                  style={{ background: "#229ED9", borderRadius: 14 }}>
+                  {pwSubmitting ? <Loader2 size={15} className="animate-spin" /> : <Save size={15} />}
+                  Saqlash
+                </button>
+              </>
+            )}
+
+            {pwStep === "success" && (
+              <div className="flex flex-col items-center justify-center py-8 text-center">
+                <div className="w-14 h-14 flex items-center justify-center mb-3" style={{ background: "rgba(0,196,140,0.1)", borderRadius: 18 }}>
+                  <CheckCircle2 size={26} style={{ color: "#00C48C" }} />
+                </div>
+                <p className="font-bold text-base" style={{ color: "#0A1629" }}>Parol yangilandi</p>
+                <p className="text-sm mt-1" style={{ color: "#91929E" }}>Yangi login ma'lumotlaringiz Telegramga yuborildi</p>
+                <button onClick={() => setShowPwReset(false)}
+                  className="mt-5 px-6 py-2.5 font-bold text-sm" style={{ background: "#F4F9FD", borderRadius: 12, color: "#7D8592" }}>
+                  Yopish
+                </button>
+              </div>
+            )}
           </div>
         </div>
       )}

@@ -1,8 +1,11 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { MessageSquareWarning, AlarmClock, UserX, Loader2 } from "lucide-react";
+import { MessageSquareWarning, AlarmClock, UserX, Loader2, Check, X as XIcon } from "lucide-react";
 import { apiFetch } from "@/lib/api";
+import { getUser } from "@/lib/auth";
+
+type ReviewStatus = "kutilmoqda" | "sababli" | "sababsiz";
 
 interface AttendanceNote {
   id: number;
@@ -14,7 +17,16 @@ interface AttendanceNote {
   text: string | null;
   note_date: string;
   created_at: string;
+  review_status: ReviewStatus;
+  reviewed_by_nomi: string | null;
+  reviewed_at: string | null;
 }
+
+const REVIEW_CFG: Record<ReviewStatus, { label: string; color: string; bg: string }> = {
+  kutilmoqda: { label: "Kutilmoqda", color: "#91929E", bg: "rgba(145,146,158,0.12)" },
+  sababli:    { label: "Sababli",    color: "#00A578", bg: "rgba(0,165,120,0.12)" },
+  sababsiz:   { label: "Sababsiz",   color: "#FF5C5C", bg: "rgba(255,92,92,0.12)" },
+};
 
 function fmtDt(d: string) {
   return new Date(d).toLocaleString("uz-UZ", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
@@ -23,6 +35,8 @@ function fmtDt(d: string) {
 export default function AttendanceNotesInbox() {
   const [notes,   setNotes]   = useState<AttendanceNote[]>([]);
   const [loading, setLoading] = useState(true);
+  const [reviewingId, setReviewingId] = useState<number | null>(null);
+  const isKadr = getUser()?.role === "kadr";
 
   const load = useCallback(() => {
     apiFetch<AttendanceNote[]>("/attendance/notes")
@@ -32,6 +46,21 @@ export default function AttendanceNotesInbox() {
   }, []);
 
   useEffect(() => { load(); }, [load]);
+
+  async function handleReview(id: number, status: "sababli" | "sababsiz") {
+    setReviewingId(id);
+    try {
+      await apiFetch(`/attendance/notes/${id}/review`, {
+        method: "POST",
+        body: JSON.stringify({ status }),
+      });
+      await load();
+    } catch {
+      // sokin
+    } finally {
+      setReviewingId(null);
+    }
+  }
 
   if (!loading && notes.length === 0) return null;
 
@@ -53,36 +82,64 @@ export default function AttendanceNotesInbox() {
         </div>
       ) : (
         <div className="flex flex-col gap-2.5">
-          {notes.map(n => (
-            <div key={n.id} className="flex items-start gap-3 p-3.5"
-              style={{ background: "#FAFCFF", borderRadius: 14, border: "1px solid #F0F3F8" }}>
-              <div className="w-9 h-9 flex-shrink-0 flex items-center justify-center rounded-full"
-                style={{ background: n.note_type === "kelmaslik" ? "rgba(255,92,92,0.12)" : "rgba(224,164,0,0.15)" }}>
-                {n.note_type === "kelmaslik"
-                  ? <UserX size={16} style={{ color: "#FF5C5C" }} />
-                  : <AlarmClock size={16} style={{ color: "#E0A400" }} />}
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <p className="text-sm font-bold" style={{ color: "#0A1629" }}>{n.employee_nomi || "—"}</p>
-                  <span className="text-xs font-bold px-2 py-0.5 rounded-full flex-shrink-0"
-                    style={{
-                      background: n.note_type === "kelmaslik" ? "rgba(255,92,92,0.1)" : "rgba(224,164,0,0.15)",
-                      color: n.note_type === "kelmaslik" ? "#FF5C5C" : "#B8860B",
-                    }}>
-                    {n.note_type === "kelmaslik" ? "Kelmaydi" : "Kechikadi"}
-                  </span>
+          {notes.map(n => {
+            const rc = REVIEW_CFG[n.review_status];
+            return (
+              <div key={n.id} className="flex items-start gap-3 p-3.5"
+                style={{ background: "#FAFCFF", borderRadius: 14, border: "1px solid #F0F3F8" }}>
+                <div className="w-9 h-9 flex-shrink-0 flex items-center justify-center rounded-full"
+                  style={{ background: n.note_type === "kelmaslik" ? "rgba(255,92,92,0.12)" : "rgba(224,164,0,0.15)" }}>
+                  {n.note_type === "kelmaslik"
+                    ? <UserX size={16} style={{ color: "#FF5C5C" }} />
+                    : <AlarmClock size={16} style={{ color: "#E0A400" }} />}
                 </div>
-                {(n.position || n.department_nomi) && (
-                  <p className="text-xs mt-0.5" style={{ color: "#91929E" }}>
-                    {n.position}{n.position && n.department_nomi ? " · " : ""}{n.department_nomi}
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <p className="text-sm font-bold" style={{ color: "#0A1629" }}>{n.employee_nomi || "—"}</p>
+                    <span className="text-xs font-bold px-2 py-0.5 rounded-full flex-shrink-0"
+                      style={{
+                        background: n.note_type === "kelmaslik" ? "rgba(255,92,92,0.1)" : "rgba(224,164,0,0.15)",
+                        color: n.note_type === "kelmaslik" ? "#FF5C5C" : "#B8860B",
+                      }}>
+                      {n.note_type === "kelmaslik" ? "Kelmaydi" : "Kechikadi"}
+                    </span>
+                    <span className="text-xs font-bold px-2 py-0.5 rounded-full flex-shrink-0" style={{ background: rc.bg, color: rc.color }}>
+                      {rc.label}
+                    </span>
+                  </div>
+                  {(n.position || n.department_nomi) && (
+                    <p className="text-xs mt-0.5" style={{ color: "#91929E" }}>
+                      {n.position}{n.position && n.department_nomi ? " · " : ""}{n.department_nomi}
+                    </p>
+                  )}
+                  {n.text && <p className="text-sm mt-1.5" style={{ color: "#3D4557" }}>{n.text}</p>}
+                  <p className="text-xs mt-1.5" style={{ color: "#91929E" }}>
+                    {n.note_date} · {fmtDt(n.created_at)}
+                    {n.review_status !== "kutilmoqda" && n.reviewed_by_nomi && (
+                      <> · {n.reviewed_by_nomi} tomonidan{n.reviewed_at ? `, ${fmtDt(n.reviewed_at)}` : ""}</>
+                    )}
                   </p>
-                )}
-                {n.text && <p className="text-sm mt-1.5" style={{ color: "#3D4557" }}>{n.text}</p>}
-                <p className="text-xs mt-1.5" style={{ color: "#91929E" }}>{n.note_date} · {fmtDt(n.created_at)}</p>
+
+                  {isKadr && n.review_status === "kutilmoqda" && (
+                    <div className="flex gap-2 mt-2.5">
+                      <button onClick={() => handleReview(n.id, "sababli")} disabled={reviewingId === n.id}
+                        className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-white disabled:opacity-50"
+                        style={{ background: "#00C48C", borderRadius: 8 }}>
+                        {reviewingId === n.id ? <Loader2 size={12} className="animate-spin" /> : <Check size={12} />}
+                        Tasdiqlash
+                      </button>
+                      <button onClick={() => handleReview(n.id, "sababsiz")} disabled={reviewingId === n.id}
+                        className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold disabled:opacity-50"
+                        style={{ background: "#FFFFFF", border: "1.5px solid #FF5C5C", color: "#FF5C5C", borderRadius: 8 }}>
+                        <XIcon size={12} />
+                        Rad etish
+                      </button>
+                    </div>
+                  )}
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>

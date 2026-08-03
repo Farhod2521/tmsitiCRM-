@@ -5,14 +5,20 @@ from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
 from typing import List
 from ..database import get_db
-from ..schemas import EmployeeOut, EmployeeCreate, EmployeeUpdate, PhotoIn, SetRoleIn, SetStatusIn, EmployeePasswordOut, TelegramLinkTokenOut
+from ..schemas import (
+    EmployeeOut, EmployeeCreate, EmployeeUpdate, PhotoIn, SetRoleIn, SetStatusIn,
+    EmployeePasswordOut, TelegramLinkTokenOut,
+    PasswordResetRequestOut, PasswordResetVerifyIn, PasswordResetConfirmIn,
+)
 from ..auth import get_password_hash, encrypt_password, decrypt_password
 from ..deps import get_current_employee, require_superadmin
+from ..telegram import send_telegram_message_to
 from .. import models
 
 router = APIRouter(prefix="/employees", tags=["Employees"])
 
 TELEGRAM_LINK_TOKEN_TTL = timedelta(minutes=10)
+PASSWORD_RESET_TTL = timedelta(minutes=3)
 
 
 @router.get("/", response_model=List[EmployeeOut])
@@ -104,6 +110,89 @@ def create_telegram_link_token(
     ))
     db.commit()
     return TelegramLinkTokenOut(token=token, expires_in=int(TELEGRAM_LINK_TOKEN_TTL.total_seconds()))
+
+
+@router.post("/me/password-reset/request", response_model=PasswordResetRequestOut)
+def request_password_reset(
+    db:      Session = Depends(get_db),
+    current: models.Employee = Depends(get_current_employee),
+):
+    """Profildan parolni o'zgartirish: Telegramga 5 xonali tasdiqlash kodi
+    yuboriladi (3 daqiqa amal qiladi)."""
+    if not current.telegram_id:
+        raise HTTPException(status_code=400, detail="Avval Telegram orqali hisobingizni bog'lang")
+
+    code = f"{secrets.randbelow(100000):05d}"
+    db.add(models.PasswordResetCode(
+        employee_id=current.id,
+        code=code,
+        expires_at=datetime.utcnow() + PASSWORD_RESET_TTL,
+    ))
+    db.commit()
+
+    text = (
+        f"\U0001F510 Parolni o'zgartirish kodi: {code}\n\n"
+        f"Kod 3 daqiqa amal qiladi. Agar bu so'rovni siz yubormagan bo'lsangiz, "
+        f"xabarni e'tiborsiz qoldiring."
+    )
+    ok = send_telegram_message_to(current.telegram_id, text)
+    if not ok:
+        raise HTTPException(status_code=502, detail="Telegramga xabar yuborib bo'lmadi")
+    return PasswordResetRequestOut(sent=True, expires_in_seconds=int(PASSWORD_RESET_TTL.total_seconds()))
+
+
+def _get_valid_reset_code(db: Session, employee_id: int, code: str) -> models.PasswordResetCode:
+    reset = (
+        db.query(models.PasswordResetCode)
+        .filter(models.PasswordResetCode.employee_id == employee_id)
+        .order_by(models.PasswordResetCode.created_at.desc())
+        .first()
+    )
+    if not reset or reset.used_at is not None:
+        raise HTTPException(status_code=400, detail="Kod topilmadi. Qaytadan so'rang.")
+    if reset.expires_at < datetime.utcnow():
+        raise HTTPException(status_code=400, detail="Kod muddati tugagan. Qaytadan so'rang.")
+    if reset.code != code:
+        raise HTTPException(status_code=400, detail="Kod noto'g'ri")
+    return reset
+
+
+@router.post("/me/password-reset/verify")
+def verify_password_reset(
+    data:    PasswordResetVerifyIn,
+    db:      Session = Depends(get_db),
+    current: models.Employee = Depends(get_current_employee),
+):
+    """Kodni tekshiradi (hali sarflamaydi) — muvaffaqiyatli bo'lsa, forma
+    yangi parol kiritish bosqichiga o'tadi."""
+    _get_valid_reset_code(db, current.id, data.code)
+    return {"ok": True}
+
+
+@router.post("/me/password-reset/confirm")
+def confirm_password_reset(
+    data:    PasswordResetConfirmIn,
+    db:      Session = Depends(get_db),
+    current: models.Employee = Depends(get_current_employee),
+):
+    """Kodni yana bir bor tekshirib, yangi parolni o'rnatadi va Telegram orqali
+    tasdiqlash xabarini yuboradi."""
+    if len(data.new_password) < 6:
+        raise HTTPException(status_code=400, detail="Parol kamida 6 belgidan iborat bo'lishi kerak")
+    reset = _get_valid_reset_code(db, current.id, data.code)
+
+    current.hashed_password = get_password_hash(data.new_password)
+    current.enc_password = encrypt_password(data.new_password)
+    reset.used_at = datetime.utcnow()
+    db.commit()
+
+    text = (
+        f"✅ Parolingiz muvaffaqiyatli yangilandi.\n\n"
+        f"Login: {current.phone}\n"
+        f"Yangi parol: {data.new_password}"
+    )
+    send_telegram_message_to(current.telegram_id, text)
+    return {"ok": True}
 
 
 @router.get("/passwords", response_model=List[EmployeePasswordOut])
@@ -237,6 +326,8 @@ def delete_employee(
     db.query(models.WeeklyReport).filter(models.WeeklyReport.confirmed_by == emp_id).update({"confirmed_by": None})
     db.query(models.TelegramLinkToken).filter(models.TelegramLinkToken.employee_id == emp_id).delete()
     db.query(models.AttendanceNote).filter(models.AttendanceNote.employee_id == emp_id).delete()
+    db.query(models.AttendanceNote).filter(models.AttendanceNote.reviewed_by == emp_id).update({"reviewed_by": None})
+    db.query(models.PasswordResetCode).filter(models.PasswordResetCode.employee_id == emp_id).delete()
 
     db.delete(emp)
     try:

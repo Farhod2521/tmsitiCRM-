@@ -262,6 +262,8 @@ def _note_out(n: models.AttendanceNote) -> schemas.AttendanceNoteOut:
         out.employee_nomi = n.employee.full_name
         out.position = n.employee.position
         out.department_nomi = n.employee.department.name if n.employee.department else None
+    if n.reviewer:
+        out.reviewed_by_nomi = n.reviewer.full_name
     return out
 
 
@@ -287,6 +289,9 @@ def create_note(
         note.note_type = data.note_type
         note.text = data.text
         note.created_at = datetime.utcnow()
+        note.review_status = "kutilmoqda"
+        note.reviewed_by = None
+        note.reviewed_at = None
     else:
         note = models.AttendanceNote(
             employee_id=current.id,
@@ -344,6 +349,29 @@ def inbox_notes(
 
     notes = q.order_by(models.AttendanceNote.created_at.desc()).limit(200).all()
     return [_note_out(n) for n in notes]
+
+
+@router.post("/notes/{note_id}/review", response_model=schemas.AttendanceNoteOut)
+def review_note(
+    note_id: int,
+    data:    schemas.AttendanceNoteReviewIn,
+    db:      Session = Depends(get_db),
+    current: models.Employee = Depends(get_current_employee),
+):
+    """Kadr roli izohni ko'rib chiqadi: 'sababli' (tasdiqlangan) yoki
+    'sababsiz' (rad etilgan) deb belgilaydi."""
+    if current.role != models.RoleEnum.kadr:
+        raise HTTPException(status_code=403, detail="Ruxsat yo'q")
+    note = db.query(models.AttendanceNote).filter(models.AttendanceNote.id == note_id).first()
+    if not note:
+        raise HTTPException(status_code=404, detail="Topilmadi")
+
+    note.review_status = data.status
+    note.reviewed_by = current.id
+    note.reviewed_at = datetime.utcnow()
+    db.commit()
+    db.refresh(note)
+    return _note_out(note)
 
 
 @router.get("/office")
