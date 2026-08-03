@@ -230,11 +230,13 @@ def delete_employee(
     db.query(models.IjroDocument).filter(models.IjroDocument.created_by == emp_id).update({"created_by": None})
     db.query(models.IjroDocBolim).filter(models.IjroDocBolim.qaror_by == emp_id).update({"qaror_by": None})
     db.query(models.IjroDocBolim).filter(models.IjroDocBolim.xodim_id == emp_id).update({"xodim_id": None, "xodim_assigned_at": None})
+    db.query(models.IjroDocBolim).filter(models.IjroDocBolim.yakunlagan_by == emp_id).update({"yakunlagan_by": None})
     db.query(models.IjroDocBolimAssignLog).filter(models.IjroDocBolimAssignLog.xodim_id == emp_id).delete()
     db.query(models.IjroDocBolimAssignLog).filter(models.IjroDocBolimAssignLog.assigned_by == emp_id).update({"assigned_by": None})
     db.query(models.WeeklyReport).filter(models.WeeklyReport.employee_id == emp_id).delete()
     db.query(models.WeeklyReport).filter(models.WeeklyReport.confirmed_by == emp_id).update({"confirmed_by": None})
     db.query(models.TelegramLinkToken).filter(models.TelegramLinkToken.employee_id == emp_id).delete()
+    db.query(models.AttendanceNote).filter(models.AttendanceNote.employee_id == emp_id).delete()
 
     db.delete(emp)
     try:

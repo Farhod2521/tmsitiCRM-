@@ -213,6 +213,41 @@ def admin_day(
     return rows
 
 
+@router.get("/pending-message", response_model=schemas.PendingMessageOut)
+def get_attendance_pending_message(
+    date: str = None,
+    db: Session = Depends(get_db),
+    current: models.Employee = Depends(get_current_employee),
+):
+    """Berilgan sanada (yoki bugun) 'Ishga keldim' bosmagan xodimlar ro'yxatidan
+    Telegram guruhiga yuboriladigan xabar matnini tayyorlaydi."""
+    if current.role not in _DAVOMAT_ADMIN_ROLES:
+        raise HTTPException(status_code=403, detail="Ruxsat yo'q")
+    if not date:
+        date = datetime.now(TZ_UZ).strftime("%Y-%m-%d")
+
+    employees = (
+        db.query(models.Employee)
+        .filter(models.Employee.is_active.is_(True))
+        .order_by(models.Employee.full_name)
+        .all()
+    )
+    arrived_ids = {
+        r.employee_id
+        for r in db.query(models.Attendance.employee_id)
+        .filter(models.Attendance.date == date)
+        .all()
+    }
+    absent = [e for e in employees if e.id not in arrived_ids]
+    if not absent:
+        return schemas.PendingMessageOut(text="", count=0)
+
+    lines = [f"\U0001F4CC {date} — hali ‘Ishga keldim’ tugmasini bosmaganlar:", ""]
+    lines += [f"{i}) {e.full_name}" for i, e in enumerate(absent, 1)]
+    lines += ["", "Iltimos, saytga kirib ‘Ishga keldim’ tugmasini bosing."]
+    return schemas.PendingMessageOut(text="\n".join(lines), count=len(absent))
+
+
 _BOLIM_HEAD_ROLES = {models.RoleEnum.bolim_boshligi, models.RoleEnum.boshqarma_boshligi}
 
 
