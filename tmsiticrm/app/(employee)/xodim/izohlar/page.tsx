@@ -45,7 +45,7 @@ function fmtDt(d: string) {
   return new Date(d).toLocaleString("uz-UZ", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
 }
 
-export default function KadrIzohlarPage() {
+export default function XodimIzohlarPage() {
   const [notes,   setNotes]   = useState<AttendanceNote[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter,  setFilter]  = useState<FilterKey>("barchasi");
