@@ -32,6 +32,19 @@ def haversine_m(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
     return R * 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
 
 
+def _location_for(db: Session, employee: models.Employee) -> tuple[float, float, float]:
+    """Xodimning ish joyiga (vazirlik/labaratoriya) tayinlangan koordinata va radiusni qaytaradi.
+    Sozlanmagan bo'lsa (lat/lng None) — standart ofis koordinatasiga tushadi."""
+    setting = (
+        db.query(models.LocationSetting)
+        .filter(models.LocationSetting.location_type == employee.work_location)
+        .first()
+    )
+    if setting and setting.latitude is not None and setting.longitude is not None:
+        return setting.latitude, setting.longitude, float(setting.radius_meters)
+    return OFFICE_LAT, OFFICE_LNG, RADIUS_M
+
+
 def _to_out(rec: models.Attendance) -> schemas.AttendanceOut:
     """ORM yozuvni AttendanceOut'ga aylantiradi — kechikish va mahalliy vaqt bilan."""
     # check_in DB'da UTC+5 saqlangan (naive). Mahalliy vaqt sifatida o'qiymiz.
@@ -65,12 +78,13 @@ def check_in(
     current: models.Employee = Depends(get_current_employee),
 ):
     """Xodim ishga kelganini belgilaydi (GPS bilan, kuniga bir marta)."""
-    dist = haversine_m(payload.latitude, payload.longitude, OFFICE_LAT, OFFICE_LNG)
-    if dist > RADIUS_M:
+    loc_lat, loc_lng, loc_radius = _location_for(db, current)
+    dist = haversine_m(payload.latitude, payload.longitude, loc_lat, loc_lng)
+    if dist > loc_radius:
         raise HTTPException(
             status_code=400,
-            detail=f"Siz ofis hududida emassiz. Binogacha {int(dist)} metr "
-                   f"(ruxsat: {int(RADIUS_M)} m ichida).",
+            detail=f"Siz ish joyingiz hududida emassiz. Binogacha {int(dist)} metr "
+                   f"(ruxsat: {int(loc_radius)} m ichida).",
         )
 
     # UTC+5 mahalliy vaqt, lekin DB ustuni naive bo'lgani uchun tzinfo'ni olib tashlaymiz
@@ -375,11 +389,16 @@ def review_note(
 
 
 @router.get("/office")
-def office_info():
-    """Frontend uchun ofis koordinatasi va radius."""
+def office_info(
+    db: Session = Depends(get_db),
+    current: models.Employee = Depends(get_current_employee),
+):
+    """Frontend uchun joriy xodimning ish joyiga (vazirlik/labaratoriya) mos koordinata va radius."""
+    loc_lat, loc_lng, loc_radius = _location_for(db, current)
     return {
-        "latitude": OFFICE_LAT,
-        "longitude": OFFICE_LNG,
-        "radius_m": RADIUS_M,
+        "latitude": loc_lat,
+        "longitude": loc_lng,
+        "radius_m": loc_radius,
         "work_start": f"{WORK_START_HOUR:02d}:{WORK_START_MIN:02d}",
+        "work_location": current.work_location,
     }
