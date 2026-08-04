@@ -6,6 +6,7 @@ import Badge from "@/components/ui/Badge";
 import {
   Users, Plus, Search, Phone, Pencil, Trash2, X, Loader2,
   Download, KeyRound, ChevronDown, CheckCircle2, Palmtree, Baby, UserCheck,
+  Building2, FlaskConical,
 } from "lucide-react";
 import { apiFetch } from "@/lib/api";
 
@@ -17,6 +18,7 @@ interface ApiEmp {
   department_id: number | null; work_rate: number; phone: string;
   role: string; status: string; is_active: boolean;
   department?: ApiDept | null;
+  work_location: string;
 }
 
 const ROLE_LABEL: Record<string, string> = {
@@ -41,6 +43,11 @@ const STATUS_MENU = [
   { status: "faol",    label: "Faol holatga qaytarish", icon: UserCheck, color: "#00C48C", bg: "rgba(0,196,140,0.1)"  },
   { status: "otpuska", label: "Otpuskaga chiqarish",    icon: Palmtree,  color: "#7D8592", bg: "rgba(125,133,146,0.1)" },
   { status: "dekret",  label: "Dekretga chiqarish",     icon: Baby,      color: "#7D8592", bg: "rgba(125,133,146,0.1)" },
+];
+
+const WORK_LOCATION_MENU = [
+  { value: "vazirlik",     label: "Vazirlik",     icon: Building2,     color: "#3F8CFF", bg: "rgba(63,140,255,0.1)"  },
+  { value: "labaratoriya", label: "Labaratoriya", icon: FlaskConical,  color: "#6D5DD3", bg: "rgba(109,93,211,0.1)" },
 ];
 
 function mkAvatar(n: string) {
@@ -90,6 +97,64 @@ function StatusMenu({ emp, onChanged }: { emp: ApiEmp; onChanged: (id: number, s
                   {saving ? <Loader2 size={12} className="animate-spin" style={{ color: s.color }} /> : <Icon size={13} style={{ color: s.color }} />}
                 </div>
                 <span className="text-xs font-semibold text-left" style={{ color: "#0A1629" }}>{s.label}</span>
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Ish joyini o'zgartirish dropdowni ────────────────────────────────────────
+
+function WorkLocationMenu({ emp, onChanged }: { emp: ApiEmp; onChanged: (id: number, work_location: string) => void }) {
+  const [open,   setOpen]   = useState(false);
+  const [saving, setSaving] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  const current = WORK_LOCATION_MENU.find(w => w.value === emp.work_location) ?? WORK_LOCATION_MENU[0];
+  const CurrentIcon = current.icon;
+
+  useEffect(() => {
+    function onClick(e: MouseEvent) { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false); }
+    document.addEventListener("mousedown", onClick);
+    return () => document.removeEventListener("mousedown", onClick);
+  }, []);
+
+  async function assign(work_location: string) {
+    setSaving(true);
+    try {
+      await apiFetch(`/employees/${emp.id}/set-work-location`, { method: "PATCH", body: JSON.stringify({ work_location }) });
+      onChanged(emp.id, work_location);
+      setOpen(false);
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Xatolik yuz berdi");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div ref={ref} className="relative inline-block">
+      <button onClick={() => setOpen(v => !v)} disabled={saving}
+        className="flex items-center gap-1.5 text-xs font-bold px-2.5 py-1.5 hover:opacity-80 transition-opacity disabled:opacity-50"
+        style={{ background: current.bg, color: current.color, borderRadius: 8 }}>
+        {saving ? <Loader2 size={12} className="animate-spin" /> : <CurrentIcon size={12} />}
+        {current.label}
+        <ChevronDown size={12} />
+      </button>
+      {open && (
+        <div className="absolute left-0 top-9 z-30 w-48 py-1.5"
+          style={{ background: "#FFFFFF", borderRadius: 12, boxShadow: "0 12px 32px rgba(10,22,41,0.16)", border: "1px solid #F4F9FD" }}>
+          {WORK_LOCATION_MENU.filter(w => w.value !== emp.work_location).map(w => {
+            const Icon = w.icon;
+            return (
+              <button key={w.value} onClick={() => assign(w.value)} disabled={saving}
+                className="w-full flex items-center gap-2.5 px-3 py-2 hover:bg-[#F8FAFF] transition-colors disabled:opacity-50">
+                <div className="w-7 h-7 flex-shrink-0 flex items-center justify-center" style={{ background: w.bg, borderRadius: 8 }}>
+                  <Icon size={13} style={{ color: w.color }} />
+                </div>
+                <span className="text-xs font-semibold text-left" style={{ color: "#0A1629" }}>{w.label}</span>
               </button>
             );
           })}
@@ -322,6 +387,10 @@ export default function XodimlarPage() {
     setEmployees(prev => prev.map(e => e.id === id ? { ...e, status, is_active: status === "faol" } : e));
   }
 
+  function handleWorkLocationChange(id: number, work_location: string) {
+    setEmployees(prev => prev.map(e => e.id === id ? { ...e, work_location } : e));
+  }
+
   function handleFormSaved(id: number, password: string | null) {
     if (password) setPasswords(prev => ({ ...prev, [id]: password }));
     load();
@@ -464,7 +533,7 @@ export default function XodimlarPage() {
           <table className="w-full">
             <thead>
               <tr style={{ borderBottom: "2px solid #F4F9FD" }}>
-                {["#", "Xodim", "Bo'lim", "Telefon", "Parol", "Rol", "Holat", ""].map(h => (
+                {["#", "Xodim", "Bo'lim", "Telefon", "Parol", "Rol", "Ish joyi", "Holat", ""].map(h => (
                   <th key={h} className="text-left pb-4 text-xs font-bold uppercase"
                     style={{ color: "#91929E", letterSpacing: "0.05em", paddingRight: 16 }}>
                     {h}
@@ -474,11 +543,11 @@ export default function XodimlarPage() {
             </thead>
             <tbody>
               {loading ? (
-                <tr><td colSpan={8} className="py-16 text-center">
+                <tr><td colSpan={9} className="py-16 text-center">
                   <Loader2 size={28} className="mx-auto animate-spin" style={{ color: "#3F8CFF" }} />
                 </td></tr>
               ) : filtered.length === 0 ? (
-                <tr><td colSpan={8} className="py-16 text-center">
+                <tr><td colSpan={9} className="py-16 text-center">
                   <Users size={32} className="mx-auto mb-3" style={{ color: "#D9E3F0" }} />
                   <p className="text-sm font-bold" style={{ color: "#91929E" }}>Xodimlar topilmadi</p>
                 </td></tr>
@@ -524,6 +593,9 @@ export default function XodimlarPage() {
                   </td>
                   <td className="py-4" style={{ paddingRight: 16 }}>
                     <Badge label={ROLE_LABEL[emp.role] || emp.role} variant={ROLE_BADGE[emp.role] || "gray"} />
+                  </td>
+                  <td className="py-4" style={{ paddingRight: 16 }}>
+                    <WorkLocationMenu emp={emp} onChanged={handleWorkLocationChange} />
                   </td>
                   <td className="py-4" style={{ paddingRight: 16 }}>
                     <StatusMenu emp={emp} onChanged={handleStatusChange} />

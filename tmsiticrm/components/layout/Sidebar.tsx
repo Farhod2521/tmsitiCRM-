@@ -17,6 +17,7 @@ import {
   ClipboardCheck,
   Star,
   FileCheck,
+  MapPin,
   X,
 } from "lucide-react";
 import LottiePlayer from "@/components/ui/LottiePlayer";
@@ -31,6 +32,7 @@ const navItems = [
   { href: "/superadmin/davomat",      icon: ClipboardCheck,  label: "Davomat",     enabled: true  },
   { href: "/superadmin/sozlamalar",   icon: Settings,        label: "Sozlamalar",  enabled: true  },
   { href: "/superadmin/xodimlar",     icon: Users,           label: "Xodimlar",    enabled: true  },
+  { href: "/superadmin/lokatsiya",    icon: MapPin,          label: "Lokatsiya",   enabled: true  },
   { href: "/superadmin/kpi",          icon: Target,          label: "KPI",         enabled: false },
   { href: "/superadmin/kalendar",     icon: CalendarDays,    label: "Kalendar",    enabled: false },
   { href: "/superadmin/moliya",       icon: Wallet,          label: "Moliya",      enabled: false },

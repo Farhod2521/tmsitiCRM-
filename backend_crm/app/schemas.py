@@ -1,7 +1,7 @@
 from pydantic import BaseModel
 from typing import Optional, List, Literal
 from datetime import datetime, date
-from .models import RoleEnum, DeptTypeEnum, EmployeeStatusEnum, IjroDocManba, IjroDocHolati, IjroDocTur, IjroDocDavriyligi, IjroDocBolimHolati
+from .models import RoleEnum, DeptTypeEnum, EmployeeStatusEnum, WorkLocationEnum, IjroDocManba, IjroDocHolati, IjroDocTur, IjroDocDavriyligi, IjroDocBolimHolati
 
 
 # ── Department ────────────────────────────────────────────────────────────────
@@ -51,14 +51,32 @@ class EmployeeOut(BaseModel):
     department: Optional[DepartmentOut] = None
     telegram_id: Optional[int] = None
     telegram_username: Optional[str] = None
+    work_location: WorkLocationEnum = WorkLocationEnum.vazirlik
     model_config = {"from_attributes": True}
 
 class SetStatusIn(BaseModel):
     status: EmployeeStatusEnum
 
+class SetWorkLocationIn(BaseModel):
+    work_location: WorkLocationEnum
+
 class EmployeePasswordOut(BaseModel):
     id: int
     password: Optional[str] = None
+
+
+# ── Lokatsiya sozlamalari ────────────────────────────────────────────────────
+class LocationSettingOut(BaseModel):
+    location_type: WorkLocationEnum
+    latitude: Optional[float] = None
+    longitude: Optional[float] = None
+    radius_meters: int
+    model_config = {"from_attributes": True}
+
+class LocationSettingIn(BaseModel):
+    latitude: float
+    longitude: float
+    radius_meters: int = 100
 
 
 # ── Telegram bot (add_account_bot) ────────────────────────────────────────────

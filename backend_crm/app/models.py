@@ -34,6 +34,11 @@ class DeptTypeEnum(str, enum.Enum):
     xizmat      = "xizmat"
 
 
+class WorkLocationEnum(str, enum.Enum):
+    vazirlik     = "vazirlik"
+    labaratoriya = "labaratoriya"
+
+
 class Department(Base):
     __tablename__ = "departments"
 
@@ -62,6 +67,7 @@ class Employee(Base):
     photo_base64    = Column(Text, nullable=True)   # "data:image/jpeg;base64,..." — yuz tanish uchun
     telegram_id       = Column(BigInteger, unique=True, nullable=True)
     telegram_username = Column(String(100), nullable=True)
+    work_location   = Column(SAEnum(WorkLocationEnum, name="work_location_enum"), default=WorkLocationEnum.vazirlik, nullable=False)
 
     department      = relationship("Department", back_populates="employees")
     tabel_records   = relationship("TabelRecord", foreign_keys="TabelRecord.employee_id", back_populates="employee")
@@ -322,3 +328,15 @@ class TelegramLinkToken(Base):
     created_at  = Column(DateTime, default=datetime.utcnow)
 
     employee    = relationship("Employee")
+
+
+class LocationSetting(Base):
+    """Ish joyi turi (vazirlik / labaratoriya) uchun geolokatsiya markazi va radiusi."""
+    __tablename__ = "location_settings"
+
+    id             = Column(Integer, primary_key=True, index=True)
+    location_type  = Column(SAEnum(WorkLocationEnum, name="location_type_enum"), unique=True, nullable=False)
+    latitude       = Column(Float, nullable=True)
+    longitude      = Column(Float, nullable=True)
+    radius_meters  = Column(Integer, default=100, nullable=False)
+    updated_at     = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)

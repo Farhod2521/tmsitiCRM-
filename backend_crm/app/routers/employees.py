@@ -6,7 +6,7 @@ from sqlalchemy.exc import IntegrityError
 from typing import List
 from ..database import get_db
 from ..schemas import (
-    EmployeeOut, EmployeeCreate, EmployeeUpdate, PhotoIn, SetRoleIn, SetStatusIn,
+    EmployeeOut, EmployeeCreate, EmployeeUpdate, PhotoIn, SetRoleIn, SetStatusIn, SetWorkLocationIn,
     EmployeePasswordOut, TelegramLinkTokenOut,
     PasswordResetRequestOut, PasswordResetVerifyIn, PasswordResetConfirmIn,
 )
@@ -291,6 +291,23 @@ def set_employee_status(
         raise HTTPException(status_code=404, detail="Xodim topilmadi")
     emp.status = data.status
     emp.is_active = (data.status == models.EmployeeStatusEnum.faol)
+    db.commit()
+    db.refresh(emp)
+    return emp
+
+
+@router.patch("/{emp_id}/set-work-location", response_model=EmployeeOut)
+def set_employee_work_location(
+    emp_id: int,
+    data: SetWorkLocationIn,
+    db: Session = Depends(get_db),
+    _: models.Employee = Depends(require_superadmin),
+):
+    """Xodimning ish joyini belgilash: vazirlik / labaratoriya (superadmin)."""
+    emp = db.query(models.Employee).filter(models.Employee.id == emp_id).first()
+    if not emp:
+        raise HTTPException(status_code=404, detail="Xodim topilmadi")
+    emp.work_location = data.work_location
     db.commit()
     db.refresh(emp)
     return emp

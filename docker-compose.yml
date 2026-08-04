@@ -39,9 +39,8 @@ services:
     depends_on:
       db:
         condition: service_healthy
-    # Birinchi seed, keyin server
     command: >
-      sh -c "python seed.py && uvicorn app.main:app --host 0.0.0.0 --port 8000"
+      sh -c "uvicorn app.main:app --host 0.0.0.0 --port 8000"
 
   # ── Next.js Frontend ───────────────────────────────────────────────────────
   frontend:
