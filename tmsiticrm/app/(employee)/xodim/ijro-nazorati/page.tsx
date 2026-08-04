@@ -546,9 +546,13 @@ export default function XodimIjroNazoratiPage() {
                   {r.izoh && (
                     <p className="text-xs mt-1 truncate" style={{ color: "#91929E" }}>{r.izoh}</p>
                   )}
-                  {r.qaror_by_nomi && (
+                  {r.qaror_by_nomi && (r.holati === "qabul_qilindi" || r.holati === "rad_etildi" || r.holati === "bajarildi") && (
                     <p className="text-xs mt-0.5" style={{ color: cfg.color }}>
-                      {r.qaror_by_nomi} tomonidan {r.holati === "qabul_qilindi" ? "qabul qilindi" : "rad etildi"}
+                      {r.qaror_by_nomi} tomonidan {
+                        r.holati === "rad_etildi" ? "rad etildi"
+                          : r.holati === "bajarildi" ? "tasdiqlandi"
+                          : "qabul qilindi"
+                      }
                     </p>
                   )}
                 </div>
