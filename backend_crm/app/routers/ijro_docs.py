@@ -169,6 +169,12 @@ def create_doc(
                     if xodim:
                         ab.xodim_id = xodim_id
                         ab.xodim_assigned_at = datetime.utcnow()
+                        # Hujjat yaratishda aniq ijrochi tanlangan bo'lsa, bo'lim
+                        # avtomatik qabul qilingan hisoblanadi — qabul/rad etish
+                        # bosqichi shart emas.
+                        ab.holati   = models.IjroDocBolimHolati.qabul_qilindi
+                        ab.qaror_at = datetime.utcnow()
+                        ab.qaror_by = current.id
                 db.add(ab)
                 db.flush()
                 if ab.xodim_id:
