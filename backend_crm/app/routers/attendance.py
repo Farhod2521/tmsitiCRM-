@@ -245,6 +245,7 @@ def get_attendance_pending_message(
         .join(models.Department, models.Employee.department_id == models.Department.id, isouter=True)
         .filter(
             models.Employee.is_active.is_(True),
+            models.Employee.status == models.EmployeeStatusEnum.faol,
             models.Employee.role.notin_([models.RoleEnum.direktor, models.RoleEnum.zamdirektor]),
             (models.Department.dept_type != models.DeptTypeEnum.rahbariyat) | (models.Employee.department_id.is_(None)),
         )

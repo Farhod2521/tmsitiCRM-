@@ -6,7 +6,7 @@ import Badge from "@/components/ui/Badge";
 import {
   Users, Plus, Search, Phone, Pencil, Trash2, X, Loader2,
   Download, KeyRound, ChevronDown, CheckCircle2, Palmtree, Baby, UserCheck,
-  Building2, FlaskConical,
+  Building2, FlaskConical, Car,
 } from "lucide-react";
 import { apiFetch } from "@/lib/api";
 
@@ -33,17 +33,18 @@ const ROLE_BADGE: Record<string, "primary" | "warning" | "success" | "gray"> = {
   kadr: "warning", ijro: "success", xodim: "gray",
 };
 const STATUS_LABEL: Record<string, string> = {
-  faol: "Faol", otpuska: "Otpuskada", dekret: "Dekretda",
+  faol: "Faol", otpuska: "Otpuskada", dekret: "Dekretda", shafyor_farrosh: "Shofyor/Farrosh",
 };
-// faol — yashil; otpuska/dekret — "faol emas"ni bildirib kulrang bo'ladi
+// faol — yashil; qolganlari — "faol emas"ni bildirib kulrang bo'ladi
 const STATUS_BADGE: Record<string, "success" | "gray"> = {
-  faol: "success", otpuska: "gray", dekret: "gray",
+  faol: "success", otpuska: "gray", dekret: "gray", shafyor_farrosh: "gray",
 };
 
 const STATUS_MENU = [
-  { status: "faol",    label: "Faol holatga qaytarish", icon: UserCheck, color: "#00C48C", bg: "rgba(0,196,140,0.1)"  },
-  { status: "otpuska", label: "Otpuskaga chiqarish",    icon: Palmtree,  color: "#7D8592", bg: "rgba(125,133,146,0.1)" },
-  { status: "dekret",  label: "Dekretga chiqarish",     icon: Baby,      color: "#7D8592", bg: "rgba(125,133,146,0.1)" },
+  { status: "faol",            label: "Faol holatga qaytarish",       icon: UserCheck, color: "#00C48C", bg: "rgba(0,196,140,0.1)"  },
+  { status: "otpuska",         label: "Otpuskaga chiqarish",          icon: Palmtree,  color: "#7D8592", bg: "rgba(125,133,146,0.1)" },
+  { status: "dekret",          label: "Dekretga chiqarish",           icon: Baby,      color: "#7D8592", bg: "rgba(125,133,146,0.1)" },
+  { status: "shafyor_farrosh", label: "Shofyor/Farroshga o'tkazish",  icon: Car,       color: "#7D8592", bg: "rgba(125,133,146,0.1)" },
 ];
 
 const WORK_LOCATION_MENU = [

@@ -7,7 +7,7 @@ import {
   ChevronRight, List, LayoutGrid, Table2, Search,
   Phone, MoreHorizontal, Loader2, Building2, Users,
   ClipboardList, Activity, Crown, RotateCcw, X,
-  Palmtree, Baby, UserCheck,
+  Palmtree, Baby, UserCheck, Car,
 } from "lucide-react";
 import { apiFetch } from "@/lib/api";
 
@@ -51,15 +51,16 @@ const ROLE_MENU = [
 
 /* ── Xodim holati (status) config ── */
 const STATUS_LABEL: Record<string,string> = {
-  faol:"Faol", otpuska:"Otpuskada", dekret:"Dekretda",
+  faol:"Faol", otpuska:"Otpuskada", dekret:"Dekretda", shafyor_farrosh:"Shofyor/Farrosh",
 };
-const STATUS_BADGE: Record<string,"success"|"warning"|"purple"> = {
-  faol:"success", otpuska:"warning", dekret:"purple",
+const STATUS_BADGE: Record<string,"success"|"warning"|"purple"|"gray"> = {
+  faol:"success", otpuska:"warning", dekret:"purple", shafyor_farrosh:"gray",
 };
 const STATUS_MENU = [
-  { status:"otpuska", icon:Palmtree,  label:"Otpuskaga chiqarish", color:"#FFBD21", bg:"rgba(255,189,33,0.1)"  },
-  { status:"dekret",  icon:Baby,      label:"Dekretga chiqarish",  color:"#6D5DD3", bg:"rgba(109,93,211,0.1)"  },
-  { status:"faol",    icon:UserCheck, label:"Faol holatga qaytarish", color:"#00C48C", bg:"rgba(0,196,140,0.1)" },
+  { status:"otpuska",         icon:Palmtree,  label:"Otpuskaga chiqarish",           color:"#FFBD21", bg:"rgba(255,189,33,0.1)"  },
+  { status:"dekret",          icon:Baby,      label:"Dekretga chiqarish",            color:"#6D5DD3", bg:"rgba(109,93,211,0.1)"  },
+  { status:"shafyor_farrosh", icon:Car,       label:"Shofyor/Farroshga o'tkazish",   color:"#7D8592", bg:"rgba(125,133,146,0.1)" },
+  { status:"faol",            icon:UserCheck, label:"Faol holatga qaytarish",        color:"#00C48C", bg:"rgba(0,196,140,0.1)" },
 ];
 
 /* ── Dropdown Menu ── */

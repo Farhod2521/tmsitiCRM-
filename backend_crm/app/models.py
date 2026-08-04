@@ -22,9 +22,10 @@ class RoleEnum(str, enum.Enum):
 
 
 class EmployeeStatusEnum(str, enum.Enum):
-    faol     = "faol"      # oddiy, faol ishlamoqda
-    otpuska  = "otpuska"   # otpuskada
-    dekret   = "dekret"    # dekret ta'tilida
+    faol            = "faol"             # oddiy, faol ishlamoqda
+    otpuska         = "otpuska"          # otpuskada
+    dekret          = "dekret"           # dekret ta'tilida
+    shafyor_farrosh = "shafyor_farrosh"  # shofyor/farrosh — davomat/telegram eslatmalariga kiritilmaydi
 
 
 class DeptTypeEnum(str, enum.Enum):
