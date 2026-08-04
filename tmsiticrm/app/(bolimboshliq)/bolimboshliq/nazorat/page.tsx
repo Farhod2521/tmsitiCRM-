@@ -590,7 +590,7 @@ export default function BolimNazoratPage() {
                 placeholder="Bo'lim nomi bo'yicha..." className="flex-1 bg-transparent text-sm outline-none"
                 style={{ color: "#0A1629" }} />
             </div>
-            <div className="flex gap-1 overflow-x-auto">
+            <div className="flex flex-wrap gap-1.5">
               {[
                 { key: "all",               label: `Barchasi (${counts.all})` },
                 { key: "yuborildi",         label: `Yangi (${counts.yuborildi})` },

@@ -118,20 +118,20 @@ class Attendance(Base):
 
 
 class AttendanceNote(Base):
-    """Xodimning kechikish/kelmaslik haqidagi izohi. Oddiy xodim yozsa —
-    bo'lim boshlig'i va kadr roliga; bo'lim boshlig'i yozsa — faqat kadr
-    roliga ko'rinadi (kuniga bitta, qayta yozilsa yangilanadi)."""
+    """Xodimning kechikish/kelmaslik haqidagi arizasi — bitta kun yoki sanalar
+    oralig'i (date_from—date_to) uchun yoziladi. Oddiy xodim yozsa — bo'lim
+    boshlig'i va kadr roliga; bo'lim boshlig'i yozsa — faqat kadr roliga
+    ko'rinadi. Har yuborilishda yangi ariza sifatida saqlanadi (tarix)."""
     __tablename__ = "attendance_notes"
-    __table_args__ = (
-        UniqueConstraint("employee_id", "note_date", name="uq_attendance_note_day"),
-    )
 
-    id          = Column(Integer, primary_key=True, index=True)
-    employee_id = Column(Integer, ForeignKey("employees.id"), nullable=False)
-    note_type   = Column(String(20), nullable=False)   # "kechikish" | "kelmaslik"
-    text        = Column(Text, nullable=True)
-    note_date   = Column(String(10), nullable=False)   # "2026-06-09"
-    created_at  = Column(DateTime, default=datetime.utcnow)
+    id            = Column(Integer, primary_key=True, index=True)
+    employee_id   = Column(Integer, ForeignKey("employees.id"), nullable=False)
+    note_type     = Column(String(20), nullable=False)   # "kechikish" | "kelmaslik"
+    text          = Column(Text, nullable=True)
+    date_from     = Column(String(10), nullable=False)   # "2026-06-09"
+    date_to       = Column(String(10), nullable=False)   # "2026-06-09"
+    expected_time = Column(String(5), nullable=True)     # "kechikish" uchun taxminiy kelish vaqti, "10:30"
+    created_at    = Column(DateTime, default=datetime.utcnow)
 
     # Kadr roli tomonidan ko'rib chiqilishi: "kutilmoqda" | "sababli" | "sababsiz"
     review_status = Column(String(20), nullable=False, default="kutilmoqda")

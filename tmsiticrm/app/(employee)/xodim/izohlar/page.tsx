@@ -16,7 +16,9 @@ interface AttendanceNote {
   department_nomi: string | null;
   note_type: NoteType;
   text: string | null;
-  note_date: string;
+  date_from: string;
+  date_to: string;
+  expected_time: string | null;
   created_at: string;
   review_status: ReviewStatus;
   reviewed_by_nomi: string | null;
@@ -169,10 +171,13 @@ export default function XodimIzohlarPage() {
 
                     <td className="py-4 text-sm" style={{ color: "#3D4557", paddingRight: 16, maxWidth: 260 }}>
                       <span className="line-clamp-2">{n.text || "—"}</span>
+                      {n.note_type === "kechikish" && n.expected_time && (
+                        <p className="text-xs mt-0.5" style={{ color: "#91929E" }}>~{n.expected_time} da keladi</p>
+                      )}
                     </td>
 
                     <td className="py-4 text-sm" style={{ color: "#7D8592", paddingRight: 16, whiteSpace: "nowrap" }}>
-                      {fmt(n.note_date)}
+                      {n.date_from === n.date_to ? fmt(n.date_from) : `${fmt(n.date_from)} — ${fmt(n.date_to)}`}
                     </td>
 
                     <td className="py-4" style={{ paddingRight: 16 }}>

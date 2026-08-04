@@ -479,7 +479,7 @@ export default function XodimIjroNazoratiPage() {
                 placeholder="Hujjat nomi yoki raqami..." className="flex-1 bg-transparent text-sm outline-none"
                 style={{ color: "#0A1629" }} />
             </div>
-            <div className="flex gap-1 overflow-x-auto">
+            <div className="flex flex-wrap gap-1.5">
               {[
                 { key: "all",               label: `Barchasi (${counts.all})` },
                 { key: "qabul_qilindi",     label: `Jarayonda (${counts.qabul_qilindi})` },

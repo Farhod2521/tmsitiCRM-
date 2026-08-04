@@ -288,51 +288,42 @@ def create_note(
     db:      Session = Depends(get_db),
     current: models.Employee = Depends(get_current_employee),
 ):
-    """Bugungi kechikish/kelmaslik haqida izoh yozish. Oddiy xodim yozsa —
-    bo'lim boshlig'i va kadr roliga; bo'lim boshlig'i yozsa — kadr roliga
-    ko'rinadi. Kuniga bitta — qayta yozilsa yangilanadi."""
-    today = datetime.now(TZ_UZ).strftime("%Y-%m-%d")
-    note = (
-        db.query(models.AttendanceNote)
-        .filter(
-            models.AttendanceNote.employee_id == current.id,
-            models.AttendanceNote.note_date == today,
-        )
-        .first()
+    """Kechikish/kelmaslik haqida ariza yozish — bitta kun yoki sanalar oralig'i
+    uchun (masalan, bir necha kun oldindan). Oddiy xodim yozsa — bo'lim boshlig'i
+    va kadr roliga; bo'lim boshlig'i yozsa — kadr roliga ko'rinadi. Har yuborilishda
+    yangi ariza sifatida saqlanadi."""
+    if data.date_to < data.date_from:
+        raise HTTPException(status_code=400, detail="Tugash sanasi boshlanish sanasidan oldin bo'lishi mumkin emas")
+
+    note = models.AttendanceNote(
+        employee_id=current.id,
+        note_type=data.note_type,
+        text=data.text,
+        date_from=data.date_from,
+        date_to=data.date_to,
+        expected_time=data.expected_time,
     )
-    if note:
-        note.note_type = data.note_type
-        note.text = data.text
-        note.created_at = datetime.utcnow()
-        note.review_status = "kutilmoqda"
-        note.reviewed_by = None
-        note.reviewed_at = None
-    else:
-        note = models.AttendanceNote(
-            employee_id=current.id,
-            note_type=data.note_type,
-            text=data.text,
-            note_date=today,
-        )
-        db.add(note)
+    db.add(note)
     db.commit()
     db.refresh(note)
     return _note_out(note)
 
 
 @router.get("/notes/mine", response_model=schemas.AttendanceNoteOut | None)
-def my_today_note(
+def my_active_note(
     db:      Session = Depends(get_db),
     current: models.Employee = Depends(get_current_employee),
 ):
-    """Joriy foydalanuvchining bugungi izohi (yozgan bo'lsa)."""
+    """Joriy foydalanuvchining bugungi kunni qamrab oladigan (faol) arizasi, bo'lsa."""
     today = datetime.now(TZ_UZ).strftime("%Y-%m-%d")
     note = (
         db.query(models.AttendanceNote)
         .filter(
             models.AttendanceNote.employee_id == current.id,
-            models.AttendanceNote.note_date == today,
+            models.AttendanceNote.date_from <= today,
+            models.AttendanceNote.date_to >= today,
         )
+        .order_by(models.AttendanceNote.created_at.desc())
         .first()
     )
     return _note_out(note) if note else None

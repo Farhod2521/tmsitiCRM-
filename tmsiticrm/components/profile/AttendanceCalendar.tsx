@@ -22,8 +22,20 @@ interface AttendanceNote {
   id: number;
   note_type: NoteType;
   text: string | null;
-  note_date: string;
+  date_from: string;
+  date_to: string;
+  expected_time: string | null;
   created_at: string;
+}
+
+function todayStr(): string {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
+function fmtDateUz(s: string): string {
+  const [y, m, d] = s.split("-");
+  return `${d}.${m}.${y}`;
 }
 
 interface Office {
@@ -93,6 +105,9 @@ export default function AttendanceCalendar() {
   const [showNoteModal, setShowNoteModal] = useState(false);
   const [noteType, setNoteType] = useState<NoteType>("kechikish");
   const [noteText, setNoteText] = useState("");
+  const [noteDateFrom, setNoteDateFrom] = useState(todayStr());
+  const [noteDateTo, setNoteDateTo] = useState(todayStr());
+  const [noteExpectedTime, setNoteExpectedTime] = useState("");
   const [noteSaving, setNoteSaving] = useState(false);
   const [noteError, setNoteError] = useState<string | null>(null);
 
@@ -104,11 +119,21 @@ export default function AttendanceCalendar() {
 
   async function handleSendNote() {
     setNoteError(null);
+    if (noteDateTo < noteDateFrom) {
+      setNoteError("Tugash sanasi boshlanish sanasidan oldin bo'lishi mumkin emas");
+      return;
+    }
     setNoteSaving(true);
     try {
       const res = await apiFetch<AttendanceNote>("/attendance/notes", {
         method: "POST",
-        body: JSON.stringify({ note_type: noteType, text: noteText || null }),
+        body: JSON.stringify({
+          note_type: noteType,
+          date_from: noteDateFrom,
+          date_to: noteDateTo,
+          expected_time: noteType === "kechikish" ? (noteExpectedTime || null) : null,
+          text: noteText || null,
+        }),
       });
       setMyNote(res);
       setShowNoteModal(false);
@@ -120,13 +145,11 @@ export default function AttendanceCalendar() {
   }
 
   function openNoteEdit() {
-    if (myNote) {
-      setNoteType(myNote.note_type);
-      setNoteText(myNote.text || "");
-    } else {
-      setNoteType("kechikish");
-      setNoteText("");
-    }
+    setNoteType("kechikish");
+    setNoteText("");
+    setNoteDateFrom(todayStr());
+    setNoteDateTo(todayStr());
+    setNoteExpectedTime("");
     setNoteError(null);
   }
 
@@ -347,11 +370,15 @@ export default function AttendanceCalendar() {
                   <div className="flex-1 min-w-0">
                     <p className="font-bold text-sm truncate" style={{ color: myNote ? "#FFFFFF" : "#0A1629" }}>
                       {myNote
-                        ? (myNote.note_type === "kelmaslik" ? "Bugun kelmayman" : "Bugun kechikaman")
-                        : "Hisobot yozish"}
+                        ? (myNote.note_type === "kelmaslik" ? "Kelmayman" : "Kechikaman")
+                        : "Ariza yozish"}
                     </p>
                     <p className="text-xs truncate" style={{ color: myNote ? "rgba(255,255,255,0.85)" : "#91929E" }}>
-                      {myNote ? "O'zgartirish uchun bosing" : "Kechikish yoki kelmaslik haqida"}
+                      {myNote
+                        ? (myNote.date_from === myNote.date_to
+                            ? fmtDateUz(myNote.date_from)
+                            : `${fmtDateUz(myNote.date_from)} — ${fmtDateUz(myNote.date_to)}`)
+                        : "Kechikish yoki kelmaslik haqida"}
                     </p>
                   </div>
                 </button>
@@ -514,7 +541,7 @@ export default function AttendanceCalendar() {
                 <div className="w-10 h-10 flex items-center justify-center" style={{ background: "rgba(224,164,0,0.12)", borderRadius: 12 }}>
                   <MessageSquareWarning size={18} style={{ color: "#E0A400" }} />
                 </div>
-                <h3 className="font-bold text-base" style={{ color: "#0A1629" }}>Bugungi hisobot</h3>
+                <h3 className="font-bold text-base" style={{ color: "#0A1629" }}>Davomat arizasi</h3>
               </div>
               <button onClick={() => setShowNoteModal(false)}
                 className="w-9 h-9 flex items-center justify-center hover:opacity-70" style={{ background: "#F4F9FD", borderRadius: 10 }}>
@@ -523,8 +550,8 @@ export default function AttendanceCalendar() {
             </div>
 
             <div className="px-6 py-5">
-              <p className="text-sm font-bold mb-2.5" style={{ color: "#0A1629" }}>Bugun kechikasizmi yoki kelolmaysizmi?</p>
-              <div className="flex gap-2 mb-3">
+              <p className="text-sm font-bold mb-2.5" style={{ color: "#0A1629" }}>Kechikasizmi yoki kelolmaysizmi?</p>
+              <div className="flex gap-2 mb-4">
                 <button onClick={() => setNoteType("kechikish")}
                   className="flex-1 py-2.5 text-sm font-bold"
                   style={{
@@ -544,6 +571,36 @@ export default function AttendanceCalendar() {
                   Kelmayman
                 </button>
               </div>
+
+              <p className="text-xs font-bold mb-2" style={{ color: "#91929E" }}>
+                Qaysi sana(lar) uchun? — bir necha kun oldindan ham yozishingiz mumkin
+              </p>
+              <div className="flex items-center gap-2 mb-4">
+                <input type="date" value={noteDateFrom}
+                  onChange={e => {
+                    setNoteDateFrom(e.target.value);
+                    if (noteDateTo < e.target.value) setNoteDateTo(e.target.value);
+                  }}
+                  className="flex-1 px-3 py-2.5 text-sm font-bold outline-none"
+                  style={{ background: "#F4F9FD", borderRadius: 10, border: "1.5px solid #EEF2FF", color: "#0A1629" }} />
+                <span className="text-xs font-bold" style={{ color: "#91929E" }}>—</span>
+                <input type="date" value={noteDateTo} min={noteDateFrom}
+                  onChange={e => setNoteDateTo(e.target.value)}
+                  className="flex-1 px-3 py-2.5 text-sm font-bold outline-none"
+                  style={{ background: "#F4F9FD", borderRadius: 10, border: "1.5px solid #EEF2FF", color: "#0A1629" }} />
+              </div>
+
+              {noteType === "kechikish" && (
+                <div className="mb-4">
+                  <label className="text-xs font-bold mb-2 block" style={{ color: "#91929E" }}>
+                    Taxminan soat nechida yetib kelasiz? (ixtiyoriy)
+                  </label>
+                  <input type="time" value={noteExpectedTime} onChange={e => setNoteExpectedTime(e.target.value)}
+                    className="w-full px-3 py-2.5 text-sm font-bold outline-none"
+                    style={{ background: "#F4F9FD", borderRadius: 10, border: "1.5px solid #EEF2FF", color: "#0A1629" }} />
+                </div>
+              )}
+
               <textarea value={noteText} onChange={e => setNoteText(e.target.value)}
                 placeholder="Sababini yozing (ixtiyoriy)..."
                 rows={3} className="w-full px-3 py-2.5 text-sm outline-none resize-none"

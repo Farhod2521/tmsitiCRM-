@@ -15,7 +15,9 @@ interface AttendanceNote {
   department_nomi: string | null;
   note_type: "kechikish" | "kelmaslik";
   text: string | null;
-  note_date: string;
+  date_from: string;
+  date_to: string;
+  expected_time: string | null;
   created_at: string;
   review_status: ReviewStatus;
   reviewed_by_nomi: string | null;
@@ -114,7 +116,9 @@ export default function AttendanceNotesInbox() {
                   )}
                   {n.text && <p className="text-sm mt-1.5" style={{ color: "#3D4557" }}>{n.text}</p>}
                   <p className="text-xs mt-1.5" style={{ color: "#91929E" }}>
-                    {n.note_date} · {fmtDt(n.created_at)}
+                    {n.date_from === n.date_to ? n.date_from : `${n.date_from} — ${n.date_to}`}
+                    {n.note_type === "kechikish" && n.expected_time && <> · ~{n.expected_time} da keladi</>}
+                    {" "}· {fmtDt(n.created_at)}
                     {n.review_status !== "kutilmoqda" && n.reviewed_by_nomi && (
                       <> · {n.reviewed_by_nomi} tomonidan{n.reviewed_at ? `, ${fmtDt(n.reviewed_at)}` : ""}</>
                     )}
