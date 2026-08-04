@@ -11,7 +11,7 @@ import { apiFetch } from "@/lib/api";
 // ─── Types ───────────────────────────────────────────────────────────────────
 
 type DocHolati    = "jarayonda" | "bajarildi" | "muddati_yaqin" | "kechikmoqda" | "bolimga_yonaltirildi";
-type BolimHolati  = "yuborildi" | "qabul_qilindi" | "rad_etildi" | "bajarilmoqda" | "bajarildi";
+type BolimHolati  = "yuborildi" | "qabul_qilindi" | "rad_etildi" | "bajarilmoqda" | "tasdiq_kutilmoqda" | "bajarildi";
 
 interface IjroDocOut {
   id: number;
@@ -84,11 +84,12 @@ const DOC_HOLATI: Record<DocHolati, { label: string; color: string; bg: string }
 };
 
 const BOLIM_HOLATI: Record<BolimHolati, { label: string; color: string; bg: string }> = {
-  yuborildi:     { label: "Yuborildi",     color: "#3F8CFF", bg: "rgba(63,140,255,0.1)"  },
-  qabul_qilindi: { label: "Qabul qilindi", color: "#00C48C", bg: "rgba(0,196,140,0.1)"   },
-  rad_etildi:    { label: "Rad etildi",    color: "#FF5C5C", bg: "rgba(255,92,92,0.1)"   },
-  bajarilmoqda:  { label: "Bajarilmoqda",  color: "#FFBD21", bg: "rgba(255,189,33,0.1)"  },
-  bajarildi:     { label: "Bajarildi",     color: "#00C48C", bg: "rgba(0,196,140,0.1)"   },
+  yuborildi:         { label: "Yuborildi",               color: "#3F8CFF", bg: "rgba(63,140,255,0.1)"  },
+  qabul_qilindi:     { label: "Qabul qilindi",            color: "#00C48C", bg: "rgba(0,196,140,0.1)"   },
+  rad_etildi:        { label: "Rad etildi",               color: "#FF5C5C", bg: "rgba(255,92,92,0.1)"   },
+  bajarilmoqda:      { label: "Bajarilmoqda",              color: "#FFBD21", bg: "rgba(255,189,33,0.1)"  },
+  tasdiq_kutilmoqda: { label: "Tasdiqlanishi kutilmoqda",  color: "#6D5DD3", bg: "rgba(109,93,211,0.1)"  },
+  bajarildi:         { label: "Bajarildi",                 color: "#00C48C", bg: "rgba(0,196,140,0.1)"   },
 };
 
 function BolimlarCell({ info, fallback }: { info: string | null; fallback: string | null }) {
@@ -268,12 +269,12 @@ function TrackingModal({ docId, onClose }: { docId: number; onClose: () => void 
 
                           {/* Progress steps */}
                           <div className="flex items-center gap-1 mt-2">
-                            {(["yuborildi","qabul_qilindi","bajarilmoqda","bajarildi"] as BolimHolati[]).map((step, i) => {
-                              const steps: BolimHolati[] = ["yuborildi","qabul_qilindi","bajarilmoqda","bajarildi"];
+                            {(["yuborildi","qabul_qilindi","bajarilmoqda","tasdiq_kutilmoqda","bajarildi"] as BolimHolati[]).map((step, i) => {
+                              const steps: BolimHolati[] = ["yuborildi","qabul_qilindi","bajarilmoqda","tasdiq_kutilmoqda","bajarildi"];
                               const curIdx  = steps.indexOf(b.holati);
                               const stepIdx = steps.indexOf(step);
                               const done    = stepIdx <= curIdx && b.holati !== "rad_etildi";
-                              const labels  = ["Yuborildi","Qabul qilindi","Bajarilmoqda","Bajarildi"];
+                              const labels  = ["Yuborildi","Qabul qilindi","Bajarilmoqda","Tasdiq kutmoqda","Bajarildi"];
                               return (
                                 <div key={step} className="flex items-center gap-1 flex-1">
                                   <div className="w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0"
@@ -284,7 +285,7 @@ function TrackingModal({ docId, onClose }: { docId: number; onClose: () => void 
                                     <p className="text-[10px] font-bold truncate"
                                       style={{ color: done ? cfg.color : "#91929E" }}>{labels[i]}</p>
                                   </div>
-                                  {i < 3 && <div className="flex-1 h-[2px]" style={{ background: done && stepIdx < curIdx ? cfg.color : "#E8EDF5" }} />}
+                                  {i < steps.length - 1 && <div className="flex-1 h-[2px]" style={{ background: done && stepIdx < curIdx ? cfg.color : "#E8EDF5" }} />}
                                 </div>
                               );
                             })}
@@ -328,7 +329,7 @@ function TrackingModal({ docId, onClose }: { docId: number; onClose: () => void 
                             </div>
                           )}
 
-                          {b.holati === "bajarildi" && (b.yakunlash_izohi || b.yakunlash_fayllar.length > 0) && (
+                          {(b.holati === "tasdiq_kutilmoqda" || b.holati === "bajarildi") && (b.yakunlash_izohi || b.yakunlash_fayllar.length > 0) && (
                             <div className="mt-2 pt-2" style={{ borderTop: `1px solid ${cfg.color}22` }}>
                               <p className="text-xs font-bold mb-1" style={{ color: "#00A578" }}>Yakunlash hisoboti:</p>
                               {b.yakunlash_izohi && (

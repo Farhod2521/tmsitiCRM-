@@ -1,6 +1,6 @@
 """Ijro nazorati hujjatlari va topshiriqlari."""
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload, selectinload, defer
 from typing import List, Optional
 import json
 from datetime import datetime
@@ -39,7 +39,7 @@ def _require_bolim(current: models.Employee = Depends(get_current_employee)) -> 
     return current
 
 
-def _fill_doc_out(item: schemas.IjroDocOut, doc: models.IjroDocument, db: Session) -> schemas.IjroDocOut:
+def _fill_doc_out(item, doc: models.IjroDocument, db: Session):
     """Hujjat chiqish sxemasiga qo'shimcha nomlarni to'ldiradi."""
     if doc.masul_orinbosar:
         item.masul_orinbosar_nomi = doc.masul_orinbosar.full_name
@@ -71,13 +71,15 @@ def _fill_doc_out(item: schemas.IjroDocOut, doc: models.IjroDocument, db: Sessio
             pass
     return item
 
-def _make_bolim_out(ab: models.IjroDocBolim, db: Optional[Session] = None) -> schemas.IjroDocBolimOut:
+def _make_bolim_out(ab: models.IjroDocBolim, db: Optional[Session] = None, include_files: bool = True) -> schemas.IjroDocBolimOut:
     out = schemas.IjroDocBolimOut.model_validate(ab)
     out.bolim_nomi = ab.bolim.name if ab.bolim else None
     out.qaror_by_nomi = ab.qaror_beruvchi.full_name if ab.qaror_beruvchi else None
     out.xodim_nomi = ab.xodim.full_name if ab.xodim else None
     out.yakunlagan_by_nomi = ab.yakunlovchi.full_name if ab.yakunlovchi else None
-    if ab.yakunlash_fayllar_raw:
+    # Ro'yxat (list) so'rovlarida fayllar (og'ir base64) o'qilmaydi — faqat bitta
+    # topshiriq ochilganda (/detail) kerak bo'ladi.
+    if include_files and ab.yakunlash_fayllar_raw:
         try:
             out.yakunlash_fayllar = [schemas.YakunlashFayl(**f) for f in json.loads(ab.yakunlash_fayllar_raw)]
         except (json.JSONDecodeError, TypeError):
@@ -119,7 +121,7 @@ def _log_assignment(db: Session, doc_bolim_id: int, xodim_id: int, assigned_by: 
     ))
 
 
-@router.get("/", response_model=List[schemas.IjroDocOut])
+@router.get("/", response_model=List[schemas.IjroDocListOut])
 def list_docs(
     tur:    Optional[str] = None,
     manba:  Optional[str] = None,
@@ -127,12 +129,20 @@ def list_docs(
     db:     Session = Depends(get_db),
     _:      models.Employee = Depends(_require_ijro),
 ):
-    q = db.query(models.IjroDocument)
+    # fayl_b64 (og'ir base64 blob) ro'yxatda kerak emas — sahifani sekinlashtirmasligi
+    # uchun bazadan o'qilmaydi (faqat /{doc_id} orqali bitta hujjat ochilganda keladi).
+    # masul_orinbosar/bolim_assignments ham oldindan (bitta so'rovda) yuklanadi — har
+    # bir hujjat uchun alohida so'rov (N+1) yubormaslik uchun.
+    q = db.query(models.IjroDocument).options(
+        defer(models.IjroDocument.fayl_b64),
+        joinedload(models.IjroDocument.masul_orinbosar),
+        selectinload(models.IjroDocument.bolim_assignments),
+    )
     if tur:    q = q.filter(models.IjroDocument.tur    == tur)
     if manba:  q = q.filter(models.IjroDocument.manba  == manba)
     if holati: q = q.filter(models.IjroDocument.holati == holati)
     docs = q.order_by(models.IjroDocument.created_at.desc()).all()
-    return [_fill_doc_out(schemas.IjroDocOut.model_validate(d), d, db) for d in docs]
+    return [_fill_doc_out(schemas.IjroDocListOut.model_validate(d), d, db) for d in docs]
 
 
 @router.post("/", response_model=schemas.IjroDocOut, status_code=201)
@@ -199,7 +209,17 @@ def bolim_inbox(
     if current.role not in (_BOLIM_ROLES | _ADMIN_ROLES | _ALLOWED):
         raise HTTPException(status_code=403, detail="Ruxsat yo'q")
 
-    q = db.query(models.IjroDocBolim)
+    # Bog'liq xodim/bo'lim/hujjat obyektlari oldindan (bitta so'rovda) yuklanadi —
+    # aks holda har bir qator uchun alohida so'rov (N+1) ketib, ro'yxat sekinlashadi.
+    # Fayllar (og'ir base64) esa ro'yxatda kerak emas — faqat /detail ochilganda.
+    q = db.query(models.IjroDocBolim).options(
+        joinedload(models.IjroDocBolim.bolim),
+        joinedload(models.IjroDocBolim.qaror_beruvchi),
+        joinedload(models.IjroDocBolim.xodim),
+        joinedload(models.IjroDocBolim.yakunlovchi),
+        joinedload(models.IjroDocBolim.document),
+        defer(models.IjroDocBolim.yakunlash_fayllar_raw),
+    )
     if current.role in _BOLIM_ROLES:
         if not current.department_id:
             return []
@@ -208,7 +228,7 @@ def bolim_inbox(
     if holati:
         q = q.filter(models.IjroDocBolim.holati == holati)
     rows = q.order_by(models.IjroDocBolim.assigned_at.desc()).all()
-    return [_make_bolim_out(r) for r in rows]
+    return [_make_bolim_out(r, include_files=False) for r in rows]
 
 
 @router.get("/bolim-inbox/{doc_bolim_id}/detail", response_model=schemas.IjroDocTracking)
@@ -305,7 +325,9 @@ def yakunlash(
     current: models.Employee = Depends(get_current_employee),
 ):
     """Bo'lim qabul qilgan topshiriqni yakunlash: izoh + bir nechta fayl bilan
-    'bajarildi' deb belgilash. Bo'lim boshlig'i yoki topshiriq shaxsan biriktirilgan
+    'tasdiqlanishi kutilmoqda' deb belgilash — hujjat haqiqatda 'bajarildi'ga
+    faqat IJRO nazorati (yoki admin) uni ko'rib chiqib tasdiqlagandan keyin o'tadi
+    (ijro-qaror endpoint). Bo'lim boshlig'i yoki topshiriq shaxsan biriktirilgan
     xodimning o'zi yakunlashi mumkin. Direktor/ijro rollar tracking orqali ko'radi."""
     ab = db.query(models.IjroDocBolim).filter(models.IjroDocBolim.id == doc_bolim_id).first()
     if not ab:
@@ -318,7 +340,7 @@ def yakunlash(
     if ab.holati not in (models.IjroDocBolimHolati.qabul_qilindi, models.IjroDocBolimHolati.bajarilmoqda):
         raise HTTPException(status_code=400, detail="Avval topshiriqni qabul qilish kerak")
 
-    ab.holati = models.IjroDocBolimHolati.bajarildi
+    ab.holati = models.IjroDocBolimHolati.tasdiq_kutilmoqda
     ab.yakunlash_izohi = data.izoh
     ab.yakunlash_fayllar_raw = json.dumps([f.model_dump() for f in data.fayllar], ensure_ascii=False) if data.fayllar else None
     ab.yakunlangan_at = datetime.utcnow()
@@ -335,17 +357,18 @@ def ijro_qaror(
     db:      Session = Depends(get_db),
     current: models.Employee = Depends(get_current_employee),
 ):
-    """Bo'lim yakunlab yuborgan hisobotni ijro nazorati (direktor/ijro) ko'rib
-    chiqadi: 'yechish' — tasdiqlab, bo'lim bo'yicha nazoratdan olib tashlaydi
-    (barcha bo'limlar yechilsa, hujjat ham 'bajarildi' deb yopiladi); 'rad_etish'
-    — hisobotni rad etadi, bo'lim qayta 'rad etildi' holatiga o'tadi."""
+    """Bo'lim yakunlab (tasdiq kutilmoqda holatiga) yuborgan hisobotni ijro nazorati
+    (direktor/ijro) ko'rib chiqadi: 'yechish' — tasdiqlaydi, bo'lim 'bajarildi'
+    deb belgilanadi (barcha bo'limlar bajarilsa/rad etilsa, hujjat ham 'bajarildi'
+    deb yopiladi); 'rad_etish' — hisobotni rad etadi, bo'lim qayta 'rad etildi'
+    holatiga o'tadi."""
     if current.role not in (_ADMIN_ROLES | _ALLOWED):
         raise HTTPException(status_code=403, detail="Ruxsat yo'q")
     ab = db.query(models.IjroDocBolim).filter(models.IjroDocBolim.id == doc_bolim_id).first()
     if not ab:
         raise HTTPException(status_code=404, detail="Topilmadi")
-    if ab.holati != models.IjroDocBolimHolati.bajarildi:
-        raise HTTPException(status_code=400, detail="Bo'lim hali topshiriqni yakunlamagan")
+    if ab.holati != models.IjroDocBolimHolati.tasdiq_kutilmoqda:
+        raise HTTPException(status_code=400, detail="Bo'lim hali topshiriqni yakunlab yubormagan")
 
     if data.qaror == "rad_etish":
         ab.holati   = models.IjroDocBolimHolati.rad_etildi
@@ -353,7 +376,10 @@ def ijro_qaror(
         ab.qaror_at = datetime.utcnow()
         ab.qaror_by = current.id
     else:
-        # "yechish" — bo'lim allaqachon bajarildi, endi butun hujjat holatini tekshiramiz
+        # "yechish" — endi bo'lim haqiqatda bajarildi deb tasdiqlanadi
+        ab.holati   = models.IjroDocBolimHolati.bajarildi
+        ab.qaror_at = datetime.utcnow()
+        ab.qaror_by = current.id
         doc = ab.document
         siblings = db.query(models.IjroDocBolim).filter(models.IjroDocBolim.doc_id == ab.doc_id).all()
         if doc and all(s.holati in (models.IjroDocBolimHolati.bajarildi, models.IjroDocBolimHolati.rad_etildi) for s in siblings):
@@ -373,11 +399,21 @@ def my_tasks(
     'Ijro nazorati' bo'limi uchun."""
     rows = (
         db.query(models.IjroDocBolim)
+        .options(
+            joinedload(models.IjroDocBolim.bolim),
+            joinedload(models.IjroDocBolim.qaror_beruvchi),
+            joinedload(models.IjroDocBolim.xodim),
+            joinedload(models.IjroDocBolim.yakunlovchi),
+            joinedload(models.IjroDocBolim.document),
+            defer(models.IjroDocBolim.yakunlash_fayllar_raw),
+        )
         .filter(models.IjroDocBolim.xodim_id == current.id)
         .order_by(models.IjroDocBolim.xodim_assigned_at.desc())
         .all()
     )
-    return [_make_bolim_out(r, db) for r in rows]
+    # assign_log va fayllar bu yerda kerak emas — tanlangan topshiriq bosilganda
+    # /bolim-inbox/{id}/detail orqali to'liq holda alohida yuklanadi.
+    return [_make_bolim_out(r, include_files=False) for r in rows]
 
 
 # ─── Parameterized routes (after specific ones) ───────────────────────────────

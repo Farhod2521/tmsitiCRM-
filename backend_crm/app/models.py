@@ -207,11 +207,12 @@ class IjroDocDavriyligi(str, enum.Enum):
 
 
 class IjroDocBolimHolati(str, enum.Enum):
-    yuborildi     = "yuborildi"
-    qabul_qilindi = "qabul_qilindi"
-    rad_etildi    = "rad_etildi"
-    bajarilmoqda  = "bajarilmoqda"
-    bajarildi     = "bajarildi"
+    yuborildi        = "yuborildi"
+    qabul_qilindi    = "qabul_qilindi"
+    rad_etildi       = "rad_etildi"
+    bajarilmoqda     = "bajarilmoqda"
+    tasdiq_kutilmoqda = "tasdiq_kutilmoqda"  # bo'lim yakunladi, IJRO tasdig'ini kutmoqda
+    bajarildi        = "bajarildi"           # IJRO tasdiqlagandan keyingina shu holatga o'tadi
 
 
 class IjroDocument(Base):

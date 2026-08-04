@@ -390,6 +390,33 @@ class IjroDocOut(BaseModel):
     created_at:               Optional[datetime] = None
     model_config = {"from_attributes": True}
 
+class IjroDocListOut(BaseModel):
+    """Ro'yxat (list) uchun yengil variant — fayl_b64 (og'ir base64 blob) chiqarilmaydi,
+    faqat bitta hujjat ochilganda (/{doc_id} yoki /{doc_id}/tracking) to'liq keladi."""
+    id:                       int
+    tur:                      IjroDocTur
+    manba:                    IjroDocManba
+    hujjat_raqami:            Optional[str]      = None
+    hujjat_sanasi:            Optional[str]      = None
+    sarlavha:                 Optional[str]      = None
+    mazmun:                   Optional[str]      = None
+    qoshimcha_malumot:        Optional[str]      = None
+    masul_orinbosar_id:       Optional[int]      = None
+    masul_orinbosar_nomi:     Optional[str]      = None
+    masul_bolimlar:           Optional[str]      = None
+    masul_bolimlar_nomi:      Optional[str]      = None
+    masul_bolimlar_info:      Optional[str]      = None
+    masul_bolim_boshliqlari_nomi: Optional[str]  = None
+    ijro_muddati:             Optional[datetime] = None
+    davriyligi:               IjroDocDavriyligi
+    kelishuvchi_tashkilotlar: Optional[str]      = None
+    fayl_name:                Optional[str]      = None
+    holati:                   IjroDocHolati
+    qayta_sabab:              Optional[str]      = None
+    created_by:               Optional[int]      = None
+    created_at:               Optional[datetime] = None
+    model_config = {"from_attributes": True}
+
 class IjroDocStatusIn(BaseModel):
     holati:      IjroDocHolati
     qayta_sabab: Optional[str] = None

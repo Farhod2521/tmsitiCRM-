@@ -50,7 +50,7 @@ interface IjroDoc {
 interface Department { id: number; name: string; dept_type: string; }
 interface Employee   { id: number; full_name: string; role: string; position: string; department_id: number | null; }
 
-type BolimHolati = "yuborildi" | "qabul_qilindi" | "rad_etildi" | "bajarilmoqda" | "bajarildi";
+type BolimHolati = "yuborildi" | "qabul_qilindi" | "rad_etildi" | "bajarilmoqda" | "tasdiq_kutilmoqda" | "bajarildi";
 
 interface AssignLogEntry {
   id: number;
@@ -757,11 +757,12 @@ function YangiHujjatModal({ depts, onClose, onSaved, editDoc }:
 // ─── Kuzatuv modal (Ijro uchun) ──────────────────────────────────────────────
 
 const BOLIM_H_CFG: Record<BolimHolati, { label: string; color: string; bg: string }> = {
-  yuborildi:     { label: "Yuborildi",     color: "#3F8CFF", bg: "rgba(63,140,255,0.1)"  },
-  qabul_qilindi: { label: "Qabul qilindi", color: "#00C48C", bg: "rgba(0,196,140,0.1)"   },
-  rad_etildi:    { label: "Rad etildi",    color: "#FF5C5C", bg: "rgba(255,92,92,0.1)"   },
-  bajarilmoqda:  { label: "Bajarilmoqda",  color: "#FFBD21", bg: "rgba(255,189,33,0.1)"  },
-  bajarildi:     { label: "Bajarildi",     color: "#00C48C", bg: "rgba(0,196,140,0.1)"   },
+  yuborildi:         { label: "Yuborildi",               color: "#3F8CFF", bg: "rgba(63,140,255,0.1)"  },
+  qabul_qilindi:     { label: "Qabul qilindi",            color: "#00C48C", bg: "rgba(0,196,140,0.1)"   },
+  rad_etildi:        { label: "Rad etildi",               color: "#FF5C5C", bg: "rgba(255,92,92,0.1)"   },
+  bajarilmoqda:      { label: "Bajarilmoqda",              color: "#FFBD21", bg: "rgba(255,189,33,0.1)"  },
+  tasdiq_kutilmoqda: { label: "Tasdiqlanishi kutilmoqda",  color: "#6D5DD3", bg: "rgba(109,93,211,0.1)"  },
+  bajarildi:         { label: "Bajarildi",                 color: "#00C48C", bg: "rgba(0,196,140,0.1)"   },
 };
 
 // Bo'limlar holatidan hujjatning umumiy (agregat) holatini chiqaradi — hujjatning
@@ -769,6 +770,7 @@ const BOLIM_H_CFG: Record<BolimHolati, { label: string; color: string; bg: strin
 // bo'limlar real holatini ko'rsatish kerak.
 function aggregateBolimHolati(items: BolimInfo[]): BolimHolati {
   if (items.some(i => i.holati === "bajarilmoqda")) return "bajarilmoqda";
+  if (items.some(i => i.holati === "tasdiq_kutilmoqda")) return "tasdiq_kutilmoqda";
   if (items.some(i => i.holati === "qabul_qilindi")) return "qabul_qilindi";
   const nonRejected = items.filter(i => i.holati !== "rad_etildi");
   if (nonRejected.length > 0 && nonRejected.every(i => i.holati === "bajarildi")) return "bajarildi";
@@ -922,7 +924,7 @@ function IjroTrackingModal({ docId, depts, onClose }: {
                   <div className="flex flex-col gap-3">
                     {tracking.bolimlar.map(b => {
                       const cfg = BOLIM_H_CFG[b.holati];
-                      const steps: BolimHolati[] = ["yuborildi", "qabul_qilindi", "bajarilmoqda", "bajarildi"];
+                      const steps: BolimHolati[] = ["yuborildi", "qabul_qilindi", "bajarilmoqda", "tasdiq_kutilmoqda", "bajarildi"];
                       const stepIdx = b.holati === "rad_etildi" ? 0 : steps.indexOf(b.holati);
                       return (
                         <div key={b.id} className="p-4"
@@ -1002,7 +1004,7 @@ function IjroTrackingModal({ docId, depts, onClose }: {
                           )}
 
                           {/* Yakunlash izohi va fayllari */}
-                          {b.holati === "bajarildi" && (b.yakunlash_izohi || b.yakunlash_fayllar.length > 0) && (
+                          {(b.holati === "tasdiq_kutilmoqda" || b.holati === "bajarildi") && (b.yakunlash_izohi || b.yakunlash_fayllar.length > 0) && (
                             <div className="mt-2.5 pt-2.5" style={{ borderTop: "1px solid #F0F4FB" }}>
                               <p className="text-xs font-bold mb-1.5" style={{ color: "#00A578" }}>Yakunlash hisoboti:</p>
                               {b.yakunlash_izohi && (
@@ -1032,7 +1034,7 @@ function IjroTrackingModal({ docId, depts, onClose }: {
                           )}
 
                           {/* Ijro nazorati ko'rib chiqishi — yakunlangan hisobotni tasdiqlash yoki rad etish */}
-                          {b.holati === "bajarildi" && (
+                          {b.holati === "tasdiq_kutilmoqda" && (
                             <div className="flex gap-2 mt-3 pt-3" style={{ borderTop: "1px solid #F0F4FB" }}>
                               <button onClick={() => handleIjroQaror(b.id, "yechish")} disabled={reviewingId === b.id}
                                 className="flex-1 flex items-center justify-center gap-1.5 py-2 text-xs font-bold text-white disabled:opacity-50"

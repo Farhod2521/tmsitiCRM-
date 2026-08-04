@@ -4,13 +4,13 @@ import { useState, useEffect, useCallback } from "react";
 import {
   Search, CheckCircle2, XCircle, Clock, FileText, ChevronDown,
   Download, AlertTriangle, Loader2, RefreshCw, Building2,
-  Calendar, Send, ClipboardCheck, UserCog, History, Paperclip, X,
+  Calendar, Send, ClipboardCheck, UserCog, History, Paperclip, X, Hourglass,
 } from "lucide-react";
 import { apiFetch } from "@/lib/api";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
-type BolimHolati = "yuborildi" | "qabul_qilindi" | "rad_etildi" | "bajarilmoqda" | "bajarildi";
+type BolimHolati = "yuborildi" | "qabul_qilindi" | "rad_etildi" | "bajarilmoqda" | "tasdiq_kutilmoqda" | "bajarildi";
 
 interface AssignLogEntry {
   id: number;
@@ -75,11 +75,12 @@ interface Tracking {
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const HOLATI_CFG: Record<BolimHolati, { label: string; color: string; bg: string; icon: React.ComponentType<{ size?: number; style?: object }> }> = {
-  yuborildi:     { label: "Yuborildi",      color: "#3F8CFF", bg: "rgba(63,140,255,0.1)",  icon: Clock },
-  qabul_qilindi: { label: "Qabul qilindi",  color: "#00C48C", bg: "rgba(0,196,140,0.1)",   icon: CheckCircle2 },
-  rad_etildi:    { label: "Rad etildi",     color: "#FF5C5C", bg: "rgba(255,92,92,0.1)",   icon: XCircle },
-  bajarilmoqda:  { label: "Bajarilmoqda",   color: "#FFBD21", bg: "rgba(255,189,33,0.1)",  icon: RefreshCw },
-  bajarildi:     { label: "Bajarildi",      color: "#00C48C", bg: "rgba(0,196,140,0.1)",   icon: CheckCircle2 },
+  yuborildi:         { label: "Yuborildi",                color: "#3F8CFF", bg: "rgba(63,140,255,0.1)",  icon: Clock },
+  qabul_qilindi:     { label: "Qabul qilindi",             color: "#00C48C", bg: "rgba(0,196,140,0.1)",   icon: CheckCircle2 },
+  rad_etildi:        { label: "Rad etildi",                color: "#FF5C5C", bg: "rgba(255,92,92,0.1)",   icon: XCircle },
+  bajarilmoqda:      { label: "Bajarilmoqda",               color: "#FFBD21", bg: "rgba(255,189,33,0.1)",  icon: RefreshCw },
+  tasdiq_kutilmoqda: { label: "Tasdiqlanishi kutilmoqda",   color: "#6D5DD3", bg: "rgba(109,93,211,0.1)",  icon: Hourglass },
+  bajarildi:         { label: "Bajarildi",                  color: "#00C48C", bg: "rgba(0,196,140,0.1)",   icon: CheckCircle2 },
 };
 
 const MANBA_LABELS: Record<string, string> = {
@@ -453,11 +454,18 @@ function DetailPanel({
           </div>
         )}
 
-        {/* Yakunlangan topshiriq — izoh va fayllar */}
-        {myRow.holati === "bajarildi" && (
-          <div className="p-4" style={{ background: "rgba(0,196,140,0.06)", border: "1px solid rgba(0,196,140,0.15)", borderRadius: 14 }}>
-            <p className="text-xs font-bold mb-2 uppercase tracking-wide flex items-center gap-1.5" style={{ color: "#00A578" }}>
-              <CheckCircle2 size={13} /> Topshiriq yakunlandi
+        {/* Yakunlangan/tasdiq kutilayotgan topshiriq — izoh va fayllar */}
+        {(myRow.holati === "tasdiq_kutilmoqda" || myRow.holati === "bajarildi") && (
+          <div className="p-4" style={{
+            background: myRow.holati === "bajarildi" ? "rgba(0,196,140,0.06)" : "rgba(109,93,211,0.06)",
+            border: `1px solid ${myRow.holati === "bajarildi" ? "rgba(0,196,140,0.15)" : "rgba(109,93,211,0.15)"}`,
+            borderRadius: 14,
+          }}>
+            <p className="text-xs font-bold mb-2 uppercase tracking-wide flex items-center gap-1.5"
+              style={{ color: myRow.holati === "bajarildi" ? "#00A578" : "#6D5DD3" }}>
+              {myRow.holati === "bajarildi"
+                ? <><CheckCircle2 size={13} /> Topshiriq yakunlandi</>
+                : <><Hourglass size={13} /> Yuborildi — IJRO tasdig'ini kutmoqda</>}
             </p>
             {myRow.yakunlash_izohi && (
               <p className="text-sm mb-2" style={{ color: "#0A1629" }}>{myRow.yakunlash_izohi}</p>
@@ -553,10 +561,11 @@ export default function BolimNazoratPage() {
   });
 
   const counts = {
-    all:           rows.length,
-    yuborildi:     rows.filter(r => r.holati === "yuborildi").length,
-    qabul_qilindi: rows.filter(r => r.holati === "qabul_qilindi").length,
-    rad_etildi:    rows.filter(r => r.holati === "rad_etildi").length,
+    all:               rows.length,
+    yuborildi:         rows.filter(r => r.holati === "yuborildi").length,
+    qabul_qilindi:     rows.filter(r => r.holati === "qabul_qilindi").length,
+    tasdiq_kutilmoqda: rows.filter(r => r.holati === "tasdiq_kutilmoqda").length,
+    rad_etildi:        rows.filter(r => r.holati === "rad_etildi").length,
   };
 
   return (
@@ -583,10 +592,11 @@ export default function BolimNazoratPage() {
             </div>
             <div className="flex gap-1 overflow-x-auto">
               {[
-                { key: "all",           label: `Barchasi (${counts.all})` },
-                { key: "yuborildi",     label: `Yangi (${counts.yuborildi})` },
-                { key: "qabul_qilindi", label: `Qabul (${counts.qabul_qilindi})` },
-                { key: "rad_etildi",    label: `Rad (${counts.rad_etildi})` },
+                { key: "all",               label: `Barchasi (${counts.all})` },
+                { key: "yuborildi",         label: `Yangi (${counts.yuborildi})` },
+                { key: "qabul_qilindi",     label: `Qabul (${counts.qabul_qilindi})` },
+                { key: "tasdiq_kutilmoqda", label: `Tasdiq kutmoqda (${counts.tasdiq_kutilmoqda})` },
+                { key: "rad_etildi",        label: `Rad (${counts.rad_etildi})` },
               ].map(f => (
                 <button key={f.key} onClick={() => setFilterH(f.key)}
                   className="px-2.5 py-1.5 text-xs font-bold whitespace-nowrap transition-all"

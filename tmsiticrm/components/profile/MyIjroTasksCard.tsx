@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import { ClipboardCheck, Clock, Loader2, ChevronDown, ChevronUp, History, Paperclip, X, CheckCircle2, FileText, Download } from "lucide-react";
 import { apiFetch } from "@/lib/api";
 
-type BolimHolati = "yuborildi" | "qabul_qilindi" | "rad_etildi" | "bajarilmoqda" | "bajarildi";
+type BolimHolati = "yuborildi" | "qabul_qilindi" | "rad_etildi" | "bajarilmoqda" | "tasdiq_kutilmoqda" | "bajarildi";
 
 interface AssignLogEntry {
   id: number;
@@ -52,11 +52,12 @@ function fileToBase64(file: File): Promise<string> {
 }
 
 const HOLATI_LABEL: Record<BolimHolati, { label: string; color: string; bg: string }> = {
-  yuborildi:     { label: "Yuborildi",     color: "#3F8CFF", bg: "rgba(63,140,255,0.1)"  },
-  qabul_qilindi: { label: "Qabul qilindi", color: "#00C48C", bg: "rgba(0,196,140,0.1)"   },
-  rad_etildi:    { label: "Rad etildi",    color: "#FF5C5C", bg: "rgba(255,92,92,0.1)"   },
-  bajarilmoqda:  { label: "Bajarilmoqda",  color: "#FFBD21", bg: "rgba(255,189,33,0.1)"  },
-  bajarildi:     { label: "Bajarildi",     color: "#00C48C", bg: "rgba(0,196,140,0.1)"   },
+  yuborildi:         { label: "Yuborildi",               color: "#3F8CFF", bg: "rgba(63,140,255,0.1)"  },
+  qabul_qilindi:     { label: "Qabul qilindi",            color: "#00C48C", bg: "rgba(0,196,140,0.1)"   },
+  rad_etildi:        { label: "Rad etildi",               color: "#FF5C5C", bg: "rgba(255,92,92,0.1)"   },
+  bajarilmoqda:      { label: "Bajarilmoqda",              color: "#FFBD21", bg: "rgba(255,189,33,0.1)"  },
+  tasdiq_kutilmoqda: { label: "Tasdiqlanishi kutilmoqda",  color: "#6D5DD3", bg: "rgba(109,93,211,0.1)"  },
+  bajarildi:         { label: "Bajarildi",                 color: "#00C48C", bg: "rgba(0,196,140,0.1)"   },
 };
 
 const MANBA_LABELS: Record<string, string> = {
@@ -205,10 +206,12 @@ export function TaskRow({ task, onChanged }: { task: MyTask; onChanged: () => vo
         </div>
       )}
 
-      {/* Yakunlangan — izoh va fayllar */}
-      {task.holati === "bajarildi" && (task.yakunlash_izohi || task.yakunlash_fayllar.length > 0) && (
+      {/* Yakunlangan/tasdiq kutilayotgan — izoh va fayllar */}
+      {(task.holati === "tasdiq_kutilmoqda" || task.holati === "bajarildi") && (task.yakunlash_izohi || task.yakunlash_fayllar.length > 0) && (
         <div className="mt-3 pt-3" style={{ borderTop: "1px solid #E8EDF5" }}>
-          <p className="text-xs font-bold mb-1.5" style={{ color: "#00A578" }}>Yakunlash hisoboti:</p>
+          <p className="text-xs font-bold mb-1.5" style={{ color: task.holati === "bajarildi" ? "#00A578" : "#6D5DD3" }}>
+            {task.holati === "bajarildi" ? "Yakunlash hisoboti:" : "Yuborildi — IJRO tasdig'ini kutmoqda:"}
+          </p>
           {task.yakunlash_izohi && (
             <p className="text-sm mb-1.5" style={{ color: "#0A1629" }}>{task.yakunlash_izohi}</p>
           )}
