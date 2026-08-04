@@ -19,6 +19,7 @@ interface ApiEmp {
   role: string; status: string; is_active: boolean;
   department?: ApiDept | null;
   work_location: string;
+  photo_base64?: string | null;
 }
 
 const ROLE_LABEL: Record<string, string> = {
@@ -556,10 +557,16 @@ export default function XodimlarPage() {
                   <td className="py-4 text-sm font-bold" style={{ color: "#91929E", paddingRight: 16 }}>{i + 1}</td>
                   <td className="py-4" style={{ paddingRight: 16 }}>
                     <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 flex-shrink-0 flex items-center justify-center font-bold text-white text-sm"
-                        style={{ background: "#3F8CFF", borderRadius: 12 }}>
-                        {mkAvatar(emp.full_name)}
-                      </div>
+                      {emp.photo_base64 ? (
+                        <img src={emp.photo_base64} alt={emp.full_name}
+                          className="w-10 h-10 flex-shrink-0 object-cover"
+                          style={{ borderRadius: 12 }} />
+                      ) : (
+                        <div className="w-10 h-10 flex-shrink-0 flex items-center justify-center font-bold text-white text-sm"
+                          style={{ background: "#3F8CFF", borderRadius: 12 }}>
+                          {mkAvatar(emp.full_name)}
+                        </div>
+                      )}
                       <div>
                         <p className="font-bold text-sm" style={{ color: "#0A1629" }}>{emp.full_name}</p>
                         <p className="text-xs" style={{ color: "#91929E" }}>{emp.position}</p>
