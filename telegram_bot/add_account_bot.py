@@ -29,6 +29,7 @@ Muhit o'zgaruvchilari:
   BOT_INTERNAL_SECRET  — backenddagi BOT_INTERNAL_SECRET bilan bir xil bo'lishi shart
 """
 import base64
+import datetime as dt
 import logging
 import os
 import re
@@ -38,6 +39,7 @@ load_dotenv()  # mahalliy ishga tushirishda shu papkadagi .env'ni o'qiydi (Docke
 
 import httpx
 from telegram import KeyboardButton, ReplyKeyboardMarkup, ReplyKeyboardRemove, Update
+from telegram.error import TelegramError
 from telegram.ext import (
     Application, ApplicationBuilder, CommandHandler, ContextTypes,
     ConversationHandler, MessageHandler, filters,
@@ -46,11 +48,14 @@ from telegram.ext import (
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
 log = logging.getLogger("add_account_bot")
 
-BOT_TOKEN   = os.environ["TELEGRAM_BOT_TOKEN"]
-BACKEND_URL = os.getenv("BACKEND_URL", "http://backend:8000").rstrip("/")
-BOT_SECRET  = os.environ["BOT_INTERNAL_SECRET"]
+BOT_TOKEN       = os.environ["TELEGRAM_BOT_TOKEN"]
+BACKEND_URL     = os.getenv("BACKEND_URL", "http://backend:8000").rstrip("/")
+BOT_SECRET      = os.environ["BOT_INTERNAL_SECRET"]
+TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID")  # kunlik eslatma yuboriladigan guruh
 
 SAMPLE_PHOTO_PATH = os.path.join(os.path.dirname(__file__), "sample_photo.jpg")
+
+TZ_UZ = dt.timezone(dt.timedelta(hours=5))  # O'zbekiston vaqti (DST yo'q, doim UTC+5)
 
 PHOTO, CONTACT, NEW_PASSWORD_LINK, NEW_PASSWORD_RESET = range(4)
 
@@ -257,8 +262,47 @@ async def receive_new_password_reset(update: Update, context: ContextTypes.DEFAU
     return ConversationHandler.END
 
 
+# ─── Har kuni 09:00'da avtomatik davomat eslatmasi ────────────────────────────
+
+async def send_daily_attendance_reminder(context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Har kuni ertalab soat 09:00 (UTC+5) — 'Ishga keldim' bosmagan xodimlarning
+    har biriga shaxsan, va guruhga umumiy ro'yxat sifatida xabar yuboradi."""
+    try:
+        async with httpx.AsyncClient(timeout=15) as client:
+            resp = await client.get(f"{BACKEND_URL}/bot/attendance-reminder", headers=_HEADERS)
+        data = resp.json()
+    except Exception:
+        log.exception("attendance-reminder ma'lumotini olishda xatolik")
+        return
+
+    if not data.get("count"):
+        log.info("Bugun barcha faol xodimlar 'Ishga keldim' bosgan — eslatma yuborilmadi.")
+        return
+
+    personal_text = "⏰ Assalomu alaykum! Bugun hali ‘Ishga keldim’ tugmasini bosmadingiz. Iltimos, tizimga kirib belgilang."
+    for emp in data.get("personal", []):
+        try:
+            await context.bot.send_message(chat_id=emp["telegram_id"], text=personal_text)
+        except TelegramError:
+            log.warning("Shaxsiy eslatma yuborilmadi: %s (telegram_id=%s)", emp.get("full_name"), emp.get("telegram_id"))
+
+    if TELEGRAM_CHAT_ID and data.get("group_text"):
+        try:
+            await context.bot.send_message(chat_id=TELEGRAM_CHAT_ID, text=data["group_text"])
+        except TelegramError:
+            log.exception("Guruhga eslatma yuborilmadi")
+    elif not TELEGRAM_CHAT_ID:
+        log.warning("TELEGRAM_CHAT_ID sozlanmagan — guruhga eslatma yuborilmadi")
+
+
 def build_app() -> Application:
     app = ApplicationBuilder().token(BOT_TOKEN).build()
+
+    app.job_queue.run_daily(
+        send_daily_attendance_reminder,
+        time=dt.time(hour=9, minute=0, tzinfo=TZ_UZ),
+        name="daily_attendance_reminder",
+    )
 
     conv = ConversationHandler(
         entry_points=[CommandHandler("start", start)],

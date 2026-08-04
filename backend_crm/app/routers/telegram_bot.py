@@ -2,15 +2,18 @@
 Bu yerda oddiy foydalanuvchi tokeni (JWT) talab qilinmaydi: xodim kimligi CRM
 profilida yaratilgan bir martalik `token` (TelegramLinkToken) orqali aniqlanadi —
 telefon raqami yoki parol ochiq deep-linkda yuborilmaydi va tekshirilmaydi."""
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 from ..database import get_db
 from ..deps import require_bot_secret
 from ..auth import get_password_hash, encrypt_password
 from .. import models, schemas
+from .attendance import get_absent_employees, build_pending_message_text
 
 router = APIRouter(prefix="/bot", tags=["Telegram Bot"], dependencies=[Depends(require_bot_secret)])
+
+_TZ_UZ = timezone(timedelta(hours=5))
 
 
 @router.post("/link-account", response_model=schemas.BotLinkOut)
@@ -66,3 +69,22 @@ def reset_password(data: schemas.BotResetIn, db: Session = Depends(get_db)):
     emp.enc_password = encrypt_password(data.new_password)
     db.commit()
     return schemas.BotResetOut(ok=True, phone=emp.phone)
+
+
+@router.get("/attendance-reminder", response_model=schemas.BotAttendanceReminderOut)
+def attendance_reminder(db: Session = Depends(get_db)):
+    """Har kuni ertalab soat 09:00'da bot orqali avtomatik eslatma yuborish uchun:
+    bugun hali 'Ishga keldim' bosmagan xodimlar ro'yxati — shaxsiy xabar
+    yuborish uchun telegram_id borlar, va guruhga yuboriladigan tayyor matn."""
+    date = datetime.now(_TZ_UZ).strftime("%Y-%m-%d")
+    absent = get_absent_employees(db, date)
+    personal = [
+        schemas.BotAbsentEmployeeOut(telegram_id=e.telegram_id, full_name=e.full_name)
+        for e in absent if e.telegram_id
+    ]
+    return schemas.BotAttendanceReminderOut(
+        date=date,
+        count=len(absent),
+        group_text=build_pending_message_text(absent, date),
+        personal=personal,
+    )

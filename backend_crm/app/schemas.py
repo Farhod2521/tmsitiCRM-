@@ -109,6 +109,17 @@ class BotResetOut(BaseModel):
     detail: Optional[str] = None
 
 
+class BotAbsentEmployeeOut(BaseModel):
+    telegram_id: int
+    full_name: str
+
+class BotAttendanceReminderOut(BaseModel):
+    date: str
+    count: int
+    group_text: str
+    personal: List[BotAbsentEmployeeOut]
+
+
 # ── Auth ──────────────────────────────────────────────────────────────────────
 class LoginRequest(BaseModel):
     phone: str
