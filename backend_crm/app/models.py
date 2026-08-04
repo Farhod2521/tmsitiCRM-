@@ -73,6 +73,10 @@ class Employee(Base):
     tabel_records   = relationship("TabelRecord", foreign_keys="TabelRecord.employee_id", back_populates="employee")
     scores          = relationship("Score", foreign_keys="Score.employee_id", back_populates="employee")
 
+    @property
+    def has_photo(self) -> bool:
+        return bool(self.photo_base64)
+
 
 class TabelRecord(Base):
     """Oylik davomat jadvali — har bir xodim, har bir kun."""

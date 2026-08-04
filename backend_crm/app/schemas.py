@@ -52,7 +52,7 @@ class EmployeeOut(BaseModel):
     telegram_id: Optional[int] = None
     telegram_username: Optional[str] = None
     work_location: WorkLocationEnum = WorkLocationEnum.vazirlik
-    photo_base64: Optional[str] = None
+    has_photo: bool = False
     model_config = {"from_attributes": True}
 
 class SetStatusIn(BaseModel):

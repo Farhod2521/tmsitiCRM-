@@ -296,6 +296,28 @@ def set_employee_status(
     return emp
 
 
+@router.get("/{emp_id}/photo")
+def get_employee_photo(
+    emp_id: int,
+    db: Session = Depends(get_db),
+    current: models.Employee = Depends(get_current_employee),
+):
+    """Xodim rasmini alohida (list so'rovini og'irlashtirmaslik uchun) qaytaradi."""
+    emp = db.query(models.Employee).filter(models.Employee.id == emp_id).first()
+    if not emp:
+        raise HTTPException(status_code=404, detail="Xodim topilmadi")
+
+    if current.role not in {models.RoleEnum.superadmin, models.RoleEnum.direktor, models.RoleEnum.zamdirektor,
+                             models.RoleEnum.kadr, models.RoleEnum.ijro}:
+        if current.role in {models.RoleEnum.bolim_boshligi, models.RoleEnum.boshqarma_boshligi}:
+            if emp.department_id != current.department_id:
+                raise HTTPException(status_code=403, detail="Ruxsat yo'q")
+        elif current.id != emp_id:
+            raise HTTPException(status_code=403, detail="Ruxsat yo'q")
+
+    return {"photo_base64": emp.photo_base64}
+
+
 @router.patch("/{emp_id}/set-work-location", response_model=EmployeeOut)
 def set_employee_work_location(
     emp_id: int,

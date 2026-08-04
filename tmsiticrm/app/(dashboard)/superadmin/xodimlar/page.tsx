@@ -19,7 +19,7 @@ interface ApiEmp {
   role: string; status: string; is_active: boolean;
   department?: ApiDept | null;
   work_location: string;
-  photo_base64?: string | null;
+  has_photo?: boolean;
 }
 
 const ROLE_LABEL: Record<string, string> = {
@@ -343,12 +343,23 @@ export default function XodimlarPage() {
   // Xodimlarning joriy (qaytarib olingan) parollari — faqat superadmin ko'radi.
   // Faqat migratsiyadan keyin yaratilgan/paroli o'zgartirilgan xodimlarda mavjud bo'ladi.
   const [passwords,  setPasswords]  = useState<Record<number, string | null>>({});
+  // Rasmlar alohida, asosiy ro'yxatdan keyin (bosqichma-bosqich) yuklanadi —
+  // aks holda har bir so'rovda barcha selfi-rasmlar og'irlik qilib sahifani sekinlashtiradi.
+  const [photos, setPhotos] = useState<Record<number, string>>({});
 
   useEffect(() => {
     if (!toast) return;
     const t = setTimeout(() => setToast(null), 3000);
     return () => clearTimeout(t);
   }, [toast]);
+
+  const loadPhotos = useCallback((emps: ApiEmp[]) => {
+    emps.filter(e => e.has_photo).forEach(e => {
+      apiFetch<{ photo_base64: string | null }>(`/employees/${e.id}/photo`)
+        .then(res => { if (res.photo_base64) setPhotos(prev => ({ ...prev, [e.id]: res.photo_base64! })); })
+        .catch(() => {});
+    });
+  }, []);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -358,6 +369,7 @@ export default function XodimlarPage() {
         apiFetch<ApiDept[]>("/departments/"),
         apiFetch<{ id: number; password: string | null }[]>("/employees/passwords").catch(() => []),
       ]);
+      loadPhotos(e);
       setEmployees(e);
       setDepts(d);
       setPasswords(Object.fromEntries(p.map(x => [x.id, x.password])));
@@ -557,8 +569,8 @@ export default function XodimlarPage() {
                   <td className="py-4 text-sm font-bold" style={{ color: "#91929E", paddingRight: 16 }}>{i + 1}</td>
                   <td className="py-4" style={{ paddingRight: 16 }}>
                     <div className="flex items-center gap-3">
-                      {emp.photo_base64 ? (
-                        <img src={emp.photo_base64} alt={emp.full_name}
+                      {photos[emp.id] ? (
+                        <img src={photos[emp.id]} alt={emp.full_name}
                           className="w-10 h-10 flex-shrink-0 object-cover"
                           style={{ borderRadius: 12 }} />
                       ) : (
