@@ -12,6 +12,8 @@ function getInitials(name: string): string {
 function getRoleLabel(role: string): string {
   switch (role) {
     case "superadmin":           return "Administrator";
+    case "direktor":             return "Direktor";
+    case "zamdirektor":          return "Direktor o'rinbosari";
     case "bolim_boshligi":       return "Bo'lim boshlig'i";
     case "boshqarma_boshligi":   return "Boshqarma boshlig'i";
     case "xodim":                return "Xodim";

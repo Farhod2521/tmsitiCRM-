@@ -2,8 +2,8 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useState } from "react";
-import { clearAuth } from "@/lib/auth";
+import { useState, useEffect } from "react";
+import { clearAuth, getUser } from "@/lib/auth";
 import {
   LayoutDashboard,
   Building2,
@@ -18,6 +18,7 @@ import {
   Star,
   FileCheck,
   MapPin,
+  User,
   X,
 } from "lucide-react";
 import LottiePlayer from "@/components/ui/LottiePlayer";
@@ -38,10 +39,26 @@ const navItems = [
   { href: "/superadmin/moliya",       icon: Wallet,          label: "Moliya",      enabled: false },
 ];
 
+// Direktor / Direktor o'rinbosarlari — cheklangan menyu: superadmin'ning
+// boshqaruv (xodimlar, ball berish, sozlamalar va h.k.) qismlariga kirmaydi.
+const direktorNavItems = [
+  { href: "/superadmin",              icon: LayoutDashboard, label: "Dashboard",     enabled: true },
+  { href: "/superadmin/bolimlar",     icon: Building2,       label: "Bo'limlar",     enabled: true },
+  { href: "/superadmin/hisobotlar",   icon: BarChart3,       label: "Hisobotlar",    enabled: true },
+  { href: "/superadmin/nazorat",      icon: FileCheck,       label: "Ijro nazorati", enabled: true },
+  { href: "/superadmin/davomat",      icon: ClipboardCheck,  label: "Davomat",       enabled: true },
+  { href: "/superadmin/profile",      icon: User,            label: "Profil",        enabled: true },
+];
+
 export default function Sidebar() {
   const pathname = usePathname();
   const router   = useRouter();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [role, setRole] = useState<string | null>(null);
+
+  useEffect(() => { setRole(getUser()?.role ?? null); }, []);
+
+  const items = (role === "direktor" || role === "zamdirektor") ? direktorNavItems : navItems;
 
   const isActive = (href: string) => {
     if (href === "/superadmin") return pathname === "/superadmin";
@@ -99,7 +116,7 @@ export default function Sidebar() {
         {/* Navigation */}
         <nav className="flex-1 px-4 overflow-y-auto" onClick={() => setMobileOpen(false)}>
         <ul className="flex flex-col gap-1">
-          {navItems.map(({ href, icon: Icon, label, enabled }) => {
+          {items.map(({ href, icon: Icon, label, enabled }) => {
             const active = isActive(href);
             if (!enabled) {
               return (

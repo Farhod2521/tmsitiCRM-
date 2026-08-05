@@ -1,6 +1,11 @@
+"use client";
+
+import { useEffect, useState } from "react";
 import Header from "@/components/layout/Header";
 import StatCard from "@/components/ui/StatCard";
 import Badge from "@/components/ui/Badge";
+import { getUser } from "@/lib/auth";
+import DirektorDashboard from "@/components/dashboard/DirektorDashboard";
 import {
   Users,
   Building2,
@@ -83,6 +88,17 @@ const activityColors: Record<string, string> = {
 };
 
 export default function SuperadminDashboard() {
+  const [role, setRole] = useState<string | null>(null);
+  const [checked, setChecked] = useState(false);
+
+  useEffect(() => {
+    setRole(getUser()?.role ?? null);
+    setChecked(true);
+  }, []);
+
+  if (!checked) return null;
+  if (role === "direktor" || role === "zamdirektor") return <DirektorDashboard />;
+
   return (
     <div>
       <Header
