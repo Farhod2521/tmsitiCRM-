@@ -3,6 +3,7 @@ import '../models/auth_user.dart';
 import '../theme/app_colors.dart';
 import 'davomat_screen.dart';
 import 'profile_screen.dart';
+import 'tasks_screen.dart';
 
 /// Login qilingandan keyingi asosiy ekran — pastki navigatsiya (Davomat / Profil).
 class HomeShell extends StatefulWidget {
@@ -20,6 +21,7 @@ class _HomeShellState extends State<HomeShell> {
   Widget build(BuildContext context) {
     final pages = [
       const DavomatScreen(),
+      const TasksScreen(),
       ProfileScreen(user: widget.user),
     ];
 
@@ -36,7 +38,8 @@ class _HomeShellState extends State<HomeShell> {
             child: Row(
               children: [
                 _navItem(icon: Icons.calendar_today_rounded, label: 'Davomat', index: 0),
-                _navItem(icon: Icons.person_rounded, label: 'Profil', index: 1),
+                _navItem(icon: Icons.assignment_rounded, label: 'Topshiriqlar', index: 1),
+                _navItem(icon: Icons.person_rounded, label: 'Profil', index: 2),
               ],
             ),
           ),

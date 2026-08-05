@@ -4,6 +4,7 @@ import '../models/arrived_row.dart';
 import '../models/attendance.dart';
 import '../models/auth_user.dart';
 import '../models/employee.dart';
+import '../models/ijro_task.dart';
 
 /// Server javobidagi xatolik xabari — foydalanuvchiga ko'rsatish uchun.
 class ApiException implements Exception {
@@ -93,6 +94,20 @@ class ApiService {
     final res = await http.get(Uri.parse('$baseUrl/attendance/today-list'), headers: _headers());
     final data = await _handle(res);
     return (data as List).map((e) => ArrivedRow.fromJson(e as Map<String, dynamic>)).toList();
+  }
+
+  static Future<String?> dayEmployeePhoto() async {
+    final res = await http.get(Uri.parse('$baseUrl/attendance/day-employee-photo'), headers: _headers());
+    final data = await _handle(res);
+    return (data as Map<String, dynamic>?)?['photo_base64'] as String?;
+  }
+
+  // ── Ijro nazorati ────────────────────────────────────────────────────────
+
+  static Future<List<IjroTask>> myTasks() async {
+    final res = await http.get(Uri.parse('$baseUrl/ijro-docs/my-tasks'), headers: _headers());
+    final data = await _handle(res);
+    return (data as List).map((e) => IjroTask.fromJson(e as Map<String, dynamic>)).toList();
   }
 
   static Future<AttendanceRecord> checkIn(double latitude, double longitude) async {

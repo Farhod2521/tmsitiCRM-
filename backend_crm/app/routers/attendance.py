@@ -201,6 +201,28 @@ def today_arrived_list(
     return rows
 
 
+@router.get("/day-employee-photo")
+def day_employee_photo(
+    date: str = None,
+    db: Session = Depends(get_db),
+    current: models.Employee = Depends(get_current_employee),
+):
+    """Berilgan sanada eng erta ishga kelgan xodimning (ya'ni 'Kun xodimi')
+    rasmi — mobil ilovadagi 'Kelganlar' bo'limi uchun. Boshqa xodimning
+    rasmini so'rab bo'lmaydi — server o'zi eng ertagi kelganni aniqlaydi."""
+    if not date:
+        date = datetime.now(TZ_UZ).strftime("%Y-%m-%d")
+    rec = (
+        db.query(models.Attendance)
+        .filter(models.Attendance.date == date)
+        .order_by(models.Attendance.check_in.asc())
+        .first()
+    )
+    if not rec or not rec.employee:
+        return {"photo_base64": None}
+    return {"photo_base64": rec.employee.photo_base64}
+
+
 _DAVOMAT_ADMIN_ROLES = {
     models.RoleEnum.superadmin,
     models.RoleEnum.direktor,

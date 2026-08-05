@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import '../services/api_service.dart';
 import '../services/auth_storage.dart';
 import '../theme/app_colors.dart';
@@ -106,14 +107,14 @@ class _LoginScreenState extends State<LoginScreen> {
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
                             Container(
-                              width: 56,
-                              height: 56,
+                              width: 64,
+                              height: 64,
                               alignment: Alignment.center,
                               decoration: BoxDecoration(
                                 color: Colors.white.withValues(alpha: 0.2),
-                                borderRadius: BorderRadius.circular(16),
+                                borderRadius: BorderRadius.circular(18),
                               ),
-                              child: const Text('T', style: TextStyle(color: Colors.white, fontSize: 26, fontWeight: FontWeight.w900)),
+                              child: SvgPicture.asset('assets/icons/brand.svg', width: 36, height: 38),
                             ),
                           ],
                         ),

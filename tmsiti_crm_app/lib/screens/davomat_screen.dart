@@ -1,3 +1,6 @@
+import 'dart:convert';
+import 'dart:math' as math;
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../models/arrived_row.dart';
@@ -73,9 +76,11 @@ class _ArrivedTodayTab extends StatefulWidget {
   State<_ArrivedTodayTab> createState() => _ArrivedTodayTabState();
 }
 
-class _ArrivedTodayTabState extends State<_ArrivedTodayTab> with AutomaticKeepAliveClientMixin {
+class _ArrivedTodayTabState extends State<_ArrivedTodayTab> with AutomaticKeepAliveClientMixin, SingleTickerProviderStateMixin {
   bool _loading = true;
   List<ArrivedRow> _rows = [];
+  Uint8List? _dayPhoto;
+  late final AnimationController _borderCtrl;
 
   @override
   bool get wantKeepAlive => true;
@@ -83,7 +88,14 @@ class _ArrivedTodayTabState extends State<_ArrivedTodayTab> with AutomaticKeepAl
   @override
   void initState() {
     super.initState();
+    _borderCtrl = AnimationController(vsync: this, duration: const Duration(seconds: 4))..repeat();
     _load();
+  }
+
+  @override
+  void dispose() {
+    _borderCtrl.dispose();
+    super.dispose();
   }
 
   Future<void> _load() async {
@@ -92,10 +104,21 @@ class _ArrivedTodayTabState extends State<_ArrivedTodayTab> with AutomaticKeepAl
       final rows = await ApiService.todayList();
       if (!mounted) return;
       setState(() => _rows = rows);
+      if (rows.isNotEmpty) _loadDayPhoto();
     } catch (_) {
       // jim — pastda bo'sh holat ko'rsatiladi
     } finally {
       if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  Future<void> _loadDayPhoto() async {
+    try {
+      final b64 = await ApiService.dayEmployeePhoto();
+      if (!mounted || b64 == null || !b64.contains(',')) return;
+      setState(() => _dayPhoto = base64Decode(b64.split(',').last));
+    } catch (_) {
+      // jim — trofey belgisi fallback sifatida ko'rsatiladi
     }
   }
 
@@ -180,39 +203,68 @@ class _ArrivedTodayTabState extends State<_ArrivedTodayTab> with AutomaticKeepAl
     );
   }
 
+  static const _gold = [
+    Color(0xFFFFD700),
+    Color(0xFFFFF6D6),
+    Color(0xFFB8860B),
+    Color(0xFFFFE87A),
+    Color(0xFFFFD700),
+  ];
+
   Widget _buildDayEmployeeCard(ArrivedRow first) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(20),
+    final content = Container(
+      padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        gradient: const LinearGradient(colors: [AppColors.warning, Color(0xFFFFA000)], begin: Alignment.topLeft, end: Alignment.bottomRight),
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [BoxShadow(color: AppColors.warning.withValues(alpha: 0.35), blurRadius: 20, offset: const Offset(0, 8))],
+        color: const Color(0xFFE9F3FF), // ochiq havorang
+        borderRadius: BorderRadius.circular(18),
       ),
       child: Row(
         children: [
           Container(
-            width: 54, height: 54,
+            width: 56, height: 56,
             alignment: Alignment.center,
-            decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.25), shape: BoxShape.circle),
-            child: const Icon(Icons.emoji_events_rounded, color: Colors.white, size: 28),
+            decoration: BoxDecoration(
+              color: const Color(0xFFFFF3C4),
+              shape: BoxShape.circle,
+              image: _dayPhoto != null ? DecorationImage(image: MemoryImage(_dayPhoto!), fit: BoxFit.cover) : null,
+            ),
+            child: _dayPhoto == null ? const Icon(Icons.emoji_events_rounded, color: Color(0xFFB8860B), size: 28) : null,
           ),
           const SizedBox(width: 14),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text("KUN XODIMI", style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w900, letterSpacing: 0.8)),
+                const Text("KUN XODIMI", style: TextStyle(color: Color(0xFFB8860B), fontSize: 11, fontWeight: FontWeight.w900, letterSpacing: 0.8)),
                 const SizedBox(height: 3),
-                Text(first.fullName, style: const TextStyle(color: Colors.white, fontSize: 17, fontWeight: FontWeight.w800), overflow: TextOverflow.ellipsis),
+                Text(first.fullName, style: const TextStyle(color: AppColors.ink, fontSize: 17, fontWeight: FontWeight.w800), overflow: TextOverflow.ellipsis),
                 if (first.department != null)
-                  Text(first.department!, style: TextStyle(color: Colors.white.withValues(alpha: 0.9), fontSize: 12.5), overflow: TextOverflow.ellipsis),
+                  Text(first.department!, style: const TextStyle(color: AppColors.mutedText, fontSize: 12.5), overflow: TextOverflow.ellipsis),
               ],
             ),
           ),
-          Text(first.checkInLocal ?? '--:--', style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w900)),
+          Text(first.checkInLocal ?? '--:--', style: const TextStyle(color: AppColors.primary, fontSize: 18, fontWeight: FontWeight.w900)),
         ],
       ),
+    );
+
+    return AnimatedBuilder(
+      animation: _borderCtrl,
+      builder: (context, child) {
+        return Container(
+          padding: const EdgeInsets.all(2.5),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(20),
+            gradient: SweepGradient(
+              transform: GradientRotation(_borderCtrl.value * 2 * math.pi),
+              colors: _gold,
+            ),
+            boxShadow: const [BoxShadow(color: Color(0x33FFD700), blurRadius: 18, offset: Offset(0, 6))],
+          ),
+          child: child,
+        );
+      },
+      child: content,
     );
   }
 
