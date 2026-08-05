@@ -164,6 +164,43 @@ def today_status(
     return _to_out(rec) if rec else None
 
 
+@router.get("/today-list", response_model=List[schemas.AdminDavomatRow])
+def today_arrived_list(
+    date: str = None,
+    db: Session = Depends(get_db),
+    current: models.Employee = Depends(get_current_employee),
+):
+    """Berilgan sanada ishga kelgan xodimlar ro'yxati — eng erta kelgandan
+    boshlab tartiblangan (birinchisi — 'kun xodimi'). Har qanday xodim
+    ko'ra oladi — mobil ilovadagi 'Kelganlar' bo'limi uchun."""
+    if not date:
+        date = datetime.now(TZ_UZ).strftime("%Y-%m-%d")
+
+    recs = (
+        db.query(models.Attendance)
+        .filter(models.Attendance.date == date)
+        .order_by(models.Attendance.check_in.asc())
+        .all()
+    )
+    rows = []
+    for rec in recs:
+        emp = rec.employee
+        if not emp or not emp.is_active:
+            continue
+        out = _to_out(rec)
+        rows.append(schemas.AdminDavomatRow(
+            employee_id=emp.id,
+            full_name=emp.full_name,
+            position=emp.position,
+            department=emp.department.name if emp.department else None,
+            check_in_local=out.check_in_local,
+            late_minutes=out.late_minutes,
+            distance_m=rec.distance_m,
+            arrived=True,
+        ))
+    return rows
+
+
 _DAVOMAT_ADMIN_ROLES = {
     models.RoleEnum.superadmin,
     models.RoleEnum.direktor,
