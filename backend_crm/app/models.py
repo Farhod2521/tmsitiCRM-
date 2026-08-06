@@ -22,10 +22,13 @@ class RoleEnum(str, enum.Enum):
 
 
 class EmployeeStatusEnum(str, enum.Enum):
-    faol            = "faol"             # oddiy, faol ishlamoqda
-    otpuska         = "otpuska"          # otpuskada
-    dekret          = "dekret"           # dekret ta'tilida
-    shafyor_farrosh = "shafyor_farrosh"  # shofyor/farrosh — davomat/telegram eslatmalariga kiritilmaydi
+    faol                = "faol"                 # oddiy, faol ishlamoqda
+    otpuska             = "otpuska"              # mehnat ta'tilida — muddatli (date_from/date_to)
+    dekret              = "dekret"               # dekretda — muddatsiz
+    shafyor_farrosh     = "shafyor_farrosh"      # texnik xodimlar — davomat/telegram eslatmalariga kiritilmaydi
+    xizmat_safarida     = "xizmat_safarida"      # xizmat safarida — muddatli
+    oquv_tatilida       = "oquv_tatilida"        # o'quv ta'tilida — muddatli
+    mehnatga_layoqatsiz = "mehnatga_layoqatsiz"  # bolnichniy — muddatli
 
 
 class DeptTypeEnum(str, enum.Enum):
@@ -64,6 +67,8 @@ class Employee(Base):
     enc_password    = Column(Text, nullable=True)   # joriy parol, qaytarib olinadigan shifrda (superadmin uchun)
     role            = Column(SAEnum(RoleEnum, name="role_enum"), default=RoleEnum.xodim, nullable=False)
     status          = Column(SAEnum(EmployeeStatusEnum, name="employee_status_enum"), default=EmployeeStatusEnum.faol, nullable=False)
+    status_date_from = Column(String(10), nullable=True)   # "YYYY-MM-DD" — muddatli statuslar uchun (otpuska, safar, o'quv, bolnichniy)
+    status_date_to   = Column(String(10), nullable=True)   # shu sana o'tgach avtomatik "faol"ga qaytariladi
     is_active       = Column(Boolean, default=True, nullable=False)
     photo_base64    = Column(Text, nullable=True)   # "data:image/jpeg;base64,..." — yuz tanish uchun
     telegram_id       = Column(BigInteger, unique=True, nullable=True)

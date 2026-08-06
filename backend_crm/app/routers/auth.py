@@ -5,18 +5,25 @@ from ..auth import verify_password, create_access_token
 from ..schemas import LoginRequest, LoginResponse, EmployeeOut
 from ..deps import get_current_employee
 from .. import models
+from .employees import revert_expired_statuses
 
 router = APIRouter(prefix="/auth", tags=["Auth"])
 
 
 @router.post("/login", response_model=LoginResponse)
 def login(data: LoginRequest, db: Session = Depends(get_db)):
+    revert_expired_statuses(db)
+
     emp = db.query(models.Employee).filter(models.Employee.phone == data.phone).first()
     if not emp or not verify_password(data.password, emp.hashed_password):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Telefon raqam yoki parol noto'g'ri",
         )
+    # Superadmin hech qachon bloklanmasin — tizimni boshqarish huquqi doim saqlanadi.
+    if emp.role == models.RoleEnum.superadmin and not emp.is_active:
+        emp.is_active = True
+        db.commit()
     if not emp.is_active:
         raise HTTPException(status_code=403, detail="Hisobingiz bloklangan")
 

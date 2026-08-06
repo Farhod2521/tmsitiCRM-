@@ -7,7 +7,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>
-	<string>Tmsiti Crm App</string>
+	<string>TMSITI CRM</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
@@ -30,6 +30,8 @@
 	<string>Ishga kelganingizni tasdiqlash uchun joylashuvingiz kerak bo'ladi.</string>
 	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
 	<string>Ishga kelganingizni tasdiqlash uchun joylashuvingiz kerak bo'ladi.</string>
+	<key>NSCameraUsageDescription</key>
+	<string>Ishga kelganingizni tasdiqlash uchun yuzingizni kamera orqali tekshirish kerak bo'ladi.</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>

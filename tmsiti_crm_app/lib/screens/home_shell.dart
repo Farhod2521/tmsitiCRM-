@@ -20,7 +20,7 @@ class _HomeShellState extends State<HomeShell> {
   @override
   Widget build(BuildContext context) {
     final pages = [
-      const DavomatScreen(),
+      DavomatScreen(user: widget.user),
       const TasksScreen(),
       ProfileScreen(user: widget.user),
     ];

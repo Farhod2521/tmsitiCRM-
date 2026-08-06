@@ -1,5 +1,5 @@
 import secrets
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, date
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
@@ -20,12 +20,42 @@ router = APIRouter(prefix="/employees", tags=["Employees"])
 TELEGRAM_LINK_TOKEN_TTL = timedelta(minutes=10)
 PASSWORD_RESET_TTL = timedelta(minutes=3)
 
+# Muddat (date_from/date_to) talab qiladigan statuslar — shu sana tugagach avtomatik "faol"ga qaytadi.
+STATUS_WITH_RANGE = {
+    models.EmployeeStatusEnum.otpuska,
+    models.EmployeeStatusEnum.xizmat_safarida,
+    models.EmployeeStatusEnum.oquv_tatilida,
+    models.EmployeeStatusEnum.mehnatga_layoqatsiz,
+}
+
+
+def revert_expired_statuses(db: Session) -> None:
+    """Muddati (status_date_to) o'tib ketgan xodimlarni avtomatik "faol" holatga qaytaradi."""
+    today_str = date.today().isoformat()
+    expired = (
+        db.query(models.Employee)
+        .filter(models.Employee.status != models.EmployeeStatusEnum.faol)
+        .filter(models.Employee.status_date_to.isnot(None))
+        .filter(models.Employee.status_date_to < today_str)
+        .all()
+    )
+    if not expired:
+        return
+    for emp in expired:
+        emp.status = models.EmployeeStatusEnum.faol
+        emp.is_active = True
+        emp.status_date_from = None
+        emp.status_date_to = None
+    db.commit()
+
 
 @router.get("/", response_model=List[EmployeeOut])
 def list_employees(
     db: Session = Depends(get_db),
     current: models.Employee = Depends(get_current_employee),
 ):
+    revert_expired_statuses(db)
+
     # Superadmin / Direktor / Zamdirektor / Kadr / Ijro — barchani ko'radi
     if current.role in {models.RoleEnum.superadmin, models.RoleEnum.direktor, models.RoleEnum.zamdirektor,
                         models.RoleEnum.kadr, models.RoleEnum.ijro}:
@@ -283,14 +313,32 @@ def set_employee_status(
     db: Session = Depends(get_db),
     _: models.Employee = Depends(require_superadmin),
 ):
-    """Xodim holatini belgilash: faol / otpuska / dekret (superadmin).
-    Otpuska va dekretda is_active=False bo'ladi — ball berishda chiqmaydi,
-    lekin Bo'limlar sahifasida xodim sifatida (status bilan) ko'rinishda qoladi."""
+    """Xodim holatini belgilash (superadmin). Ba'zi statuslar (mehnat ta'tili, xizmat
+    safari, o'quv ta'tili, bolnichniy) muddatli bo'ladi — sanadan/sanagacha talab qilinadi
+    va shu sana o'tgach xodim avtomatik "faol"ga qaytadi. Faol bo'lmagan statuslarda
+    is_active=False bo'ladi — ball berishda chiqmaydi, lekin Bo'limlar sahifasida
+    xodim sifatida (status bilan) ko'rinishda qoladi."""
     emp = db.query(models.Employee).filter(models.Employee.id == emp_id).first()
     if not emp:
         raise HTTPException(status_code=404, detail="Xodim topilmadi")
+
+    if data.status in STATUS_WITH_RANGE:
+        if not data.date_from or not data.date_to:
+            raise HTTPException(status_code=400, detail="Sanadan va sanagacha kiritish shart")
+        if data.date_to < data.date_from:
+            raise HTTPException(status_code=400, detail="Sanagacha sanadan oldin bo'lishi mumkin emas")
+        emp.status_date_from = data.date_from
+        emp.status_date_to = data.date_to
+    else:
+        emp.status_date_from = None
+        emp.status_date_to = None
+
     emp.status = data.status
-    emp.is_active = (data.status == models.EmployeeStatusEnum.faol)
+    # Superadmin hech qachon avtomatik bloklanmasin — tizimni boshqarish huquqi doim saqlanadi.
+    if emp.role == models.RoleEnum.superadmin:
+        emp.is_active = True
+    else:
+        emp.is_active = (data.status == models.EmployeeStatusEnum.faol)
     db.commit()
     db.refresh(emp)
     return emp

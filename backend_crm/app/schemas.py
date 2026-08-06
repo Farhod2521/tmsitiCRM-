@@ -47,6 +47,8 @@ class EmployeeOut(BaseModel):
     phone: str
     role: RoleEnum
     status: EmployeeStatusEnum
+    status_date_from: Optional[str] = None
+    status_date_to: Optional[str] = None
     is_active: bool
     department: Optional[DepartmentOut] = None
     telegram_id: Optional[int] = None
@@ -57,6 +59,8 @@ class EmployeeOut(BaseModel):
 
 class SetStatusIn(BaseModel):
     status: EmployeeStatusEnum
+    date_from: Optional[str] = None
+    date_to: Optional[str] = None
 
 class SetWorkLocationIn(BaseModel):
     work_location: WorkLocationEnum

@@ -6,7 +6,8 @@ import Badge from "@/components/ui/Badge";
 import {
   Users, Plus, Search, Phone, Pencil, Trash2, X, Loader2,
   Download, KeyRound, ChevronDown, CheckCircle2, Palmtree, Baby, UserCheck,
-  Building2, FlaskConical, Car,
+  Building2, FlaskConical, Car, Plane, GraduationCap, Stethoscope, Infinity as InfinityIcon,
+  ArrowLeft,
 } from "lucide-react";
 import { apiFetch } from "@/lib/api";
 
@@ -17,6 +18,8 @@ interface ApiEmp {
   id: number; full_name: string; position: string;
   department_id: number | null; work_rate: number; phone: string;
   role: string; status: string; is_active: boolean;
+  status_date_from?: string | null;
+  status_date_to?: string | null;
   department?: ApiDept | null;
   work_location: string;
   has_photo?: boolean;
@@ -33,19 +36,42 @@ const ROLE_BADGE: Record<string, "primary" | "warning" | "success" | "gray"> = {
   kadr: "warning", ijro: "success", xodim: "gray",
 };
 const STATUS_LABEL: Record<string, string> = {
-  faol: "Faol", otpuska: "Otpuskada", dekret: "Dekretda", shafyor_farrosh: "Shofyor/Farrosh",
+  faol: "Faol",
+  otpuska: "Mehnat ta'tilida",
+  dekret: "Dekretda",
+  shafyor_farrosh: "Texnik xodimlar",
+  xizmat_safarida: "Xizmat safarida",
+  oquv_tatilida: "O'quv ta'tilida",
+  mehnatga_layoqatsiz: "Mehnatga layoqatsiz (bolnichniy)",
 };
 // faol — yashil; qolganlari — "faol emas"ni bildirib kulrang bo'ladi
 const STATUS_BADGE: Record<string, "success" | "gray"> = {
   faol: "success", otpuska: "gray", dekret: "gray", shafyor_farrosh: "gray",
+  xizmat_safarida: "gray", oquv_tatilida: "gray", mehnatga_layoqatsiz: "gray",
 };
 
-const STATUS_MENU = [
-  { status: "faol",            label: "Faol holatga qaytarish",       icon: UserCheck, color: "#00C48C", bg: "rgba(0,196,140,0.1)"  },
-  { status: "otpuska",         label: "Otpuskaga chiqarish",          icon: Palmtree,  color: "#7D8592", bg: "rgba(125,133,146,0.1)" },
-  { status: "dekret",          label: "Dekretga chiqarish",           icon: Baby,      color: "#7D8592", bg: "rgba(125,133,146,0.1)" },
-  { status: "shafyor_farrosh", label: "Shofyor/Farroshga o'tkazish",  icon: Car,       color: "#7D8592", bg: "rgba(125,133,146,0.1)" },
+// needsRange: true bo'lgan statuslar tanlanganda "sanadan / sanagacha" so'raladi —
+// shu sana o'tgach xodim backendda avtomatik "faol"ga qaytariladi.
+const STATUS_MENU: { status: string; label: string; icon: typeof UserCheck; color: string; bg: string; needsRange: boolean }[] = [
+  { status: "faol",                 label: "Faol holatga qaytarish",           icon: UserCheck,     color: "#00C48C", bg: "rgba(0,196,140,0.1)",  needsRange: false },
+  { status: "otpuska",              label: "Mehnat ta'tiliga chiqarish",       icon: Palmtree,      color: "#7D8592", bg: "rgba(125,133,146,0.1)", needsRange: true  },
+  { status: "dekret",               label: "Dekretga chiqarish",               icon: Baby,          color: "#7D8592", bg: "rgba(125,133,146,0.1)", needsRange: false },
+  { status: "xizmat_safarida",      label: "Xizmat safariga yuborish",         icon: Plane,         color: "#3F8CFF", bg: "rgba(63,140,255,0.1)",  needsRange: true  },
+  { status: "oquv_tatilida",        label: "O'quv ta'tiliga chiqarish",        icon: GraduationCap, color: "#6D5DD3", bg: "rgba(109,93,211,0.1)",  needsRange: true  },
+  { status: "mehnatga_layoqatsiz",  label: "Mehnatga layoqatsiz (bolnichniy)", icon: Stethoscope,   color: "#FF5C5C", bg: "rgba(255,92,92,0.1)",   needsRange: true  },
+  { status: "shafyor_farrosh",      label: "Texnik xodimlarga o'tkazish",      icon: Car,           color: "#7D8592", bg: "rgba(125,133,146,0.1)", needsRange: false },
 ];
+
+function fmtDateUz(iso: string) {
+  const [y, m, d] = iso.split("-");
+  return `${d}.${m}.${y}`;
+}
+
+function daysLeftFor(dateTo: string): number {
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  const to = new Date(dateTo + "T00:00:00");
+  return Math.ceil((to.getTime() - today.getTime()) / 86400000);
+}
 
 const WORK_LOCATION_MENU = [
   { value: "vazirlik",     label: "Vazirlik",     icon: Building2,     color: "#3F8CFF", bg: "rgba(63,140,255,0.1)"  },
@@ -58,28 +84,49 @@ function mkAvatar(n: string) {
 
 // ─── Holatni o'zgartirish dropdowni ───────────────────────────────────────────
 
-function StatusMenu({ emp, onChanged }: { emp: ApiEmp; onChanged: (id: number, status: string) => void }) {
-  const [open,   setOpen]   = useState(false);
-  const [saving, setSaving] = useState(false);
+function StatusMenu({ emp, onChanged }: {
+  emp: ApiEmp;
+  onChanged: (id: number, status: string, dateFrom: string | null, dateTo: string | null) => void;
+}) {
+  const [open,    setOpen]    = useState(false);
+  const [saving,  setSaving]  = useState(false);
+  const [pending, setPending] = useState<null | { status: string; label: string }>(null);
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo,   setDateTo]   = useState("");
   const ref = useRef<HTMLDivElement>(null);
 
+  function closeAll() {
+    setOpen(false);
+    setPending(null);
+    setDateFrom("");
+    setDateTo("");
+  }
+
   useEffect(() => {
-    function onClick(e: MouseEvent) { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false); }
+    function onClick(e: MouseEvent) { if (ref.current && !ref.current.contains(e.target as Node)) closeAll(); }
     document.addEventListener("mousedown", onClick);
     return () => document.removeEventListener("mousedown", onClick);
   }, []);
 
-  async function assign(status: string) {
+  async function assign(status: string, df: string | null, dt: string | null) {
     setSaving(true);
     try {
-      await apiFetch(`/employees/${emp.id}/set-status`, { method: "PATCH", body: JSON.stringify({ status }) });
-      onChanged(emp.id, status);
-      setOpen(false);
+      await apiFetch(`/employees/${emp.id}/set-status`, {
+        method: "PATCH",
+        body: JSON.stringify({ status, date_from: df, date_to: dt }),
+      });
+      onChanged(emp.id, status, df, dt);
+      closeAll();
     } catch (err) {
       alert(err instanceof Error ? err.message : "Xatolik yuz berdi");
     } finally {
       setSaving(false);
     }
+  }
+
+  function pick(s: typeof STATUS_MENU[number]) {
+    if (s.needsRange) setPending({ status: s.status, label: s.label });
+    else assign(s.status, null, null);
   }
 
   return (
@@ -88,20 +135,49 @@ function StatusMenu({ emp, onChanged }: { emp: ApiEmp; onChanged: (id: number, s
         <Badge label={STATUS_LABEL[emp.status] || emp.status} variant={STATUS_BADGE[emp.status] || "gray"} />
       </button>
       {open && (
-        <div className="absolute left-0 top-8 z-30 w-56 py-1.5"
+        <div className="absolute left-0 top-8 z-30 w-64 py-1.5"
           style={{ background: "#FFFFFF", borderRadius: 12, boxShadow: "0 12px 32px rgba(10,22,41,0.16)", border: "1px solid #F4F9FD" }}>
-          {STATUS_MENU.filter(s => s.status !== emp.status).map(s => {
-            const Icon = s.icon;
-            return (
-              <button key={s.status} onClick={() => assign(s.status)} disabled={saving}
-                className="w-full flex items-center gap-2.5 px-3 py-2 hover:bg-[#F8FAFF] transition-colors disabled:opacity-50">
-                <div className="w-7 h-7 flex-shrink-0 flex items-center justify-center" style={{ background: s.bg, borderRadius: 8 }}>
-                  {saving ? <Loader2 size={12} className="animate-spin" style={{ color: s.color }} /> : <Icon size={13} style={{ color: s.color }} />}
-                </div>
-                <span className="text-xs font-semibold text-left" style={{ color: "#0A1629" }}>{s.label}</span>
+          {!pending ? (
+            STATUS_MENU.filter(s => s.status !== emp.status).map(s => {
+              const Icon = s.icon;
+              return (
+                <button key={s.status} onClick={() => pick(s)} disabled={saving}
+                  className="w-full flex items-center gap-2.5 px-3 py-2 hover:bg-[#F8FAFF] transition-colors disabled:opacity-50">
+                  <div className="w-7 h-7 flex-shrink-0 flex items-center justify-center" style={{ background: s.bg, borderRadius: 8 }}>
+                    {saving ? <Loader2 size={12} className="animate-spin" style={{ color: s.color }} /> : <Icon size={13} style={{ color: s.color }} />}
+                  </div>
+                  <span className="text-xs font-semibold text-left" style={{ color: "#0A1629" }}>{s.label}</span>
+                </button>
+              );
+            })
+          ) : (
+            <div className="px-3 py-3">
+              <button onClick={() => setPending(null)} className="flex items-center gap-1 mb-2.5 text-[11px] font-bold" style={{ color: "#91929E" }}>
+                <ArrowLeft size={12} /> Orqaga
               </button>
-            );
-          })}
+              <p className="text-xs font-bold mb-2.5" style={{ color: "#0A1629" }}>{pending.label}</p>
+              <label className="text-[11px] font-bold block mb-1" style={{ color: "#91929E" }}>Sanadan</label>
+              <input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)}
+                className="w-full mb-2.5 px-2.5 py-2 text-xs font-bold outline-none"
+                style={{ background: "#F4F9FD", borderRadius: 8, border: "1px solid #EEF2FF", color: "#0A1629" }} />
+              <label className="text-[11px] font-bold block mb-1" style={{ color: "#91929E" }}>Sanagacha</label>
+              <input type="date" value={dateTo} min={dateFrom || undefined} onChange={e => setDateTo(e.target.value)}
+                className="w-full mb-3 px-2.5 py-2 text-xs font-bold outline-none"
+                style={{ background: "#F4F9FD", borderRadius: 8, border: "1px solid #EEF2FF", color: "#0A1629" }} />
+              <div className="flex gap-2">
+                <button onClick={closeAll} className="flex-1 py-2 text-xs font-bold" style={{ background: "#F4F9FD", color: "#7D8592", borderRadius: 8 }}>
+                  Bekor qilish
+                </button>
+                <button
+                  onClick={() => dateFrom && dateTo && assign(pending.status, dateFrom, dateTo)}
+                  disabled={!dateFrom || !dateTo || saving}
+                  className="flex-1 flex items-center justify-center py-2 text-xs font-bold text-white disabled:opacity-50"
+                  style={{ background: "#3F8CFF", borderRadius: 8 }}>
+                  {saving ? <Loader2 size={13} className="animate-spin" /> : "Tasdiqlash"}
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>
@@ -397,8 +473,10 @@ export default function XodimlarPage() {
     }
   }
 
-  function handleStatusChange(id: number, status: string) {
-    setEmployees(prev => prev.map(e => e.id === id ? { ...e, status, is_active: status === "faol" } : e));
+  function handleStatusChange(id: number, status: string, dateFrom: string | null, dateTo: string | null) {
+    setEmployees(prev => prev.map(e => e.id === id
+      ? { ...e, status, is_active: status === "faol" || e.role === "superadmin", status_date_from: dateFrom, status_date_to: dateTo }
+      : e));
   }
 
   function handleWorkLocationChange(id: number, work_location: string) {
@@ -419,7 +497,7 @@ export default function XodimlarPage() {
   const stats = [
     { label: "Jami xodimlar", value: employees.length, color: "#3F8CFF", bg: "rgba(63,140,255,0.1)" },
     { label: "Faol xodimlar", value: employees.filter(e => e.status === "faol").length, color: "#00C48C", bg: "rgba(0,196,140,0.1)" },
-    { label: "Otpuska/Dekret", value: employees.filter(e => e.status !== "faol").length, color: "#FFBD21", bg: "rgba(255,189,33,0.1)" },
+    { label: "Faol emas", value: employees.filter(e => e.status !== "faol").length, color: "#FFBD21", bg: "rgba(255,189,33,0.1)" },
     { label: "Bo'limlar soni", value: depts.length, color: "#6D5DD3", bg: "rgba(109,93,211,0.1)" },
   ];
 
@@ -547,7 +625,7 @@ export default function XodimlarPage() {
           <table className="w-full">
             <thead>
               <tr style={{ borderBottom: "2px solid #F4F9FD" }}>
-                {["#", "Xodim", "Bo'lim", "Telefon", "Parol", "Rol", "Ish joyi", "Holat", ""].map(h => (
+                {["#", "Xodim", "Bo'lim", "Telefon", "Parol", "Rol", "Ish joyi", "Holat", "Muddat", ""].map(h => (
                   <th key={h} className="text-left pb-4 text-xs font-bold uppercase"
                     style={{ color: "#91929E", letterSpacing: "0.05em", paddingRight: 16 }}>
                     {h}
@@ -557,11 +635,11 @@ export default function XodimlarPage() {
             </thead>
             <tbody>
               {loading ? (
-                <tr><td colSpan={9} className="py-16 text-center">
+                <tr><td colSpan={10} className="py-16 text-center">
                   <Loader2 size={28} className="mx-auto animate-spin" style={{ color: "#3F8CFF" }} />
                 </td></tr>
               ) : filtered.length === 0 ? (
-                <tr><td colSpan={9} className="py-16 text-center">
+                <tr><td colSpan={10} className="py-16 text-center">
                   <Users size={32} className="mx-auto mb-3" style={{ color: "#D9E3F0" }} />
                   <p className="text-sm font-bold" style={{ color: "#91929E" }}>Xodimlar topilmadi</p>
                 </td></tr>
@@ -619,6 +697,27 @@ export default function XodimlarPage() {
                   </td>
                   <td className="py-4" style={{ paddingRight: 16 }}>
                     <StatusMenu emp={emp} onChanged={handleStatusChange} />
+                  </td>
+                  <td className="py-4" style={{ paddingRight: 16 }}>
+                    {emp.status === "dekret" ? (
+                      <span className="flex items-center gap-1.5 text-xs font-bold" style={{ color: "#7D8592" }}>
+                        <InfinityIcon size={15} /> Cheksiz
+                      </span>
+                    ) : emp.status_date_from && emp.status_date_to ? (
+                      <div>
+                        <p className="text-xs font-bold whitespace-nowrap" style={{ color: "#0A1629" }}>
+                          {fmtDateUz(emp.status_date_from)} — {fmtDateUz(emp.status_date_to)}
+                        </p>
+                        <p className="text-[11px] mt-0.5 font-bold whitespace-nowrap"
+                          style={{ color: daysLeftFor(emp.status_date_to) <= 3 ? "#FF5C5C" : "#91929E" }}>
+                          {daysLeftFor(emp.status_date_to) > 0
+                            ? `${daysLeftFor(emp.status_date_to)} kunda ishga chiqadi`
+                            : "Bugun ishga chiqadi"}
+                        </p>
+                      </div>
+                    ) : (
+                      <span className="text-xs" style={{ color: "#D9E3F0" }}>—</span>
+                    )}
                   </td>
                   <td className="py-4">
                     <div className="flex items-center gap-1">

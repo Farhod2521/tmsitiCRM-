@@ -5,12 +5,15 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../models/arrived_row.dart';
 import '../models/attendance.dart';
+import '../models/auth_user.dart';
 import '../services/api_service.dart';
 import '../services/location_service.dart';
 import '../theme/app_colors.dart';
+import 'face_verify_screen.dart';
 
 class DavomatScreen extends StatelessWidget {
-  const DavomatScreen({super.key});
+  final AuthUser user;
+  const DavomatScreen({super.key, required this.user});
 
   @override
   Widget build(BuildContext context) {
@@ -51,11 +54,11 @@ class DavomatScreen extends StatelessWidget {
                   ],
                 ),
               ),
-              const Expanded(
+              Expanded(
                 child: TabBarView(
                   children: [
-                    _ArrivedTodayTab(),
-                    _MyAttendanceTab(),
+                    const _ArrivedTodayTab(),
+                    _MyAttendanceTab(user: user),
                   ],
                 ),
               ),
@@ -277,7 +280,8 @@ class _ArrivedTodayTabState extends State<_ArrivedTodayTab> with AutomaticKeepAl
 // ─── Tab 2: Mening davomatim (shaxsiy check-in) ─────────────────────────────
 
 class _MyAttendanceTab extends StatefulWidget {
-  const _MyAttendanceTab();
+  final AuthUser user;
+  const _MyAttendanceTab({required this.user});
 
   @override
   State<_MyAttendanceTab> createState() => _MyAttendanceTabState();
@@ -323,10 +327,16 @@ class _MyAttendanceTabState extends State<_MyAttendanceTab> with AutomaticKeepAl
   }
 
   Future<void> _handleCheckIn() async {
-    setState(() {
-      _checkingIn = true;
-      _error = null;
-    });
+    setState(() => _error = null);
+
+    // 1) Avval kamera orqali yuzni profil rasmi bilan solishtirib tasdiqlaymiz
+    // (web'dagi kabi) — faqat shundan keyin joylashuv tekshiriladi.
+    final verified = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(builder: (_) => FaceVerifyScreen(employeeId: widget.user.id), fullscreenDialog: true),
+    );
+    if (verified != true) return;
+
+    setState(() => _checkingIn = true);
     try {
       final pos = await LocationService.getCurrentPosition();
       final rec = await ApiService.checkIn(pos.latitude, pos.longitude);
@@ -426,7 +436,7 @@ class _MyAttendanceTabState extends State<_MyAttendanceTab> with AutomaticKeepAl
             ),
             const SizedBox(height: 4),
             Text(
-              'Bosish orqali joylashuvingiz tekshiriladi',
+              'Yuzingiz va joylashuvingiz tekshiriladi',
               style: TextStyle(color: Colors.white.withValues(alpha: 0.85), fontSize: 12.5),
             ),
           ],

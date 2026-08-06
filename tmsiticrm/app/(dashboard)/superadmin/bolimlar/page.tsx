@@ -7,7 +7,7 @@ import {
   ChevronRight, List, LayoutGrid, Table2, Search,
   Phone, MoreHorizontal, Loader2, Building2, Users,
   ClipboardList, Activity, Crown, RotateCcw, X,
-  Palmtree, Baby, UserCheck, Car,
+  Palmtree, Baby, UserCheck, Car, Plane, GraduationCap, Stethoscope, ArrowLeft,
 } from "lucide-react";
 import { apiFetch } from "@/lib/api";
 
@@ -17,6 +17,7 @@ interface ApiEmp  {
   id:number; full_name:string; position:string;
   department_id:number|null; work_rate:number; phone:string;
   role:string; status:string; is_active:boolean;
+  status_date_from?:string|null; status_date_to?:string|null;
 }
 
 /* ── Helpers ── */
@@ -51,29 +52,44 @@ const ROLE_MENU = [
 
 /* ── Xodim holati (status) config ── */
 const STATUS_LABEL: Record<string,string> = {
-  faol:"Faol", otpuska:"Otpuskada", dekret:"Dekretda", shafyor_farrosh:"Shofyor/Farrosh",
+  faol:"Faol",
+  otpuska:"Mehnat ta'tilida",
+  dekret:"Dekretda",
+  shafyor_farrosh:"Texnik xodimlar",
+  xizmat_safarida:"Xizmat safarida",
+  oquv_tatilida:"O'quv ta'tilida",
+  mehnatga_layoqatsiz:"Mehnatga layoqatsiz (bolnichniy)",
 };
 const STATUS_BADGE: Record<string,"success"|"warning"|"purple"|"gray"> = {
   faol:"success", otpuska:"warning", dekret:"purple", shafyor_farrosh:"gray",
+  xizmat_safarida:"gray", oquv_tatilida:"gray", mehnatga_layoqatsiz:"gray",
 };
-const STATUS_MENU = [
-  { status:"otpuska",         icon:Palmtree,  label:"Otpuskaga chiqarish",           color:"#FFBD21", bg:"rgba(255,189,33,0.1)"  },
-  { status:"dekret",          icon:Baby,      label:"Dekretga chiqarish",            color:"#6D5DD3", bg:"rgba(109,93,211,0.1)"  },
-  { status:"shafyor_farrosh", icon:Car,       label:"Shofyor/Farroshga o'tkazish",   color:"#7D8592", bg:"rgba(125,133,146,0.1)" },
-  { status:"faol",            icon:UserCheck, label:"Faol holatga qaytarish",        color:"#00C48C", bg:"rgba(0,196,140,0.1)" },
+const STATUS_MENU: { status:string; icon:typeof UserCheck; label:string; color:string; bg:string; needsRange:boolean }[] = [
+  { status:"otpuska",              icon:Palmtree,      label:"Mehnat ta'tiliga chiqarish",        color:"#FFBD21", bg:"rgba(255,189,33,0.1)",  needsRange:true  },
+  { status:"dekret",               icon:Baby,          label:"Dekretga chiqarish",                 color:"#6D5DD3", bg:"rgba(109,93,211,0.1)",  needsRange:false },
+  { status:"xizmat_safarida",      icon:Plane,         label:"Xizmat safariga yuborish",           color:"#3F8CFF", bg:"rgba(63,140,255,0.1)",  needsRange:true  },
+  { status:"oquv_tatilida",        icon:GraduationCap, label:"O'quv ta'tiliga chiqarish",          color:"#6D5DD3", bg:"rgba(109,93,211,0.1)",  needsRange:true  },
+  { status:"mehnatga_layoqatsiz",  icon:Stethoscope,   label:"Mehnatga layoqatsiz (bolnichniy)",   color:"#FF5C5C", bg:"rgba(255,92,92,0.1)",   needsRange:true  },
+  { status:"shafyor_farrosh",      icon:Car,           label:"Texnik xodimlarga o'tkazish",        color:"#7D8592", bg:"rgba(125,133,146,0.1)", needsRange:false },
+  { status:"faol",                 icon:UserCheck,     label:"Faol holatga qaytarish",             color:"#00C48C", bg:"rgba(0,196,140,0.1)",   needsRange:false },
 ];
 
 /* ── Dropdown Menu ── */
 function EmpMenu({ emp, color, onRoleChange, onStatusChange }: {
   emp:ApiEmp; color:string; onRoleChange:(id:number,role:string)=>void;
-  onStatusChange:(id:number,status:string)=>void;
+  onStatusChange:(id:number,status:string,dateFrom:string|null,dateTo:string|null)=>void;
 }) {
   const [open, setOpen] = useState(false);
   const [saving, setSaving] = useState<string|null>(null);
+  const [pendingStatus, setPendingStatus] = useState<null|{status:string;label:string}>(null);
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo,   setDateTo]   = useState("");
   const ref = useRef<HTMLDivElement>(null);
 
+  function closeAll(){ setOpen(false); setPendingStatus(null); setDateFrom(""); setDateTo(""); }
+
   useEffect(()=>{
-    function click(e:MouseEvent){ if(ref.current && !ref.current.contains(e.target as Node)) setOpen(false); }
+    function click(e:MouseEvent){ if(ref.current && !ref.current.contains(e.target as Node)) closeAll(); }
     document.addEventListener("mousedown",click);
     return ()=>document.removeEventListener("mousedown",click);
   },[]);
@@ -88,14 +104,19 @@ function EmpMenu({ emp, color, onRoleChange, onStatusChange }: {
     finally{setSaving(null);}
   }
 
-  async function assignStatus(status:string){
+  async function assignStatus(status:string, df:string|null, dt:string|null){
     setSaving("status:"+status);
     try{
-      await apiFetch(`/employees/${emp.id}/set-status`,{method:"PATCH",body:JSON.stringify({status})});
-      onStatusChange(emp.id,status);
-      setOpen(false);
+      await apiFetch(`/employees/${emp.id}/set-status`,{method:"PATCH",body:JSON.stringify({status,date_from:df,date_to:dt})});
+      onStatusChange(emp.id,status,df,dt);
+      closeAll();
     }catch(e){ alert(e instanceof Error?e.message:"Xato"); }
     finally{setSaving(null);}
+  }
+
+  function pickStatus(item: typeof STATUS_MENU[number]){
+    if(item.needsRange) setPendingStatus({status:item.status,label:item.label});
+    else assignStatus(item.status, null, null);
   }
 
   return (
@@ -119,70 +140,101 @@ function EmpMenu({ emp, color, onRoleChange, onStatusChange }: {
             </div>
           </div>
 
-          {/* Rol belgilash */}
-          <div className="px-4 pt-3 pb-1">
-            <p className="text-[10px] font-bold uppercase" style={{color:"#B0B8C8",letterSpacing:"0.06em"}}>Rol belgilash</p>
-          </div>
-          <div className="px-2 pb-1.5 flex flex-col gap-0.5">
-            {ROLE_MENU.map(item=>{
-              const Icon = item.icon;
-              const isCurrent = emp.role === item.role;
-              return (
-                <button key={item.role}
-                  onClick={()=>!isCurrent && assign(item.role)}
-                  disabled={isCurrent || saving==="role:"+item.role}
-                  className="w-full flex items-center gap-2.5 px-2.5 py-2 rounded-xl hover:bg-[#F8FAFF] transition-colors disabled:cursor-default"
-                  style={{background:isCurrent?"#F8FAFF":"transparent"}}>
-                  <div className="w-7 h-7 flex-shrink-0 flex items-center justify-center"
-                    style={{background:item.bg,borderRadius:9}}>
-                    {saving==="role:"+item.role
-                      ? <Loader2 size={12} className="animate-spin" style={{color:item.color}}/>
-                      : <Icon size={13} style={{color:item.color}}/>}
-                  </div>
-                  <span className="text-[13px] font-semibold flex-1 text-left truncate" style={{color:"#0A1629"}}>{item.label}</span>
-                  {isCurrent && (
-                    <span className="flex-shrink-0 text-[10px] font-bold px-1.5 py-0.5"
-                      style={{background:`${item.color}18`,color:item.color,borderRadius:6}}>Joriy</span>
-                  )}
+          {pendingStatus ? (
+            <div className="px-4 py-3.5">
+              <button onClick={()=>setPendingStatus(null)} className="flex items-center gap-1 mb-2.5 text-[11px] font-bold" style={{color:"#91929E"}}>
+                <ArrowLeft size={12}/> Orqaga
+              </button>
+              <p className="text-[13px] font-bold mb-2.5" style={{color:"#0A1629"}}>{pendingStatus.label}</p>
+              <label className="text-[11px] font-bold block mb-1" style={{color:"#91929E"}}>Sanadan</label>
+              <input type="date" value={dateFrom} onChange={e=>setDateFrom(e.target.value)}
+                className="w-full mb-2.5 px-2.5 py-2 text-xs font-bold outline-none"
+                style={{background:"#F4F9FD",borderRadius:8,border:"1px solid #EEF2FF",color:"#0A1629"}}/>
+              <label className="text-[11px] font-bold block mb-1" style={{color:"#91929E"}}>Sanagacha</label>
+              <input type="date" value={dateTo} min={dateFrom||undefined} onChange={e=>setDateTo(e.target.value)}
+                className="w-full mb-3 px-2.5 py-2 text-xs font-bold outline-none"
+                style={{background:"#F4F9FD",borderRadius:8,border:"1px solid #EEF2FF",color:"#0A1629"}}/>
+              <div className="flex gap-2">
+                <button onClick={closeAll} className="flex-1 py-2 text-xs font-bold" style={{background:"#F4F9FD",color:"#7D8592",borderRadius:8}}>
+                  Bekor qilish
                 </button>
-              );
-            })}
-          </div>
-
-          {/* Xodim holati */}
-          <div className="px-4 pt-2.5 pb-1" style={{borderTop:"1px solid #F4F9FD"}}>
-            <p className="text-[10px] font-bold uppercase" style={{color:"#B0B8C8",letterSpacing:"0.06em"}}>Xodim holati</p>
-          </div>
-          <div className="px-2 pb-1.5 flex flex-col gap-0.5">
-            {STATUS_MENU.filter(item=>item.status!==emp.status).map(item=>{
-              const Icon = item.icon;
-              return (
-                <button key={item.status}
-                  onClick={()=>assignStatus(item.status)}
-                  disabled={saving==="status:"+item.status}
-                  className="w-full flex items-center gap-2.5 px-2.5 py-2 rounded-xl hover:bg-[#F8FAFF] transition-colors">
-                  <div className="w-7 h-7 flex-shrink-0 flex items-center justify-center"
-                    style={{background:item.bg,borderRadius:9}}>
-                    {saving==="status:"+item.status
-                      ? <Loader2 size={12} className="animate-spin" style={{color:item.color}}/>
-                      : <Icon size={13} style={{color:item.color}}/>}
-                  </div>
-                  <span className="text-[13px] font-semibold flex-1 text-left truncate" style={{color:"#0A1629"}}>{item.label}</span>
+                <button
+                  onClick={()=>dateFrom && dateTo && assignStatus(pendingStatus.status, dateFrom, dateTo)}
+                  disabled={!dateFrom || !dateTo || saving==="status:"+pendingStatus.status}
+                  className="flex-1 flex items-center justify-center py-2 text-xs font-bold text-white disabled:opacity-50"
+                  style={{background:"#3F8CFF",borderRadius:8}}>
+                  {saving==="status:"+pendingStatus.status ? <Loader2 size={13} className="animate-spin"/> : "Tasdiqlash"}
                 </button>
-              );
-            })}
-          </div>
-
-          {/* Yopish */}
-          <div className="px-2 py-1.5" style={{borderTop:"1px solid #F4F9FD"}}>
-            <button onClick={()=>setOpen(false)}
-              className="w-full flex items-center gap-2.5 px-2.5 py-2 rounded-xl hover:bg-[#F8FAFF] transition-colors">
-              <div className="w-7 h-7 flex-shrink-0 flex items-center justify-center" style={{background:"#F4F9FD",borderRadius:9}}>
-                <X size={13} style={{color:"#91929E"}}/>
               </div>
-              <span className="text-[13px] font-semibold" style={{color:"#91929E"}}>Yopish</span>
-            </button>
-          </div>
+            </div>
+          ) : (
+            <>
+              {/* Rol belgilash */}
+              <div className="px-4 pt-3 pb-1">
+                <p className="text-[10px] font-bold uppercase" style={{color:"#B0B8C8",letterSpacing:"0.06em"}}>Rol belgilash</p>
+              </div>
+              <div className="px-2 pb-1.5 flex flex-col gap-0.5">
+                {ROLE_MENU.map(item=>{
+                  const Icon = item.icon;
+                  const isCurrent = emp.role === item.role;
+                  return (
+                    <button key={item.role}
+                      onClick={()=>!isCurrent && assign(item.role)}
+                      disabled={isCurrent || saving==="role:"+item.role}
+                      className="w-full flex items-center gap-2.5 px-2.5 py-2 rounded-xl hover:bg-[#F8FAFF] transition-colors disabled:cursor-default"
+                      style={{background:isCurrent?"#F8FAFF":"transparent"}}>
+                      <div className="w-7 h-7 flex-shrink-0 flex items-center justify-center"
+                        style={{background:item.bg,borderRadius:9}}>
+                        {saving==="role:"+item.role
+                          ? <Loader2 size={12} className="animate-spin" style={{color:item.color}}/>
+                          : <Icon size={13} style={{color:item.color}}/>}
+                      </div>
+                      <span className="text-[13px] font-semibold flex-1 text-left truncate" style={{color:"#0A1629"}}>{item.label}</span>
+                      {isCurrent && (
+                        <span className="flex-shrink-0 text-[10px] font-bold px-1.5 py-0.5"
+                          style={{background:`${item.color}18`,color:item.color,borderRadius:6}}>Joriy</span>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Xodim holati */}
+              <div className="px-4 pt-2.5 pb-1" style={{borderTop:"1px solid #F4F9FD"}}>
+                <p className="text-[10px] font-bold uppercase" style={{color:"#B0B8C8",letterSpacing:"0.06em"}}>Xodim holati</p>
+              </div>
+              <div className="px-2 pb-1.5 flex flex-col gap-0.5">
+                {STATUS_MENU.filter(item=>item.status!==emp.status).map(item=>{
+                  const Icon = item.icon;
+                  return (
+                    <button key={item.status}
+                      onClick={()=>pickStatus(item)}
+                      disabled={saving==="status:"+item.status}
+                      className="w-full flex items-center gap-2.5 px-2.5 py-2 rounded-xl hover:bg-[#F8FAFF] transition-colors">
+                      <div className="w-7 h-7 flex-shrink-0 flex items-center justify-center"
+                        style={{background:item.bg,borderRadius:9}}>
+                        {saving==="status:"+item.status
+                          ? <Loader2 size={12} className="animate-spin" style={{color:item.color}}/>
+                          : <Icon size={13} style={{color:item.color}}/>}
+                      </div>
+                      <span className="text-[13px] font-semibold flex-1 text-left truncate" style={{color:"#0A1629"}}>{item.label}</span>
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Yopish */}
+              <div className="px-2 py-1.5" style={{borderTop:"1px solid #F4F9FD"}}>
+                <button onClick={closeAll}
+                  className="w-full flex items-center gap-2.5 px-2.5 py-2 rounded-xl hover:bg-[#F8FAFF] transition-colors">
+                  <div className="w-7 h-7 flex-shrink-0 flex items-center justify-center" style={{background:"#F4F9FD",borderRadius:9}}>
+                    <X size={13} style={{color:"#91929E"}}/>
+                  </div>
+                  <span className="text-[13px] font-semibold" style={{color:"#91929E"}}>Yopish</span>
+                </button>
+              </div>
+            </>
+          )}
         </div>
       )}
     </div>
@@ -218,8 +270,10 @@ export default function BolimlarPage() {
     setAllEmps(prev=>prev.map(e=>e.id===empId?{...e,role}:e));
   }
 
-  function handleStatusChange(empId:number, status:string){
-    setAllEmps(prev=>prev.map(e=>e.id===empId?{...e,status,is_active:status==="faol"}:e));
+  function handleStatusChange(empId:number, status:string, dateFrom:string|null, dateTo:string|null){
+    setAllEmps(prev=>prev.map(e=>e.id===empId
+      ?{...e,status,is_active:status==="faol"||e.role==="superadmin",status_date_from:dateFrom,status_date_to:dateTo}
+      :e));
   }
 
   const selected   = depts.find(d=>d.id===selectedId);
