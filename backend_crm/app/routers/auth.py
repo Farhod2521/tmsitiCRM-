@@ -20,12 +20,8 @@ def login(data: LoginRequest, db: Session = Depends(get_db)):
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Telefon raqam yoki parol noto'g'ri",
         )
-    # Superadmin hech qachon bloklanmasin — tizimni boshqarish huquqi doim saqlanadi.
-    if emp.role == models.RoleEnum.superadmin and not emp.is_active:
-        emp.is_active = True
-        db.commit()
-    if not emp.is_active:
-        raise HTTPException(status_code=403, detail="Hisobingiz bloklangan")
+    # is_active — faqat "ball berish/statistikada hisoblanadi" belgisi (mehnat ta'tili,
+    # bolnichniy va h.k. paytida false bo'ladi) — tizimga kirishni bloklamaydi.
 
     token = create_access_token({"sub": emp.phone})
     return LoginResponse(

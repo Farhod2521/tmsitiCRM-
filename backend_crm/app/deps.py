@@ -21,11 +21,9 @@ def get_current_employee(
     phone = decode_token(token)
     if not phone:
         raise exc
-    emp = (
-        db.query(models.Employee)
-        .filter(models.Employee.phone == phone, models.Employee.is_active.is_(True))
-        .first()
-    )
+    # is_active — faqat "ball berish/statistikada hisoblanadi" belgisi (mehnat ta'tili,
+    # bolnichniy va h.k. paytida false bo'ladi), tizimga kirish huquqiga ta'sir qilmaydi.
+    emp = db.query(models.Employee).filter(models.Employee.phone == phone).first()
     if not emp:
         raise exc
     return emp
