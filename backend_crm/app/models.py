@@ -29,6 +29,7 @@ class EmployeeStatusEnum(str, enum.Enum):
     xizmat_safarida     = "xizmat_safarida"      # xizmat safarida — muddatli
     oquv_tatilida       = "oquv_tatilida"        # o'quv ta'tilida — muddatli
     mehnatga_layoqatsiz = "mehnatga_layoqatsiz"  # bolnichniy — muddatli
+    online              = "online"               # masofada (onlayn) ishlaydi — muddatli
 
 
 class DeptTypeEnum(str, enum.Enum):

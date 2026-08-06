@@ -7,7 +7,7 @@ import {
   Users, Plus, Search, Phone, Pencil, Trash2, X, Loader2,
   Download, KeyRound, ChevronDown, CheckCircle2, Palmtree, Baby, UserCheck,
   Building2, FlaskConical, Car, Plane, GraduationCap, Stethoscope, Infinity as InfinityIcon,
-  ArrowLeft,
+  ArrowLeft, Laptop,
 } from "lucide-react";
 import { apiFetch } from "@/lib/api";
 
@@ -43,11 +43,12 @@ const STATUS_LABEL: Record<string, string> = {
   xizmat_safarida: "Xizmat safarida",
   oquv_tatilida: "O'quv ta'tilida",
   mehnatga_layoqatsiz: "Mehnatga layoqatsiz (bolnichniy)",
+  online: "Online ishlaydi",
 };
 // faol — yashil; qolganlari — "faol emas"ni bildirib kulrang bo'ladi
 const STATUS_BADGE: Record<string, "success" | "gray"> = {
   faol: "success", otpuska: "gray", dekret: "gray", shafyor_farrosh: "gray",
-  xizmat_safarida: "gray", oquv_tatilida: "gray", mehnatga_layoqatsiz: "gray",
+  xizmat_safarida: "gray", oquv_tatilida: "gray", mehnatga_layoqatsiz: "gray", online: "gray",
 };
 
 // needsRange: true bo'lgan statuslar tanlanganda "sanadan / sanagacha" so'raladi —
@@ -58,6 +59,7 @@ const STATUS_MENU: { status: string; label: string; icon: typeof UserCheck; colo
   { status: "dekret",               label: "Dekretga chiqarish",               icon: Baby,          color: "#7D8592", bg: "rgba(125,133,146,0.1)", needsRange: false },
   { status: "xizmat_safarida",      label: "Xizmat safariga yuborish",         icon: Plane,         color: "#3F8CFF", bg: "rgba(63,140,255,0.1)",  needsRange: true  },
   { status: "oquv_tatilida",        label: "O'quv ta'tiliga chiqarish",        icon: GraduationCap, color: "#6D5DD3", bg: "rgba(109,93,211,0.1)",  needsRange: true  },
+  { status: "online",               label: "Online ishlashga o'tkazish",       icon: Laptop,        color: "#15C0E6", bg: "rgba(21,192,230,0.1)",  needsRange: true  },
   { status: "mehnatga_layoqatsiz",  label: "Mehnatga layoqatsiz (bolnichniy)", icon: Stethoscope,   color: "#FF5C5C", bg: "rgba(255,92,92,0.1)",   needsRange: true  },
   { status: "shafyor_farrosh",      label: "Texnik xodimlarga o'tkazish",      icon: Car,           color: "#7D8592", bg: "rgba(125,133,146,0.1)", needsRange: false },
 ];

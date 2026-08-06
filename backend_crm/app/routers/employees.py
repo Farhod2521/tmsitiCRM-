@@ -26,6 +26,7 @@ STATUS_WITH_RANGE = {
     models.EmployeeStatusEnum.xizmat_safarida,
     models.EmployeeStatusEnum.oquv_tatilida,
     models.EmployeeStatusEnum.mehnatga_layoqatsiz,
+    models.EmployeeStatusEnum.online,
 }
 
 

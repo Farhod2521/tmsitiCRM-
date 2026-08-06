@@ -7,7 +7,7 @@ import {
   ChevronRight, List, LayoutGrid, Table2, Search,
   Phone, MoreHorizontal, Loader2, Building2, Users,
   ClipboardList, Activity, Crown, RotateCcw, X,
-  Palmtree, Baby, UserCheck, Car, Plane, GraduationCap, Stethoscope, ArrowLeft,
+  Palmtree, Baby, UserCheck, Car, Plane, GraduationCap, Stethoscope, ArrowLeft, Laptop,
 } from "lucide-react";
 import { apiFetch } from "@/lib/api";
 
@@ -59,16 +59,18 @@ const STATUS_LABEL: Record<string,string> = {
   xizmat_safarida:"Xizmat safarida",
   oquv_tatilida:"O'quv ta'tilida",
   mehnatga_layoqatsiz:"Mehnatga layoqatsiz (bolnichniy)",
+  online:"Online ishlaydi",
 };
 const STATUS_BADGE: Record<string,"success"|"warning"|"purple"|"gray"> = {
   faol:"success", otpuska:"warning", dekret:"purple", shafyor_farrosh:"gray",
-  xizmat_safarida:"gray", oquv_tatilida:"gray", mehnatga_layoqatsiz:"gray",
+  xizmat_safarida:"gray", oquv_tatilida:"gray", mehnatga_layoqatsiz:"gray", online:"gray",
 };
 const STATUS_MENU: { status:string; icon:typeof UserCheck; label:string; color:string; bg:string; needsRange:boolean }[] = [
   { status:"otpuska",              icon:Palmtree,      label:"Mehnat ta'tiliga chiqarish",        color:"#FFBD21", bg:"rgba(255,189,33,0.1)",  needsRange:true  },
   { status:"dekret",               icon:Baby,          label:"Dekretga chiqarish",                 color:"#6D5DD3", bg:"rgba(109,93,211,0.1)",  needsRange:false },
   { status:"xizmat_safarida",      icon:Plane,         label:"Xizmat safariga yuborish",           color:"#3F8CFF", bg:"rgba(63,140,255,0.1)",  needsRange:true  },
   { status:"oquv_tatilida",        icon:GraduationCap, label:"O'quv ta'tiliga chiqarish",          color:"#6D5DD3", bg:"rgba(109,93,211,0.1)",  needsRange:true  },
+  { status:"online",               icon:Laptop,        label:"Online ishlashga o'tkazish",         color:"#15C0E6", bg:"rgba(21,192,230,0.1)",  needsRange:true  },
   { status:"mehnatga_layoqatsiz",  icon:Stethoscope,   label:"Mehnatga layoqatsiz (bolnichniy)",   color:"#FF5C5C", bg:"rgba(255,92,92,0.1)",   needsRange:true  },
   { status:"shafyor_farrosh",      icon:Car,           label:"Texnik xodimlarga o'tkazish",        color:"#7D8592", bg:"rgba(125,133,146,0.1)", needsRange:false },
   { status:"faol",                 icon:UserCheck,     label:"Faol holatga qaytarish",             color:"#00C48C", bg:"rgba(0,196,140,0.1)",   needsRange:false },
