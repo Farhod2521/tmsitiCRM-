@@ -67,7 +67,7 @@ export default function KadrXodimlarPage() {
 
   return (
     <div>
-      <Header title="Xodimlar" subtitle="Xodimlar holati va shaxsiy fayllari (buyruqlar)" />
+      <Header title="Xodimlar" subtitle="Xodimlar holati va tabel-buyruq hujjatlari" />
 
       <div className="p-6" style={{ background: "#FFFFFF", boxShadow: "0px 6px 58px rgba(196,203,214,0.103611)", borderRadius: 24 }}>
         <div className="flex items-center gap-2 px-4 py-2.5 mb-5" style={{ background: "#F4F9FD", borderRadius: 12, minWidth: 220, maxWidth: 320 }}>
@@ -80,7 +80,7 @@ export default function KadrXodimlarPage() {
           <table className="w-full">
             <thead>
               <tr style={{ borderBottom: "2px solid #F4F9FD" }}>
-                {["#", "Xodim", "Bo'lim", "Holati", "Muddat", "Fayllar"].map(h => (
+                {["#", "Xodim", "Bo'lim", "Holati", "Muddat", "Tabel-buyruq hujjatlari"].map(h => (
                   <th key={h} className="text-left pb-4 text-xs font-bold uppercase"
                     style={{ color: "#91929E", letterSpacing: "0.05em", paddingRight: 16 }}>
                     {h}
@@ -140,7 +140,7 @@ export default function KadrXodimlarPage() {
                     <button onClick={() => setFilesFor(emp)}
                       className="flex items-center gap-1.5 px-3 py-2 text-xs font-bold hover:opacity-80 transition-opacity"
                       style={{ background: "rgba(63,140,255,0.1)", color: "#3F8CFF", borderRadius: 8 }}>
-                      <Paperclip size={13} /> Fayllar
+                      <Paperclip size={13} /> Hujjatlar
                     </button>
                   </td>
                 </tr>

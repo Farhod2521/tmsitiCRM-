@@ -629,7 +629,7 @@ export default function XodimlarPage() {
           <table className="w-full">
             <thead>
               <tr style={{ borderBottom: "2px solid #F4F9FD" }}>
-                {["#", "Xodim", "Bo'lim", "Telefon", "Parol", "Rol", "Ish joyi", "Holat", "Muddat", "Fayllar", ""].map(h => (
+                {["#", "Xodim", "Bo'lim", "Telefon", "Parol", "Rol", "Ish joyi", "Holat", "Muddat", "Tabel-buyruq hujjatlari", ""].map(h => (
                   <th key={h} className="text-left pb-4 text-xs font-bold uppercase"
                     style={{ color: "#91929E", letterSpacing: "0.05em", paddingRight: 16 }}>
                     {h}
@@ -727,7 +727,7 @@ export default function XodimlarPage() {
                     <button onClick={() => setFilesFor(emp)}
                       className="flex items-center gap-1.5 px-3 py-2 text-xs font-bold hover:opacity-80 transition-opacity"
                       style={{ background: "rgba(63,140,255,0.1)", color: "#3F8CFF", borderRadius: 8 }}>
-                      <Paperclip size={13} /> Fayllar
+                      <Paperclip size={13} /> Hujjatlar
                     </button>
                   </td>
                   <td className="py-4">

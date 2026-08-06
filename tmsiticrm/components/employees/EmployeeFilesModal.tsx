@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { apiFetch } from "@/lib/api";
 import {
-  X, Loader2, FileText, Download, Trash2, CloudUpload, Paperclip,
+  X, Loader2, FileText, Download, Trash2, CloudUpload, Paperclip, Eye,
 } from "lucide-react";
 
 interface EmployeeFile {
@@ -19,6 +19,23 @@ interface EmployeeFile {
 function fmtDt(d: string | null) {
   if (!d) return "—";
   return new Date(d).toLocaleString("uz-UZ", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" });
+}
+
+function dataUrlToBlob(dataUrl: string): Blob {
+  const [header, base64] = dataUrl.split(",");
+  const mime = header.match(/data:(.*?);base64/)?.[1] || "application/octet-stream";
+  const binary = atob(base64);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+  return new Blob([bytes], { type: mime });
+}
+
+// Faylni yuklab olmasdan, brauzerning yangi tabida saytdagi sessiya ichida ko'rsatadi
+// (rasm/PDF to'g'ridan-to'g'ri ko'rinadi; boshqa turlar brauzer imkoniga qarab ochiladi).
+function viewBase64(b64: string) {
+  const url = URL.createObjectURL(dataUrlToBlob(b64));
+  window.open(url, "_blank", "noopener,noreferrer");
+  setTimeout(() => URL.revokeObjectURL(url), 60_000);
 }
 
 function downloadBase64(name: string, b64: string) {
@@ -104,7 +121,7 @@ export default function EmployeeFilesModal({ employeeId, employeeName, onClose }
 
         <div className="flex items-center justify-between px-6 py-4 flex-shrink-0" style={{ borderBottom: "1px solid #F4F9FD" }}>
           <div>
-            <h2 className="font-bold text-lg" style={{ color: "#0A1629" }}>Fayllar</h2>
+            <h2 className="font-bold text-lg" style={{ color: "#0A1629" }}>Tabel-buyruq hujjatlari</h2>
             <p className="text-xs mt-0.5" style={{ color: "#91929E" }}>{employeeName}</p>
           </div>
           <button onClick={onClose} className="w-9 h-9 flex items-center justify-center hover:opacity-70"
@@ -117,7 +134,7 @@ export default function EmployeeFilesModal({ employeeId, employeeName, onClose }
           {/* Mavjud fayllar */}
           <div>
             <p className="text-xs font-bold mb-2.5 uppercase tracking-wide" style={{ color: "#91929E" }}>
-              Biriktirilgan fayllar {!loading && `(${files.length})`}
+              Biriktirilgan hujjatlar {!loading && `(${files.length})`}
             </p>
             {loading ? (
               <div className="flex justify-center py-8">
@@ -146,6 +163,11 @@ export default function EmployeeFilesModal({ employeeId, employeeName, onClose }
                       </div>
                     </div>
                     <div className="flex items-center gap-1 flex-shrink-0">
+                      <button onClick={() => viewBase64(f.file_b64)} title="Ko'rish"
+                        className="w-8 h-8 flex items-center justify-center hover:opacity-80"
+                        style={{ background: "#FFFFFF", borderRadius: 8 }}>
+                        <Eye size={14} style={{ color: "#3F8CFF" }} />
+                      </button>
                       <button onClick={() => downloadBase64(f.file_name, f.file_b64)} title="Yuklab olish"
                         className="w-8 h-8 flex items-center justify-center hover:opacity-80"
                         style={{ background: "#FFFFFF", borderRadius: 8 }}>
