@@ -1345,10 +1345,10 @@ function Topshiriqlar({ docs, depts, onRefresh }:
 
         {/* Table */}
         <div className="overflow-x-auto">
-          <table className="w-full" style={{ minWidth:820 }}>
+          <table className="w-full" style={{ minWidth:980 }}>
             <thead>
               <tr style={{ borderTop:"1px solid #F4F9FD", borderBottom:"1px solid #F4F9FD" }}>
-                {["HUJJAT № va SANA","MANBA","TOPSHIRIQ NOMI","MAS'UL BO'LIM","MUDDATI","HOLATI","AMALLAR"].map(h => (
+                {["HUJJAT № SANA VA MANBA","TOPSHIRIQ NOMI","TOPSHIRIQ MAZMUNI","MUDDATI","MAS'UL BO'LIM","HOLATI","AMALLAR"].map(h => (
                   <th key={h} className="px-4 py-3 text-left text-xs font-bold"
                     style={{ color:"#91929E", background:"#FAFCFF", letterSpacing:"0.04em", whiteSpace:"nowrap" }}>
                     {h}
@@ -1373,14 +1373,20 @@ function Topshiriqlar({ docs, depts, onRefresh }:
                     <td className="px-4 py-4">
                       <p className="font-bold text-sm" style={{ color:"#3F8CFF" }}>№ {d.hujjat_raqami || `DOC-${d.id}`}</p>
                       <p className="text-xs mt-0.5" style={{ color:"#91929E" }}>{d.hujjat_sanasi || "—"}</p>
+                      <p className="text-xs mt-0.5 font-bold" style={{ color:"#0A1629" }}>{MANBA_LABELS[d.manba]}</p>
                     </td>
-                    <td className="px-4 py-4">
-                      <p className="text-sm font-bold" style={{ color:"#0A1629" }}>{MANBA_LABELS[d.manba]}</p>
+                    <td className="px-4 py-4" style={{ maxWidth:200 }}>
+                      <p className="text-sm font-bold truncate" style={{ color:"#0A1629" }}>
+                        {d.sarlavha || "—"}
+                      </p>
                     </td>
                     <td className="px-4 py-4" style={{ maxWidth:240 }}>
-                      <p className="text-sm font-bold truncate" style={{ color:"#0A1629" }}>
-                        {d.sarlavha || d.mazmun?.slice(0,60) || "—"}
+                      <p className="text-xs truncate" style={{ color:"#7D8592" }}>
+                        {d.mazmun || "—"}
                       </p>
+                    </td>
+                    <td className="px-4 py-4 whitespace-nowrap">
+                      <p className="text-sm font-bold" style={{ color: dl.color }}>{dl.text}</p>
                     </td>
                     <td className="px-4 py-4">
                       {d.masul_bolimlar_info || d.masul_bolimlar_nomi ? (
@@ -1410,9 +1416,6 @@ function Topshiriqlar({ docs, depts, onRefresh }:
                       ) : (
                         <p className="text-sm" style={{ color: "#91929E" }}>—</p>
                       )}
-                    </td>
-                    <td className="px-4 py-4 whitespace-nowrap">
-                      <p className="text-sm font-bold" style={{ color: dl.color }}>{dl.text}</p>
                     </td>
                     <td className="px-4 py-4">
                       {(() => {
