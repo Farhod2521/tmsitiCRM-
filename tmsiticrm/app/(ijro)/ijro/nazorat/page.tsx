@@ -1380,8 +1380,8 @@ function Topshiriqlar({ docs, depts, onRefresh }:
                         {d.sarlavha || "—"}
                       </p>
                     </td>
-                    <td className="px-4 py-4" style={{ maxWidth:240 }}>
-                      <p className="text-xs truncate" style={{ color:"#7D8592" }}>
+                    <td className="px-4 py-4" style={{ minWidth:260, maxWidth:360 }}>
+                      <p className="text-xs" style={{ color:"#7D8592", whiteSpace:"normal", wordBreak:"break-word" }}>
                         {d.mazmun || "—"}
                       </p>
                     </td>
