@@ -342,6 +342,23 @@ class TelegramLinkToken(Base):
     employee    = relationship("Employee")
 
 
+class EmployeeFile(Base):
+    """Xodimga tegishli biriktirilgan fayllar (buyruqlar va h.k.) — Kadrlar bo'limi
+    va superadmin tomonidan yuklanadi (masalan mehnat ta'tili/safar/bolnichniy buyrug'i)."""
+    __tablename__ = "employee_files"
+
+    id               = Column(Integer, primary_key=True, index=True)
+    employee_id      = Column(Integer, ForeignKey("employees.id"), nullable=False, index=True)
+    file_name        = Column(String(300), nullable=False)
+    file_b64         = Column(Text, nullable=False)
+    note             = Column(String(500), nullable=True)
+    uploaded_by_id   = Column(Integer, ForeignKey("employees.id"), nullable=True)
+    uploaded_by_nomi = Column(String(200), nullable=True)
+    created_at       = Column(DateTime, default=datetime.utcnow)
+
+    employee = relationship("Employee", foreign_keys=[employee_id])
+
+
 class LocationSetting(Base):
     """Ish joyi turi (vazirlik / labaratoriya) uchun geolokatsiya markazi va radiusi."""
     __tablename__ = "location_settings"

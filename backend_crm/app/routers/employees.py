@@ -9,6 +9,7 @@ from ..schemas import (
     EmployeeOut, EmployeeCreate, EmployeeUpdate, PhotoIn, SetRoleIn, SetStatusIn, SetWorkLocationIn,
     EmployeePasswordOut, TelegramLinkTokenOut,
     PasswordResetRequestOut, PasswordResetVerifyIn, PasswordResetConfirmIn,
+    EmployeeFileIn, EmployeeFileOut,
 )
 from ..auth import get_password_hash, encrypt_password, decrypt_password
 from ..deps import get_current_employee, require_superadmin
@@ -343,6 +344,75 @@ def set_employee_status(
     db.commit()
     db.refresh(emp)
     return emp
+
+
+def _require_hr_access(current: models.Employee) -> None:
+    if current.role not in {models.RoleEnum.superadmin, models.RoleEnum.kadr}:
+        raise HTTPException(status_code=403, detail="Ruxsat yo'q")
+
+
+@router.get("/{emp_id}/files", response_model=List[EmployeeFileOut])
+def list_employee_files(
+    emp_id: int,
+    db: Session = Depends(get_db),
+    current: models.Employee = Depends(get_current_employee),
+):
+    """Xodimga biriktirilgan fayllar (buyruqlar) ro'yxati — superadmin/kadr."""
+    _require_hr_access(current)
+    if not db.query(models.Employee).filter(models.Employee.id == emp_id).first():
+        raise HTTPException(status_code=404, detail="Xodim topilmadi")
+    return (
+        db.query(models.EmployeeFile)
+        .filter(models.EmployeeFile.employee_id == emp_id)
+        .order_by(models.EmployeeFile.created_at.desc())
+        .all()
+    )
+
+
+@router.post("/{emp_id}/files", response_model=EmployeeFileOut, status_code=201)
+def upload_employee_file(
+    emp_id: int,
+    data: EmployeeFileIn,
+    db: Session = Depends(get_db),
+    current: models.Employee = Depends(get_current_employee),
+):
+    """Xodimga fayl (buyruq) biriktirish — superadmin/kadr."""
+    _require_hr_access(current)
+    emp = db.query(models.Employee).filter(models.Employee.id == emp_id).first()
+    if not emp:
+        raise HTTPException(status_code=404, detail="Xodim topilmadi")
+    f = models.EmployeeFile(
+        employee_id=emp_id,
+        file_name=data.file_name,
+        file_b64=data.file_b64,
+        note=data.note,
+        uploaded_by_id=current.id,
+        uploaded_by_nomi=current.full_name,
+    )
+    db.add(f)
+    db.commit()
+    db.refresh(f)
+    return f
+
+
+@router.delete("/{emp_id}/files/{file_id}", status_code=204)
+def delete_employee_file(
+    emp_id: int,
+    file_id: int,
+    db: Session = Depends(get_db),
+    current: models.Employee = Depends(get_current_employee),
+):
+    """Biriktirilgan faylni o'chirish — superadmin/kadr."""
+    _require_hr_access(current)
+    f = (
+        db.query(models.EmployeeFile)
+        .filter(models.EmployeeFile.id == file_id, models.EmployeeFile.employee_id == emp_id)
+        .first()
+    )
+    if not f:
+        raise HTTPException(status_code=404, detail="Fayl topilmadi")
+    db.delete(f)
+    db.commit()
 
 
 @router.get("/{emp_id}/photo")

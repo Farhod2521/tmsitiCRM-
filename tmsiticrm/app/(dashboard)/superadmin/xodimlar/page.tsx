@@ -7,9 +7,10 @@ import {
   Users, Plus, Search, Phone, Pencil, Trash2, X, Loader2,
   Download, KeyRound, ChevronDown, CheckCircle2, Palmtree, Baby, UserCheck,
   Building2, FlaskConical, Car, Plane, GraduationCap, Stethoscope, Infinity as InfinityIcon,
-  ArrowLeft, Laptop,
+  ArrowLeft, Laptop, Paperclip,
 } from "lucide-react";
 import { apiFetch } from "@/lib/api";
+import EmployeeFilesModal from "@/components/employees/EmployeeFilesModal";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -419,6 +420,7 @@ export default function XodimlarPage() {
   const [deletingId, setDeletingId] = useState<number | null>(null);
   const [exporting,  setExporting]  = useState(false);
   const [toast,      setToast]      = useState<string | null>(null);
+  const [filesFor,   setFilesFor]   = useState<ApiEmp | null>(null);
   // Xodimlarning joriy (qaytarib olingan) parollari — faqat superadmin ko'radi.
   // Faqat migratsiyadan keyin yaratilgan/paroli o'zgartirilgan xodimlarda mavjud bo'ladi.
   const [passwords,  setPasswords]  = useState<Record<number, string | null>>({});
@@ -627,7 +629,7 @@ export default function XodimlarPage() {
           <table className="w-full">
             <thead>
               <tr style={{ borderBottom: "2px solid #F4F9FD" }}>
-                {["#", "Xodim", "Bo'lim", "Telefon", "Parol", "Rol", "Ish joyi", "Holat", "Muddat", ""].map(h => (
+                {["#", "Xodim", "Bo'lim", "Telefon", "Parol", "Rol", "Ish joyi", "Holat", "Muddat", "Fayllar", ""].map(h => (
                   <th key={h} className="text-left pb-4 text-xs font-bold uppercase"
                     style={{ color: "#91929E", letterSpacing: "0.05em", paddingRight: 16 }}>
                     {h}
@@ -637,11 +639,11 @@ export default function XodimlarPage() {
             </thead>
             <tbody>
               {loading ? (
-                <tr><td colSpan={10} className="py-16 text-center">
+                <tr><td colSpan={11} className="py-16 text-center">
                   <Loader2 size={28} className="mx-auto animate-spin" style={{ color: "#3F8CFF" }} />
                 </td></tr>
               ) : filtered.length === 0 ? (
-                <tr><td colSpan={10} className="py-16 text-center">
+                <tr><td colSpan={11} className="py-16 text-center">
                   <Users size={32} className="mx-auto mb-3" style={{ color: "#D9E3F0" }} />
                   <p className="text-sm font-bold" style={{ color: "#91929E" }}>Xodimlar topilmadi</p>
                 </td></tr>
@@ -721,6 +723,13 @@ export default function XodimlarPage() {
                       <span className="text-xs" style={{ color: "#D9E3F0" }}>—</span>
                     )}
                   </td>
+                  <td className="py-4" style={{ paddingRight: 16 }}>
+                    <button onClick={() => setFilesFor(emp)}
+                      className="flex items-center gap-1.5 px-3 py-2 text-xs font-bold hover:opacity-80 transition-opacity"
+                      style={{ background: "rgba(63,140,255,0.1)", color: "#3F8CFF", borderRadius: 8 }}>
+                      <Paperclip size={13} /> Fayllar
+                    </button>
+                  </td>
                   <td className="py-4">
                     <div className="flex items-center gap-1">
                       <button onClick={() => setFormEmp(emp)} title="Tahrirlash"
@@ -755,6 +764,10 @@ export default function XodimlarPage() {
           onClose={() => setFormEmp(null)}
           onSaved={handleFormSaved}
         />
+      )}
+
+      {filesFor && (
+        <EmployeeFilesModal employeeId={filesFor.id} employeeName={filesFor.full_name} onClose={() => setFilesFor(null)} />
       )}
 
       {toast && (

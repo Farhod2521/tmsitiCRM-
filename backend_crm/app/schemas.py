@@ -70,6 +70,23 @@ class EmployeePasswordOut(BaseModel):
     password: Optional[str] = None
 
 
+# ── Xodimga biriktirilgan fayllar (buyruqlar) ──────────────────────────────────
+class EmployeeFileIn(BaseModel):
+    file_name: str
+    file_b64: str
+    note: Optional[str] = None
+
+class EmployeeFileOut(BaseModel):
+    id: int
+    employee_id: int
+    file_name: str
+    file_b64: str
+    note: Optional[str] = None
+    uploaded_by_nomi: Optional[str] = None
+    created_at: Optional[datetime] = None
+    model_config = {"from_attributes": True}
+
+
 # ── Lokatsiya sozlamalari ────────────────────────────────────────────────────
 class LocationSettingOut(BaseModel):
     location_type: WorkLocationEnum
