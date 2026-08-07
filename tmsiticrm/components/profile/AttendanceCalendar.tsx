@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
-import { MapPin, CheckCircle2, Clock, Calendar as CalIcon, Loader2, Footprints, Map as MapIcon, X, Crosshair, XCircle, Fingerprint, ArrowRight, Check, MessageSquareWarning } from "lucide-react";
+import { MapPin, CheckCircle2, Clock, Calendar as CalIcon, Loader2, Footprints, Map as MapIcon, X, Crosshair, XCircle, Fingerprint, ArrowRight, Check, MessageSquareWarning, DoorOpen } from "lucide-react";
 import { apiFetch } from "@/lib/api";
 import FaceVerifyModal from "@/components/profile/FaceVerifyModal";
 
@@ -17,7 +17,7 @@ interface Attendance {
   check_in_local: string | null; // "HH:MM" — UTC+5 mahalliy vaqt
 }
 
-type NoteType = "kechikish" | "kelmaslik" | "obyektda";
+type NoteType = "kechikish" | "kelmaslik" | "obyektda" | "ruxsat";
 interface AttendanceNote {
   id: number;
   note_type: NoteType;
@@ -36,12 +36,16 @@ const NOTE_TYPE_LABEL: Record<NoteType, string> = {
   obyektda:  "Obyektda",
   kechikish: "Kechikaman",
   kelmaslik: "Kelmayman",
+  ruxsat:    "Ruxsat so'ralgan",
 };
 const NOTE_TYPE_COLOR: Record<NoteType, string> = {
   obyektda:  "#3F8CFF",
   kechikish: "#E0A400",
   kelmaslik: "#FF5C5C",
+  ruxsat:    "#6D5DD3",
 };
+// "obyektda" va "ruxsat" — ikkalasi ham vaqt oralig'i (soatdan-soatgacha) so'raydi.
+const NOTE_TYPES_WITH_TIME_RANGE: NoteType[] = ["obyektda", "ruxsat"];
 
 function todayStr(): string {
   const d = new Date();
@@ -163,7 +167,8 @@ export default function AttendanceCalendar() {
       setNoteError("Tugash sanasi boshlanish sanasidan oldin bo'lishi mumkin emas");
       return;
     }
-    if (noteType === "obyektda" && noteObjTimeFrom && noteObjTimeTo && noteObjTimeTo < noteObjTimeFrom) {
+    const needsTimeRange = NOTE_TYPES_WITH_TIME_RANGE.includes(noteType);
+    if (needsTimeRange && noteObjTimeFrom && noteObjTimeTo && noteObjTimeTo < noteObjTimeFrom) {
       setNoteError("Tugash vaqti boshlanish vaqtidan oldin bo'lishi mumkin emas");
       return;
     }
@@ -176,8 +181,8 @@ export default function AttendanceCalendar() {
           date_from: noteDateFrom,
           date_to: noteDateTo,
           expected_time: noteType === "kechikish" ? (noteExpectedTime || null) : null,
-          object_time_from: noteType === "obyektda" ? (noteObjTimeFrom || null) : null,
-          object_time_to: noteType === "obyektda" ? (noteObjTimeTo || null) : null,
+          object_time_from: needsTimeRange ? (noteObjTimeFrom || null) : null,
+          object_time_to: needsTimeRange ? (noteObjTimeTo || null) : null,
           object_latitude: noteType === "obyektda" ? noteObjLat : null,
           object_longitude: noteType === "obyektda" ? noteObjLng : null,
           text: noteText || null,
@@ -599,7 +604,7 @@ export default function AttendanceCalendar() {
 
             <div className="px-6 py-5">
               <p className="text-sm font-bold mb-2.5" style={{ color: "#0A1629" }}>Holatingizni tanlang</p>
-              <div className="grid grid-cols-3 gap-2 mb-4">
+              <div className="grid grid-cols-2 gap-2 mb-4">
                 <button onClick={() => setNoteType("obyektda")}
                   className="py-2.5 text-xs font-bold"
                   style={{
@@ -608,6 +613,15 @@ export default function AttendanceCalendar() {
                     color: noteType === "obyektda" ? "#FFFFFF" : "#7D8592",
                   }}>
                   Obyektda chiqdim
+                </button>
+                <button onClick={() => setNoteType("ruxsat")}
+                  className="py-2.5 text-xs font-bold"
+                  style={{
+                    borderRadius: 10, border: "1.5px solid #EEF2FF",
+                    background: noteType === "ruxsat" ? NOTE_TYPE_COLOR.ruxsat : "#F4F9FD",
+                    color: noteType === "ruxsat" ? "#FFFFFF" : "#7D8592",
+                  }}>
+                  Ruxsat so'rash
                 </button>
                 <button onClick={() => setNoteType("kechikish")}
                   className="py-2.5 text-xs font-bold"
@@ -687,6 +701,23 @@ export default function AttendanceCalendar() {
                         : <Crosshair size={13} />}
                     {noteLocating ? "Joylashuv aniqlanmoqda..." : noteObjLat != null ? "Joylashuv olindi" : "Turgan joyimni yuborish (ixtiyoriy)"}
                   </button>
+                </div>
+              )}
+
+              {noteType === "ruxsat" && (
+                <div className="mb-4">
+                  <label className="text-xs font-bold mb-2 block" style={{ color: "#91929E" }}>
+                    Soat nechidan nechigacha ruxsat so'raysiz? (ixtiyoriy)
+                  </label>
+                  <div className="flex items-center gap-2">
+                    <input type="time" value={noteObjTimeFrom} onChange={e => setNoteObjTimeFrom(e.target.value)}
+                      className="flex-1 px-3 py-2.5 text-sm font-bold outline-none"
+                      style={{ background: "#F4F9FD", borderRadius: 10, border: "1.5px solid #EEF2FF", color: "#0A1629" }} />
+                    <span className="text-xs font-bold" style={{ color: "#91929E" }}>—</span>
+                    <input type="time" value={noteObjTimeTo} onChange={e => setNoteObjTimeTo(e.target.value)}
+                      className="flex-1 px-3 py-2.5 text-sm font-bold outline-none"
+                      style={{ background: "#F4F9FD", borderRadius: 10, border: "1.5px solid #EEF2FF", color: "#0A1629" }} />
+                  </div>
                 </div>
               )}
 

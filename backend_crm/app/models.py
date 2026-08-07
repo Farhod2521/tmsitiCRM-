@@ -132,7 +132,7 @@ class AttendanceNote(Base):
 
     id            = Column(Integer, primary_key=True, index=True)
     employee_id   = Column(Integer, ForeignKey("employees.id"), nullable=False)
-    note_type     = Column(String(20), nullable=False)   # "kechikish" | "kelmaslik" | "obyektda"
+    note_type     = Column(String(20), nullable=False)   # "kechikish" | "kelmaslik" | "obyektda" | "ruxsat"
     text          = Column(Text, nullable=True)
     date_from     = Column(String(10), nullable=False)   # "2026-06-09"
     date_to       = Column(String(10), nullable=False)   # "2026-06-09"

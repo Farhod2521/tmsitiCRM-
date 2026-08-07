@@ -213,7 +213,7 @@ class PhotoIn(BaseModel):
 
 # ── Attendance Note (kechikish / kelmaslik izohi) ──────────────────────────────
 class AttendanceNoteIn(BaseModel):
-    note_type: Literal["kechikish", "kelmaslik", "obyektda"]
+    note_type: Literal["kechikish", "kelmaslik", "obyektda", "ruxsat"]
     date_from: str
     date_to: str
     expected_time: Optional[str] = None       # "kechikish" uchun taxminiy kelish vaqti, masalan "10:30"

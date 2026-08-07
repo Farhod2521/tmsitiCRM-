@@ -1,12 +1,12 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { MessageSquareWarning, AlarmClock, UserX, MapPinned, Loader2, Check, X as XIcon } from "lucide-react";
+import { MessageSquareWarning, AlarmClock, UserX, MapPinned, DoorOpen, Loader2, Check, X as XIcon } from "lucide-react";
 import { apiFetch } from "@/lib/api";
 import { getUser } from "@/lib/auth";
 
 type ReviewStatus = "kutilmoqda" | "sababli" | "sababsiz";
-type NoteType = "kechikish" | "kelmaslik" | "obyektda";
+type NoteType = "kechikish" | "kelmaslik" | "obyektda" | "ruxsat";
 
 interface AttendanceNote {
   id: number;
@@ -36,9 +36,10 @@ const REVIEW_CFG: Record<ReviewStatus, { label: string; color: string; bg: strin
 };
 
 const NOTE_TYPE_CFG: Record<NoteType, { label: string; icon: typeof AlarmClock; color: string; bg: string }> = {
-  obyektda:  { label: "Obyektda",  icon: MapPinned,  color: "#3F8CFF", bg: "rgba(63,140,255,0.12)" },
-  kechikish: { label: "Kechikadi", icon: AlarmClock, color: "#E0A400", bg: "rgba(224,164,0,0.15)"  },
-  kelmaslik: { label: "Kelmaydi",  icon: UserX,      color: "#FF5C5C", bg: "rgba(255,92,92,0.12)"  },
+  obyektda:  { label: "Obyektda",        icon: MapPinned,  color: "#3F8CFF", bg: "rgba(63,140,255,0.12)"  },
+  kechikish: { label: "Kechikadi",       icon: AlarmClock, color: "#E0A400", bg: "rgba(224,164,0,0.15)"   },
+  kelmaslik: { label: "Kelmaydi",        icon: UserX,      color: "#FF5C5C", bg: "rgba(255,92,92,0.12)"   },
+  ruxsat:    { label: "Ruxsat so'ragan", icon: DoorOpen,   color: "#6D5DD3", bg: "rgba(109,93,211,0.12)"  },
 };
 
 function fmtDt(d: string) {
@@ -126,7 +127,7 @@ export default function AttendanceNotesInbox() {
                   <p className="text-xs mt-1.5" style={{ color: "#91929E" }}>
                     {n.date_from === n.date_to ? n.date_from : `${n.date_from} — ${n.date_to}`}
                     {n.note_type === "kechikish" && n.expected_time && <> · ~{n.expected_time} da keladi</>}
-                    {n.note_type === "obyektda" && (n.object_time_from || n.object_time_to) && (
+                    {(n.note_type === "obyektda" || n.note_type === "ruxsat") && (n.object_time_from || n.object_time_to) && (
                       <> · {n.object_time_from || "—"}—{n.object_time_to || "—"}</>
                     )}
                     {" "}· {fmtDt(n.created_at)}

@@ -47,8 +47,7 @@ class _HomeScreenState extends State<HomeScreen> {
   Uint8List? _photo;
   AttendanceRecord? _today;
   List<IjroTask> _tasks = [];
-  int _employeeCount = 0;
-  int _lateTodayCount = 0;
+  int _totalTasksCount = 0;
 
   static const _actions = [
     _QuickAction(
@@ -96,13 +95,7 @@ class _HomeScreenState extends State<HomeScreen> {
   // endpoint) muvaffaqiyatsiz bo'lsa ham, qolganlari ko'rsatilaveradi.
   Future<void> _load() async {
     setState(() => _loading = true);
-    await Future.wait([
-      _loadToday(),
-      _loadTasks(),
-      _loadEmployeeCount(),
-      _loadLateToday(),
-      _loadPhoto(),
-    ]);
+    await Future.wait([_loadToday(), _loadTasks(), _loadPhoto()]);
     if (mounted) setState(() => _loading = false);
   }
 
@@ -115,8 +108,9 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Future<void> _loadTasks() async {
     try {
-      final tasks =
-          (await ApiService.myTasks())
+      final raw = await ApiService.myTasks();
+      final active =
+          raw
               .where((t) => t.holati != 'bajarildi' && t.holati != 'rad_etildi')
               .toList()
             ..sort(
@@ -124,26 +118,12 @@ class _HomeScreenState extends State<HomeScreen> {
                 a.docIjroMuddati,
               ).compareTo(_daysUntil(b.docIjroMuddati)),
             );
-      if (mounted) setState(() => _tasks = tasks);
-    } catch (_) {}
-  }
-
-  Future<void> _loadEmployeeCount() async {
-    try {
-      final c = await ApiService.employeeCount();
-      if (mounted) setState(() => _employeeCount = c);
-    } catch (_) {}
-  }
-
-  Future<void> _loadLateToday() async {
-    try {
-      final arrived = await ApiService.todayList();
-      if (mounted)
-        setState(
-          () => _lateTodayCount = arrived
-              .where((r) => (r.lateMinutes ?? 0) > 0)
-              .length,
-        );
+      if (mounted) {
+        setState(() {
+          _tasks = active;
+          _totalTasksCount = raw.length;
+        });
+      }
     } catch (_) {}
   }
 
@@ -155,6 +135,10 @@ class _HomeScreenState extends State<HomeScreen> {
       }
     } catch (_) {}
   }
+
+  // Muddati o'tib ketgan, hali bajarilmagan topshiriqlar soni.
+  int get _overdueCount =>
+      _tasks.where((t) => _daysUntil(t.docIjroMuddati) < 0).length;
 
   int _daysUntil(String? dateStr) {
     if (dateStr == null) return 999999;
@@ -247,9 +231,7 @@ class _HomeScreenState extends State<HomeScreen> {
         .take(2)
         .join()
         .toUpperCase();
-    final overdueCount = _tasks
-        .where((t) => _daysUntil(t.docIjroMuddati) < 0)
-        .length;
+    final overdueCount = _overdueCount;
 
     return Row(
       children: [
@@ -515,10 +497,10 @@ class _HomeScreenState extends State<HomeScreen> {
         children: [
           Expanded(
             child: _statItem(
-              Icons.groups_rounded,
+              Icons.assignment_rounded,
               AppColors.primary,
-              '$_employeeCount',
-              'Jami xodimlar',
+              '$_totalTasksCount',
+              'Jami topshiriqlar',
             ),
           ),
           Container(width: 1, height: 36, color: AppColors.divider),
@@ -534,8 +516,8 @@ class _HomeScreenState extends State<HomeScreen> {
           Expanded(
             child: _statItem(
               Icons.schedule_rounded,
-              AppColors.lateAmber,
-              '$_lateTodayCount',
+              AppColors.danger,
+              '$_overdueCount',
               'Kechikkanlar',
             ),
           ),

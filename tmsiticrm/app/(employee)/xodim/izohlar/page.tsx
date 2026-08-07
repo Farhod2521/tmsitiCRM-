@@ -3,10 +3,10 @@
 import { useState, useEffect, useCallback } from "react";
 import Header from "@/components/layout/Header";
 import { apiFetch } from "@/lib/api";
-import { MessageSquareWarning, AlarmClock, UserX, MapPinned, Loader2, Check, X as XIcon } from "lucide-react";
+import { MessageSquareWarning, AlarmClock, UserX, MapPinned, DoorOpen, Loader2, Check, X as XIcon } from "lucide-react";
 
 type ReviewStatus = "kutilmoqda" | "sababli" | "sababsiz";
-type NoteType = "kechikish" | "kelmaslik" | "obyektda";
+type NoteType = "kechikish" | "kelmaslik" | "obyektda" | "ruxsat";
 
 interface AttendanceNote {
   id: number;
@@ -30,9 +30,10 @@ interface AttendanceNote {
 }
 
 const NOTE_TYPE_CFG: Record<NoteType, { label: string; icon: typeof AlarmClock; color: string; bg: string }> = {
-  obyektda:  { label: "Obyektda",  icon: MapPinned,  color: "#3F8CFF", bg: "rgba(63,140,255,0.12)" },
-  kechikish: { label: "Kechikadi", icon: AlarmClock, color: "#E0A400", bg: "rgba(224,164,0,0.15)"  },
-  kelmaslik: { label: "Kelmaydi",  icon: UserX,      color: "#FF5C5C", bg: "rgba(255,92,92,0.12)"  },
+  obyektda:  { label: "Obyektda",        icon: MapPinned,  color: "#3F8CFF", bg: "rgba(63,140,255,0.12)"  },
+  kechikish: { label: "Kechikadi",       icon: AlarmClock, color: "#E0A400", bg: "rgba(224,164,0,0.15)"   },
+  kelmaslik: { label: "Kelmaydi",        icon: UserX,      color: "#FF5C5C", bg: "rgba(255,92,92,0.12)"   },
+  ruxsat:    { label: "Ruxsat so'ragan", icon: DoorOpen,   color: "#6D5DD3", bg: "rgba(109,93,211,0.12)"  },
 };
 
 type FilterKey = "barchasi" | "kutilmoqda" | "sababli" | "sababsiz";
@@ -182,7 +183,7 @@ export default function XodimIzohlarPage() {
                       {n.note_type === "kechikish" && n.expected_time && (
                         <p className="text-xs mt-0.5" style={{ color: "#91929E" }}>~{n.expected_time} da keladi</p>
                       )}
-                      {n.note_type === "obyektda" && (n.object_time_from || n.object_time_to) && (
+                      {(n.note_type === "obyektda" || n.note_type === "ruxsat") && (n.object_time_from || n.object_time_to) && (
                         <p className="text-xs mt-0.5" style={{ color: "#91929E" }}>{n.object_time_from || "—"}—{n.object_time_to || "—"}</p>
                       )}
                       {n.note_type === "obyektda" && n.object_latitude != null && n.object_longitude != null && (
