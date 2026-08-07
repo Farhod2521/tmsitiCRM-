@@ -6,6 +6,7 @@ import '../models/attendance_note.dart';
 import '../models/auth_user.dart';
 import '../models/employee.dart';
 import '../models/ijro_task.dart';
+import '../models/ijro_task_detail.dart';
 
 /// Server javobidagi xatolik xabari — foydalanuvchiga ko'rsatish uchun.
 class ApiException implements Exception {
@@ -31,9 +32,9 @@ class ApiService {
   static void setToken(String? token) => _token = token;
 
   static Map<String, String> _headers({bool json = true}) => {
-        if (json) 'Content-Type': 'application/json',
-        if (_token != null) 'Authorization': 'Bearer $_token',
-      };
+    if (json) 'Content-Type': 'application/json',
+    if (_token != null) 'Authorization': 'Bearer $_token',
+  };
 
   static Future<dynamic> _handle(http.Response res) async {
     // Faqat allaqachon token bilan kirilgan so'rov 401 qaytarsa — bu eskirgan/yaroqsiz
@@ -50,7 +51,9 @@ class ApiService {
       data = null;
     }
     if (res.statusCode < 200 || res.statusCode >= 300) {
-      final detail = (data is Map && data['detail'] != null) ? data['detail'].toString() : 'Server xatosi';
+      final detail = (data is Map && data['detail'] != null)
+          ? data['detail'].toString()
+          : 'Server xatosi';
       throw ApiException(detail);
     }
     return data;
@@ -60,20 +63,33 @@ class ApiService {
 
   static Future<AuthUser> login(String phone, String password) async {
     final res = await http
-        .post(Uri.parse('$baseUrl/auth/login'), headers: _headers(), body: jsonEncode({'phone': phone, 'password': password}))
-        .timeout(const Duration(seconds: 15), onTimeout: () => throw ApiException('Serverga ulanib bo\'lmadi'));
+        .post(
+          Uri.parse('$baseUrl/auth/login'),
+          headers: _headers(),
+          body: jsonEncode({'phone': phone, 'password': password}),
+        )
+        .timeout(
+          const Duration(seconds: 15),
+          onTimeout: () => throw ApiException('Serverga ulanib bo\'lmadi'),
+        );
     final data = await _handle(res);
     return AuthUser.fromJson(data as Map<String, dynamic>);
   }
 
   static Future<Employee> me() async {
-    final res = await http.get(Uri.parse('$baseUrl/auth/me'), headers: _headers());
+    final res = await http.get(
+      Uri.parse('$baseUrl/auth/me'),
+      headers: _headers(),
+    );
     final data = await _handle(res);
     return Employee.fromJson(data as Map<String, dynamic>);
   }
 
   static Future<int> employeeCount() async {
-    final res = await http.get(Uri.parse('$baseUrl/employees/count'), headers: _headers());
+    final res = await http.get(
+      Uri.parse('$baseUrl/employees/count'),
+      headers: _headers(),
+    );
     final data = await _handle(res);
     return (data as Map<String, dynamic>)['total'] as int;
   }
@@ -81,7 +97,10 @@ class ApiService {
   static String photoUrl() => '$baseUrl/employees/me/photo';
 
   static Future<String?> myPhotoBase64() async {
-    final res = await http.get(Uri.parse('$baseUrl/employees/me/photo'), headers: _headers());
+    final res = await http.get(
+      Uri.parse('$baseUrl/employees/me/photo'),
+      headers: _headers(),
+    );
     final data = await _handle(res);
     return (data as Map<String, dynamic>?)?['photo_base64'] as String?;
   }
@@ -89,32 +108,51 @@ class ApiService {
   // ── Attendance ───────────────────────────────────────────────────────────
 
   static Future<AttendanceRecord?> today() async {
-    final res = await http.get(Uri.parse('$baseUrl/attendance/today'), headers: _headers());
+    final res = await http.get(
+      Uri.parse('$baseUrl/attendance/today'),
+      headers: _headers(),
+    );
     final data = await _handle(res);
     if (data == null) return null;
     return AttendanceRecord.fromJson(data as Map<String, dynamic>);
   }
 
   static Future<OfficeInfo> office() async {
-    final res = await http.get(Uri.parse('$baseUrl/attendance/office'), headers: _headers());
+    final res = await http.get(
+      Uri.parse('$baseUrl/attendance/office'),
+      headers: _headers(),
+    );
     final data = await _handle(res);
     return OfficeInfo.fromJson(data as Map<String, dynamic>);
   }
 
   static Future<List<AttendanceRecord>> myMonth(int year, int month) async {
-    final res = await http.get(Uri.parse('$baseUrl/attendance/my-month?year=$year&month=$month'), headers: _headers());
+    final res = await http.get(
+      Uri.parse('$baseUrl/attendance/my-month?year=$year&month=$month'),
+      headers: _headers(),
+    );
     final data = await _handle(res);
-    return (data as List).map((e) => AttendanceRecord.fromJson(e as Map<String, dynamic>)).toList();
+    return (data as List)
+        .map((e) => AttendanceRecord.fromJson(e as Map<String, dynamic>))
+        .toList();
   }
 
   static Future<List<ArrivedRow>> todayList() async {
-    final res = await http.get(Uri.parse('$baseUrl/attendance/today-list'), headers: _headers());
+    final res = await http.get(
+      Uri.parse('$baseUrl/attendance/today-list'),
+      headers: _headers(),
+    );
     final data = await _handle(res);
-    return (data as List).map((e) => ArrivedRow.fromJson(e as Map<String, dynamic>)).toList();
+    return (data as List)
+        .map((e) => ArrivedRow.fromJson(e as Map<String, dynamic>))
+        .toList();
   }
 
   static Future<String?> dayEmployeePhoto() async {
-    final res = await http.get(Uri.parse('$baseUrl/attendance/day-employee-photo'), headers: _headers());
+    final res = await http.get(
+      Uri.parse('$baseUrl/attendance/day-employee-photo'),
+      headers: _headers(),
+    );
     final data = await _handle(res);
     return (data as Map<String, dynamic>?)?['photo_base64'] as String?;
   }
@@ -122,12 +160,29 @@ class ApiService {
   // ── Ijro nazorati ────────────────────────────────────────────────────────
 
   static Future<List<IjroTask>> myTasks() async {
-    final res = await http.get(Uri.parse('$baseUrl/ijro-docs/my-tasks'), headers: _headers());
+    final res = await http.get(
+      Uri.parse('$baseUrl/ijro-docs/my-tasks'),
+      headers: _headers(),
+    );
     final data = await _handle(res);
-    return (data as List).map((e) => IjroTask.fromJson(e as Map<String, dynamic>)).toList();
+    return (data as List)
+        .map((e) => IjroTask.fromJson(e as Map<String, dynamic>))
+        .toList();
   }
 
-  static Future<AttendanceRecord> checkIn(double latitude, double longitude) async {
+  static Future<IjroTaskDetail> taskDetail(int docBolimId) async {
+    final res = await http.get(
+      Uri.parse('$baseUrl/ijro-docs/bolim-inbox/$docBolimId/detail'),
+      headers: _headers(),
+    );
+    final data = await _handle(res);
+    return IjroTaskDetail.fromJson(data as Map<String, dynamic>);
+  }
+
+  static Future<AttendanceRecord> checkIn(
+    double latitude,
+    double longitude,
+  ) async {
     final res = await http.post(
       Uri.parse('$baseUrl/attendance/check-in'),
       headers: _headers(),
@@ -140,7 +195,10 @@ class ApiService {
   // ── Davomat arizasi (kech qolaman / kelmayman / obyektga chiqdim) ──────────
 
   static Future<AttendanceNote?> myNote() async {
-    final res = await http.get(Uri.parse('$baseUrl/attendance/notes/mine'), headers: _headers());
+    final res = await http.get(
+      Uri.parse('$baseUrl/attendance/notes/mine'),
+      headers: _headers(),
+    );
     final data = await _handle(res);
     if (data == null) return null;
     return AttendanceNote.fromJson(data as Map<String, dynamic>);
