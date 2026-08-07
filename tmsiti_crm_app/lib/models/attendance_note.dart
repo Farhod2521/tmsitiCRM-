@@ -9,6 +9,8 @@ class AttendanceNote {
   final String? expectedTime;    // "kechikish" uchun, "10:30"
   final String? objectTimeFrom;  // "obyektda" uchun, "09:00"
   final String? objectTimeTo;
+  final double? objectLatitude;  // "obyektda" uchun joriy joylashuv (ixtiyoriy)
+  final double? objectLongitude;
   final DateTime createdAt;
 
   AttendanceNote({
@@ -20,6 +22,8 @@ class AttendanceNote {
     required this.expectedTime,
     required this.objectTimeFrom,
     required this.objectTimeTo,
+    required this.objectLatitude,
+    required this.objectLongitude,
     required this.createdAt,
   });
 
@@ -32,6 +36,8 @@ class AttendanceNote {
         expectedTime: json['expected_time'] as String?,
         objectTimeFrom: json['object_time_from'] as String?,
         objectTimeTo: json['object_time_to'] as String?,
+        objectLatitude: (json['object_latitude'] as num?)?.toDouble(),
+        objectLongitude: (json['object_longitude'] as num?)?.toDouble(),
         createdAt: DateTime.parse(json['created_at'] as String),
       );
 }

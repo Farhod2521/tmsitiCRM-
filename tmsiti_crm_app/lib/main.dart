@@ -43,6 +43,7 @@ class _AuthGateState extends State<_AuthGate> {
   @override
   void initState() {
     super.initState();
+    ApiService.onUnauthorized = _handleUnauthorized;
     _restore();
   }
 
@@ -54,6 +55,14 @@ class _AuthGateState extends State<_AuthGate> {
       _user = user;
       _checked = true;
     });
+  }
+
+  /// Token yaroqsiz/eskirgan bo'lib chiqsa (401) — sessiyani tozalab, avtomatik
+  /// login sahifasiga qaytaradi.
+  void _handleUnauthorized() {
+    AuthStorage.clear();
+    if (!mounted) return;
+    setState(() => _user = null);
   }
 
   @override

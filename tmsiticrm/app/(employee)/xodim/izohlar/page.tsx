@@ -21,6 +21,8 @@ interface AttendanceNote {
   expected_time: string | null;
   object_time_from: string | null;
   object_time_to: string | null;
+  object_latitude: number | null;
+  object_longitude: number | null;
   created_at: string;
   review_status: ReviewStatus;
   reviewed_by_nomi: string | null;
@@ -182,6 +184,13 @@ export default function XodimIzohlarPage() {
                       )}
                       {n.note_type === "obyektda" && (n.object_time_from || n.object_time_to) && (
                         <p className="text-xs mt-0.5" style={{ color: "#91929E" }}>{n.object_time_from || "—"}—{n.object_time_to || "—"}</p>
+                      )}
+                      {n.note_type === "obyektda" && n.object_latitude != null && n.object_longitude != null && (
+                        <a href={`https://www.google.com/maps?q=${n.object_latitude},${n.object_longitude}`}
+                          target="_blank" rel="noopener noreferrer"
+                          className="text-xs font-bold mt-0.5 inline-block" style={{ color: "#3F8CFF" }}>
+                          Xaritada ko'rish
+                        </a>
                       )}
                     </td>
 

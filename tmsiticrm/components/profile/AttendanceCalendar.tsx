@@ -27,6 +27,8 @@ interface AttendanceNote {
   expected_time: string | null;
   object_time_from: string | null;
   object_time_to: string | null;
+  object_latitude: number | null;
+  object_longitude: number | null;
   created_at: string;
 }
 
@@ -123,8 +125,31 @@ export default function AttendanceCalendar() {
   const [noteExpectedTime, setNoteExpectedTime] = useState("");
   const [noteObjTimeFrom, setNoteObjTimeFrom] = useState("");
   const [noteObjTimeTo, setNoteObjTimeTo] = useState("");
+  const [noteObjLat, setNoteObjLat] = useState<number | null>(null);
+  const [noteObjLng, setNoteObjLng] = useState<number | null>(null);
+  const [noteLocating, setNoteLocating] = useState(false);
   const [noteSaving, setNoteSaving] = useState(false);
   const [noteError, setNoteError] = useState<string | null>(null);
+
+  function handleGetNoteLocation() {
+    if (!navigator.geolocation) {
+      setNoteError("Brauzeringiz joylashuvni qo'llab-quvvatlamaydi.");
+      return;
+    }
+    setNoteLocating(true);
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setNoteObjLat(pos.coords.latitude);
+        setNoteObjLng(pos.coords.longitude);
+        setNoteLocating(false);
+      },
+      () => {
+        setNoteError("Joylashuvni aniqlab bo'lmadi. Brauzer sozlamalaridan ruxsat bering.");
+        setNoteLocating(false);
+      },
+      { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
+    );
+  }
 
   const loadNote = useCallback(() => {
     apiFetch<AttendanceNote | null>("/attendance/notes/mine").then(setMyNote).catch(() => {});
@@ -153,6 +178,8 @@ export default function AttendanceCalendar() {
           expected_time: noteType === "kechikish" ? (noteExpectedTime || null) : null,
           object_time_from: noteType === "obyektda" ? (noteObjTimeFrom || null) : null,
           object_time_to: noteType === "obyektda" ? (noteObjTimeTo || null) : null,
+          object_latitude: noteType === "obyektda" ? noteObjLat : null,
+          object_longitude: noteType === "obyektda" ? noteObjLng : null,
           text: noteText || null,
         }),
       });
@@ -173,6 +200,8 @@ export default function AttendanceCalendar() {
     setNoteExpectedTime("");
     setNoteObjTimeFrom("");
     setNoteObjTimeTo("");
+    setNoteObjLat(null);
+    setNoteObjLng(null);
     setNoteError(null);
   }
 
@@ -643,6 +672,21 @@ export default function AttendanceCalendar() {
                       className="flex-1 px-3 py-2.5 text-sm font-bold outline-none"
                       style={{ background: "#F4F9FD", borderRadius: 10, border: "1.5px solid #EEF2FF", color: "#0A1629" }} />
                   </div>
+
+                  <button type="button" onClick={handleGetNoteLocation} disabled={noteLocating}
+                    className="w-full flex items-center justify-center gap-2 py-2.5 mt-3 text-xs font-bold disabled:opacity-60"
+                    style={{
+                      background: noteObjLat != null ? "rgba(0,196,140,0.1)" : "#F4F9FD",
+                      color: noteObjLat != null ? "#00A578" : "#3F8CFF",
+                      borderRadius: 10, border: `1.5px solid ${noteObjLat != null ? "rgba(0,196,140,0.3)" : "#EEF2FF"}`,
+                    }}>
+                    {noteLocating
+                      ? <Loader2 size={13} className="animate-spin" />
+                      : noteObjLat != null
+                        ? <CheckCircle2 size={13} />
+                        : <Crosshair size={13} />}
+                    {noteLocating ? "Joylashuv aniqlanmoqda..." : noteObjLat != null ? "Joylashuv olindi" : "Turgan joyimni yuborish (ixtiyoriy)"}
+                  </button>
                 </div>
               )}
 

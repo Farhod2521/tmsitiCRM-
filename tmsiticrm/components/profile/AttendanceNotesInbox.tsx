@@ -21,6 +21,8 @@ interface AttendanceNote {
   expected_time: string | null;
   object_time_from: string | null;
   object_time_to: string | null;
+  object_latitude: number | null;
+  object_longitude: number | null;
   created_at: string;
   review_status: ReviewStatus;
   reviewed_by_nomi: string | null;
@@ -128,6 +130,15 @@ export default function AttendanceNotesInbox() {
                       <> · {n.object_time_from || "—"}—{n.object_time_to || "—"}</>
                     )}
                     {" "}· {fmtDt(n.created_at)}
+                    {n.note_type === "obyektda" && n.object_latitude != null && n.object_longitude != null && (
+                      <>
+                        {" "}·{" "}
+                        <a href={`https://www.google.com/maps?q=${n.object_latitude},${n.object_longitude}`}
+                          target="_blank" rel="noopener noreferrer" className="font-bold" style={{ color: "#3F8CFF" }}>
+                          Xaritada ko'rish
+                        </a>
+                      </>
+                    )}
                     {n.review_status !== "kutilmoqda" && n.reviewed_by_nomi && (
                       <> · {n.reviewed_by_nomi} tomonidan{n.reviewed_at ? `, ${fmtDt(n.reviewed_at)}` : ""}</>
                     )}

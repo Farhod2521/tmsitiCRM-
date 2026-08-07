@@ -24,6 +24,10 @@ class ApiService {
 
   static String? _token;
 
+  /// Token yaroqsiz/eskirgan bo'lib chiqqanda (401) chaqiriladi — ilova login
+  /// sahifasiga avtomatik o'tkazadi (main.dart shuni ro'yxatdan o'tkazadi).
+  static void Function()? onUnauthorized;
+
   static void setToken(String? token) => _token = token;
 
   static Map<String, String> _headers({bool json = true}) => {
@@ -32,6 +36,12 @@ class ApiService {
       };
 
   static Future<dynamic> _handle(http.Response res) async {
+    // Faqat allaqachon token bilan kirilgan so'rov 401 qaytarsa — bu eskirgan/yaroqsiz
+    // token degani. Login so'rovi (token yo'q holatda) uchun 401 shunchaki "parol xato".
+    if (res.statusCode == 401 && _token != null) {
+      _token = null;
+      onUnauthorized?.call();
+    }
     if (res.statusCode == 204 || res.body.isEmpty) return null;
     dynamic data;
     try {
@@ -137,6 +147,8 @@ class ApiService {
     String? expectedTime,
     String? objectTimeFrom,
     String? objectTimeTo,
+    double? objectLatitude,
+    double? objectLongitude,
     String? text,
   }) async {
     final res = await http.post(
@@ -149,6 +161,8 @@ class ApiService {
         'expected_time': expectedTime,
         'object_time_from': objectTimeFrom,
         'object_time_to': objectTimeTo,
+        'object_latitude': objectLatitude,
+        'object_longitude': objectLongitude,
         'text': text,
       }),
     );

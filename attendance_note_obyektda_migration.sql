@@ -2,3 +2,5 @@
 
 ALTER TABLE attendance_notes ADD COLUMN IF NOT EXISTS object_time_from VARCHAR(5);
 ALTER TABLE attendance_notes ADD COLUMN IF NOT EXISTS object_time_to VARCHAR(5);
+ALTER TABLE attendance_notes ADD COLUMN IF NOT EXISTS object_latitude DOUBLE PRECISION;
+ALTER TABLE attendance_notes ADD COLUMN IF NOT EXISTS object_longitude DOUBLE PRECISION;

@@ -383,6 +383,8 @@ def create_note(
         expected_time=data.expected_time,
         object_time_from=data.object_time_from,
         object_time_to=data.object_time_to,
+        object_latitude=data.object_latitude,
+        object_longitude=data.object_longitude,
     )
     db.add(note)
     db.commit()

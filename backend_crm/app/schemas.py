@@ -219,6 +219,8 @@ class AttendanceNoteIn(BaseModel):
     expected_time: Optional[str] = None       # "kechikish" uchun taxminiy kelish vaqti, masalan "10:30"
     object_time_from: Optional[str] = None    # "obyektda" uchun vaqt oralig'i, masalan "09:00"
     object_time_to: Optional[str] = None
+    object_latitude: Optional[float] = None   # "obyektda" uchun joriy joylashuv (ixtiyoriy)
+    object_longitude: Optional[float] = None
     text: Optional[str] = None
 
 class AttendanceNoteOut(BaseModel):
@@ -234,6 +236,8 @@ class AttendanceNoteOut(BaseModel):
     expected_time: Optional[str] = None
     object_time_from: Optional[str] = None
     object_time_to: Optional[str] = None
+    object_latitude: Optional[float] = None
+    object_longitude: Optional[float] = None
     created_at: datetime
     review_status: str = "kutilmoqda"
     reviewed_by_nomi: Optional[str] = None

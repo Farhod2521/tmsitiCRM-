@@ -139,6 +139,8 @@ class AttendanceNote(Base):
     expected_time = Column(String(5), nullable=True)     # "kechikish" uchun taxminiy kelish vaqti, "10:30"
     object_time_from = Column(String(5), nullable=True)  # "obyektda" uchun vaqt oralig'i, "09:00"
     object_time_to   = Column(String(5), nullable=True)  # "obyektda" uchun vaqt oralig'i, "14:00"
+    object_latitude  = Column(Float, nullable=True)       # "obyektda" uchun joriy joylashuv (ixtiyoriy)
+    object_longitude = Column(Float, nullable=True)
     created_at    = Column(DateTime, default=datetime.utcnow)
 
     # Kadr roli tomonidan ko'rib chiqilishi: "kutilmoqda" | "sababli" | "sababsiz"

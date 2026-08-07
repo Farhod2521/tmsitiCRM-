@@ -642,6 +642,9 @@ class _NoteSheetState extends State<_NoteSheet> {
   TimeOfDay? _expectedTime;
   TimeOfDay? _objFrom;
   TimeOfDay? _objTo;
+  double? _objLat;
+  double? _objLng;
+  bool _locating = false;
   final _textCtrl = TextEditingController();
   bool _saving = false;
   String? _error;
@@ -696,6 +699,24 @@ class _NoteSheetState extends State<_NoteSheet> {
     });
   }
 
+  Future<void> _getLocation() async {
+    setState(() {
+      _locating = true;
+      _error = null;
+    });
+    try {
+      final pos = await LocationService.getCurrentPosition();
+      setState(() {
+        _objLat = pos.latitude;
+        _objLng = pos.longitude;
+      });
+    } catch (e) {
+      setState(() => _error = e.toString().replaceFirst('LocationException: ', ''));
+    } finally {
+      if (mounted) setState(() => _locating = false);
+    }
+  }
+
   Future<void> _submit() async {
     setState(() => _error = null);
     if (_dateTo.isBefore(_dateFrom)) {
@@ -711,6 +732,8 @@ class _NoteSheetState extends State<_NoteSheet> {
         expectedTime: _type == 'kechikish' && _expectedTime != null ? _fmtTime(_expectedTime!) : null,
         objectTimeFrom: _type == 'obyektda' && _objFrom != null ? _fmtTime(_objFrom!) : null,
         objectTimeTo: _type == 'obyektda' && _objTo != null ? _fmtTime(_objTo!) : null,
+        objectLatitude: _type == 'obyektda' ? _objLat : null,
+        objectLongitude: _type == 'obyektda' ? _objLng : null,
         text: _textCtrl.text.trim().isEmpty ? null : _textCtrl.text.trim(),
       );
       if (mounted) Navigator.of(context).pop(note);
@@ -849,6 +872,33 @@ class _NoteSheetState extends State<_NoteSheet> {
                       ),
                       Expanded(child: _timeBox(_objTo, () => _pickTime('objTo'))),
                     ],
+                  ),
+                  const SizedBox(height: 12),
+                  GestureDetector(
+                    onTap: _locating ? null : _getLocation,
+                    child: Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      decoration: BoxDecoration(
+                        color: _objLat != null ? AppColors.success.withValues(alpha: 0.1) : AppColors.surface,
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: _objLat != null ? AppColors.success.withValues(alpha: 0.35) : AppColors.divider),
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          _locating
+                              ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.primary))
+                              : Icon(_objLat != null ? Icons.check_circle_rounded : Icons.my_location_rounded,
+                                  size: 15, color: _objLat != null ? AppColors.success : AppColors.primary),
+                          const SizedBox(width: 8),
+                          Text(
+                            _locating ? 'Joylashuv aniqlanmoqda...' : (_objLat != null ? 'Joylashuv olindi' : "Turgan joyimni yuborish (ixtiyoriy)"),
+                            style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w800, color: _objLat != null ? AppColors.success : AppColors.primary),
+                          ),
+                        ],
+                      ),
+                    ),
                   ),
                 ],
 
