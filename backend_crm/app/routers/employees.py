@@ -78,6 +78,17 @@ def list_employees(
     return [current]
 
 
+@router.get("/count")
+def employee_count(
+    db: Session = Depends(get_db),
+    current: models.Employee = Depends(get_current_employee),
+):
+    """Jami xodimlar soni — istalgan avtorizatsiyadan o'tgan xodim ko'ra oladi
+    (mobil ilova bosh sahifasidagi statistika uchun, shaxsiy ma'lumot emas)."""
+    total = db.query(models.Employee).count()
+    return {"total": total}
+
+
 @router.post("/", response_model=EmployeeOut, status_code=201)
 def create_employee(
     data: EmployeeCreate,

@@ -72,6 +72,12 @@ class ApiService {
     return Employee.fromJson(data as Map<String, dynamic>);
   }
 
+  static Future<int> employeeCount() async {
+    final res = await http.get(Uri.parse('$baseUrl/employees/count'), headers: _headers());
+    final data = await _handle(res);
+    return (data as Map<String, dynamic>)['total'] as int;
+  }
+
   static String photoUrl() => '$baseUrl/employees/me/photo';
 
   static Future<String?> myPhotoBase64() async {
