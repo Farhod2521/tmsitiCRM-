@@ -3,10 +3,10 @@
 import { useState, useEffect, useCallback } from "react";
 import Header from "@/components/layout/Header";
 import { apiFetch } from "@/lib/api";
-import { MessageSquareWarning, AlarmClock, UserX, Loader2, Check, X as XIcon } from "lucide-react";
+import { MessageSquareWarning, AlarmClock, UserX, MapPinned, Loader2, Check, X as XIcon } from "lucide-react";
 
 type ReviewStatus = "kutilmoqda" | "sababli" | "sababsiz";
-type NoteType = "kechikish" | "kelmaslik";
+type NoteType = "kechikish" | "kelmaslik" | "obyektda";
 
 interface AttendanceNote {
   id: number;
@@ -19,11 +19,19 @@ interface AttendanceNote {
   date_from: string;
   date_to: string;
   expected_time: string | null;
+  object_time_from: string | null;
+  object_time_to: string | null;
   created_at: string;
   review_status: ReviewStatus;
   reviewed_by_nomi: string | null;
   reviewed_at: string | null;
 }
+
+const NOTE_TYPE_CFG: Record<NoteType, { label: string; icon: typeof AlarmClock; color: string; bg: string }> = {
+  obyektda:  { label: "Obyektda",  icon: MapPinned,  color: "#3F8CFF", bg: "rgba(63,140,255,0.12)" },
+  kechikish: { label: "Kechikadi", icon: AlarmClock, color: "#E0A400", bg: "rgba(224,164,0,0.15)"  },
+  kelmaslik: { label: "Kelmaydi",  icon: UserX,      color: "#FF5C5C", bg: "rgba(255,92,92,0.12)"  },
+};
 
 type FilterKey = "barchasi" | "kutilmoqda" | "sababli" | "sababsiz";
 
@@ -136,17 +144,18 @@ export default function XodimIzohlarPage() {
                 </tr>
               </thead>
               <tbody>
-                {visible.map((n, i) => (
+                {visible.map((n, i) => {
+                  const tc = NOTE_TYPE_CFG[n.note_type];
+                  const TypeIcon = tc.icon;
+                  return (
                   <tr key={n.id} className="hover:bg-[#FAFCFF] transition-colors" style={{ borderBottom: "1px solid #F4F9FD" }}>
                     <td className="py-4 text-sm font-bold" style={{ color: "#91929E", paddingRight: 16 }}>{i + 1}</td>
 
                     <td className="py-4" style={{ paddingRight: 16 }}>
                       <div className="flex items-center gap-2.5">
                         <div className="w-9 h-9 flex-shrink-0 flex items-center justify-center rounded-full"
-                          style={{ background: n.note_type === "kelmaslik" ? "rgba(255,92,92,0.12)" : "rgba(224,164,0,0.15)" }}>
-                          {n.note_type === "kelmaslik"
-                            ? <UserX size={15} style={{ color: "#FF5C5C" }} />
-                            : <AlarmClock size={15} style={{ color: "#E0A400" }} />}
+                          style={{ background: tc.bg }}>
+                          <TypeIcon size={15} style={{ color: tc.color }} />
                         </div>
                         <div className="min-w-0">
                           <p className="font-bold text-sm truncate" style={{ color: "#0A1629" }}>{n.employee_nomi || "—"}</p>
@@ -161,11 +170,8 @@ export default function XodimIzohlarPage() {
 
                     <td className="py-4" style={{ paddingRight: 16 }}>
                       <span className="text-xs font-bold px-2.5 py-1 rounded-lg whitespace-nowrap"
-                        style={{
-                          background: n.note_type === "kelmaslik" ? "rgba(255,92,92,0.1)" : "rgba(224,164,0,0.15)",
-                          color: n.note_type === "kelmaslik" ? "#FF5C5C" : "#B8860B",
-                        }}>
-                        {n.note_type === "kelmaslik" ? "Kelmaydi" : "Kechikadi"}
+                        style={{ background: tc.bg, color: tc.color }}>
+                        {tc.label}
                       </span>
                     </td>
 
@@ -173,6 +179,9 @@ export default function XodimIzohlarPage() {
                       <span className="line-clamp-2">{n.text || "—"}</span>
                       {n.note_type === "kechikish" && n.expected_time && (
                         <p className="text-xs mt-0.5" style={{ color: "#91929E" }}>~{n.expected_time} da keladi</p>
+                      )}
+                      {n.note_type === "obyektda" && (n.object_time_from || n.object_time_to) && (
+                        <p className="text-xs mt-0.5" style={{ color: "#91929E" }}>{n.object_time_from || "—"}—{n.object_time_to || "—"}</p>
                       )}
                     </td>
 
@@ -215,7 +224,8 @@ export default function XodimIzohlarPage() {
                       )}
                     </td>
                   </tr>
-                ))}
+                  );
+                })}
               </tbody>
             </table>
           </div>

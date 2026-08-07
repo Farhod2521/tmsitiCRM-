@@ -132,11 +132,13 @@ class AttendanceNote(Base):
 
     id            = Column(Integer, primary_key=True, index=True)
     employee_id   = Column(Integer, ForeignKey("employees.id"), nullable=False)
-    note_type     = Column(String(20), nullable=False)   # "kechikish" | "kelmaslik"
+    note_type     = Column(String(20), nullable=False)   # "kechikish" | "kelmaslik" | "obyektda"
     text          = Column(Text, nullable=True)
     date_from     = Column(String(10), nullable=False)   # "2026-06-09"
     date_to       = Column(String(10), nullable=False)   # "2026-06-09"
     expected_time = Column(String(5), nullable=True)     # "kechikish" uchun taxminiy kelish vaqti, "10:30"
+    object_time_from = Column(String(5), nullable=True)  # "obyektda" uchun vaqt oralig'i, "09:00"
+    object_time_to   = Column(String(5), nullable=True)  # "obyektda" uchun vaqt oralig'i, "14:00"
     created_at    = Column(DateTime, default=datetime.utcnow)
 
     # Kadr roli tomonidan ko'rib chiqilishi: "kutilmoqda" | "sababli" | "sababsiz"

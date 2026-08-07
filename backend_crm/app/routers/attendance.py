@@ -308,7 +308,15 @@ def get_absent_employees(db: Session, date: str) -> List[models.Employee]:
         .filter(models.Attendance.date == date)
         .all()
     }
-    return [e for e in employees if e.id not in arrived_ids]
+    # Ariza topshirganlar (kelmayman/kech qolaman/obyektga chiqdim — shu sanani
+    # qamrab oladigan) — 09:00 eslatmasida (guruh va shaxsiy) qayta so'ralmasin.
+    noted_ids = {
+        r.employee_id
+        for r in db.query(models.AttendanceNote.employee_id)
+        .filter(models.AttendanceNote.date_from <= date, models.AttendanceNote.date_to >= date)
+        .all()
+    }
+    return [e for e in employees if e.id not in arrived_ids and e.id not in noted_ids]
 
 
 def build_pending_message_text(absent: List[models.Employee], date: str) -> str:
@@ -363,6 +371,8 @@ def create_note(
     yangi ariza sifatida saqlanadi."""
     if data.date_to < data.date_from:
         raise HTTPException(status_code=400, detail="Tugash sanasi boshlanish sanasidan oldin bo'lishi mumkin emas")
+    if data.object_time_from and data.object_time_to and data.object_time_to < data.object_time_from:
+        raise HTTPException(status_code=400, detail="Tugash vaqti boshlanish vaqtidan oldin bo'lishi mumkin emas")
 
     note = models.AttendanceNote(
         employee_id=current.id,
@@ -371,6 +381,8 @@ def create_note(
         date_from=data.date_from,
         date_to=data.date_to,
         expected_time=data.expected_time,
+        object_time_from=data.object_time_from,
+        object_time_to=data.object_time_to,
     )
     db.add(note)
     db.commit()

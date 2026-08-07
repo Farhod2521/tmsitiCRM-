@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import '../models/arrived_row.dart';
 import '../models/attendance.dart';
+import '../models/attendance_note.dart';
 import '../models/auth_user.dart';
 import '../models/employee.dart';
 import '../models/ijro_task.dart';
@@ -118,5 +119,40 @@ class ApiService {
     );
     final data = await _handle(res);
     return AttendanceRecord.fromJson(data as Map<String, dynamic>);
+  }
+
+  // ── Davomat arizasi (kech qolaman / kelmayman / obyektga chiqdim) ──────────
+
+  static Future<AttendanceNote?> myNote() async {
+    final res = await http.get(Uri.parse('$baseUrl/attendance/notes/mine'), headers: _headers());
+    final data = await _handle(res);
+    if (data == null) return null;
+    return AttendanceNote.fromJson(data as Map<String, dynamic>);
+  }
+
+  static Future<AttendanceNote> submitNote({
+    required String noteType,
+    required String dateFrom,
+    required String dateTo,
+    String? expectedTime,
+    String? objectTimeFrom,
+    String? objectTimeTo,
+    String? text,
+  }) async {
+    final res = await http.post(
+      Uri.parse('$baseUrl/attendance/notes'),
+      headers: _headers(),
+      body: jsonEncode({
+        'note_type': noteType,
+        'date_from': dateFrom,
+        'date_to': dateTo,
+        'expected_time': expectedTime,
+        'object_time_from': objectTimeFrom,
+        'object_time_to': objectTimeTo,
+        'text': text,
+      }),
+    );
+    final data = await _handle(res);
+    return AttendanceNote.fromJson(data as Map<String, dynamic>);
   }
 }

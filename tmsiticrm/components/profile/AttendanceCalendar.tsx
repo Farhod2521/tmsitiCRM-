@@ -17,7 +17,7 @@ interface Attendance {
   check_in_local: string | null; // "HH:MM" — UTC+5 mahalliy vaqt
 }
 
-type NoteType = "kechikish" | "kelmaslik";
+type NoteType = "kechikish" | "kelmaslik" | "obyektda";
 interface AttendanceNote {
   id: number;
   note_type: NoteType;
@@ -25,8 +25,21 @@ interface AttendanceNote {
   date_from: string;
   date_to: string;
   expected_time: string | null;
+  object_time_from: string | null;
+  object_time_to: string | null;
   created_at: string;
 }
+
+const NOTE_TYPE_LABEL: Record<NoteType, string> = {
+  obyektda:  "Obyektda",
+  kechikish: "Kechikaman",
+  kelmaslik: "Kelmayman",
+};
+const NOTE_TYPE_COLOR: Record<NoteType, string> = {
+  obyektda:  "#3F8CFF",
+  kechikish: "#E0A400",
+  kelmaslik: "#FF5C5C",
+};
 
 function todayStr(): string {
   const d = new Date();
@@ -108,6 +121,8 @@ export default function AttendanceCalendar() {
   const [noteDateFrom, setNoteDateFrom] = useState(todayStr());
   const [noteDateTo, setNoteDateTo] = useState(todayStr());
   const [noteExpectedTime, setNoteExpectedTime] = useState("");
+  const [noteObjTimeFrom, setNoteObjTimeFrom] = useState("");
+  const [noteObjTimeTo, setNoteObjTimeTo] = useState("");
   const [noteSaving, setNoteSaving] = useState(false);
   const [noteError, setNoteError] = useState<string | null>(null);
 
@@ -123,6 +138,10 @@ export default function AttendanceCalendar() {
       setNoteError("Tugash sanasi boshlanish sanasidan oldin bo'lishi mumkin emas");
       return;
     }
+    if (noteType === "obyektda" && noteObjTimeFrom && noteObjTimeTo && noteObjTimeTo < noteObjTimeFrom) {
+      setNoteError("Tugash vaqti boshlanish vaqtidan oldin bo'lishi mumkin emas");
+      return;
+    }
     setNoteSaving(true);
     try {
       const res = await apiFetch<AttendanceNote>("/attendance/notes", {
@@ -132,6 +151,8 @@ export default function AttendanceCalendar() {
           date_from: noteDateFrom,
           date_to: noteDateTo,
           expected_time: noteType === "kechikish" ? (noteExpectedTime || null) : null,
+          object_time_from: noteType === "obyektda" ? (noteObjTimeFrom || null) : null,
+          object_time_to: noteType === "obyektda" ? (noteObjTimeTo || null) : null,
           text: noteText || null,
         }),
       });
@@ -150,6 +171,8 @@ export default function AttendanceCalendar() {
     setNoteDateFrom(todayStr());
     setNoteDateTo(todayStr());
     setNoteExpectedTime("");
+    setNoteObjTimeFrom("");
+    setNoteObjTimeTo("");
     setNoteError(null);
   }
 
@@ -355,12 +378,10 @@ export default function AttendanceCalendar() {
                   onClick={() => { openNoteEdit(); setShowNoteModal(true); }}
                   className="py-4 px-5 flex items-center gap-3.5 text-left hover:opacity-90 transition-opacity"
                   style={{
-                    background: myNote
-                      ? (myNote.note_type === "kelmaslik" ? "#FF5C5C" : "#E0A400")
-                      : "#FFFFFF",
+                    background: myNote ? NOTE_TYPE_COLOR[myNote.note_type] : "#FFFFFF",
                     borderRadius: 16,
                     border: myNote ? "none" : "1.5px solid #EEF2FF",
-                    boxShadow: myNote ? "0px 10px 24px rgba(224,164,0,0.3)" : "none",
+                    boxShadow: myNote ? `0px 10px 24px ${NOTE_TYPE_COLOR[myNote.note_type]}4D` : "none",
                   }}
                 >
                   <div className="w-11 h-11 flex-shrink-0 flex items-center justify-center"
@@ -369,9 +390,7 @@ export default function AttendanceCalendar() {
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="font-bold text-sm truncate" style={{ color: myNote ? "#FFFFFF" : "#0A1629" }}>
-                      {myNote
-                        ? (myNote.note_type === "kelmaslik" ? "Kelmayman" : "Kechikaman")
-                        : "Ariza yozish"}
+                      {myNote ? NOTE_TYPE_LABEL[myNote.note_type] : "Ariza yozish"}
                     </p>
                     <p className="text-xs truncate" style={{ color: myNote ? "rgba(255,255,255,0.85)" : "#91929E" }}>
                       {myNote
@@ -550,22 +569,31 @@ export default function AttendanceCalendar() {
             </div>
 
             <div className="px-6 py-5">
-              <p className="text-sm font-bold mb-2.5" style={{ color: "#0A1629" }}>Kechikasizmi yoki kelolmaysizmi?</p>
-              <div className="flex gap-2 mb-4">
-                <button onClick={() => setNoteType("kechikish")}
-                  className="flex-1 py-2.5 text-sm font-bold"
+              <p className="text-sm font-bold mb-2.5" style={{ color: "#0A1629" }}>Holatingizni tanlang</p>
+              <div className="grid grid-cols-3 gap-2 mb-4">
+                <button onClick={() => setNoteType("obyektda")}
+                  className="py-2.5 text-xs font-bold"
                   style={{
                     borderRadius: 10, border: "1.5px solid #EEF2FF",
-                    background: noteType === "kechikish" ? "#E0A400" : "#F4F9FD",
+                    background: noteType === "obyektda" ? NOTE_TYPE_COLOR.obyektda : "#F4F9FD",
+                    color: noteType === "obyektda" ? "#FFFFFF" : "#7D8592",
+                  }}>
+                  Obyektda chiqdim
+                </button>
+                <button onClick={() => setNoteType("kechikish")}
+                  className="py-2.5 text-xs font-bold"
+                  style={{
+                    borderRadius: 10, border: "1.5px solid #EEF2FF",
+                    background: noteType === "kechikish" ? NOTE_TYPE_COLOR.kechikish : "#F4F9FD",
                     color: noteType === "kechikish" ? "#FFFFFF" : "#7D8592",
                   }}>
                   Kechikaman
                 </button>
                 <button onClick={() => setNoteType("kelmaslik")}
-                  className="flex-1 py-2.5 text-sm font-bold"
+                  className="py-2.5 text-xs font-bold"
                   style={{
                     borderRadius: 10, border: "1.5px solid #EEF2FF",
-                    background: noteType === "kelmaslik" ? "#FF5C5C" : "#F4F9FD",
+                    background: noteType === "kelmaslik" ? NOTE_TYPE_COLOR.kelmaslik : "#F4F9FD",
                     color: noteType === "kelmaslik" ? "#FFFFFF" : "#7D8592",
                   }}>
                   Kelmayman
@@ -601,6 +629,23 @@ export default function AttendanceCalendar() {
                 </div>
               )}
 
+              {noteType === "obyektda" && (
+                <div className="mb-4">
+                  <label className="text-xs font-bold mb-2 block" style={{ color: "#91929E" }}>
+                    Soat nechidan nechigacha obyektda bo'lasiz? (ixtiyoriy)
+                  </label>
+                  <div className="flex items-center gap-2">
+                    <input type="time" value={noteObjTimeFrom} onChange={e => setNoteObjTimeFrom(e.target.value)}
+                      className="flex-1 px-3 py-2.5 text-sm font-bold outline-none"
+                      style={{ background: "#F4F9FD", borderRadius: 10, border: "1.5px solid #EEF2FF", color: "#0A1629" }} />
+                    <span className="text-xs font-bold" style={{ color: "#91929E" }}>—</span>
+                    <input type="time" value={noteObjTimeTo} onChange={e => setNoteObjTimeTo(e.target.value)}
+                      className="flex-1 px-3 py-2.5 text-sm font-bold outline-none"
+                      style={{ background: "#F4F9FD", borderRadius: 10, border: "1.5px solid #EEF2FF", color: "#0A1629" }} />
+                  </div>
+                </div>
+              )}
+
               <textarea value={noteText} onChange={e => setNoteText(e.target.value)}
                 placeholder="Sababini yozing (ixtiyoriy)..."
                 rows={3} className="w-full px-3 py-2.5 text-sm outline-none resize-none"
@@ -612,7 +657,7 @@ export default function AttendanceCalendar() {
 
               <button onClick={handleSendNote} disabled={noteSaving}
                 className="w-full flex items-center justify-center gap-2 py-3 mt-4 text-sm font-bold text-white disabled:opacity-50"
-                style={{ background: "#E0A400", borderRadius: 12 }}>
+                style={{ background: NOTE_TYPE_COLOR[noteType], borderRadius: 12 }}>
                 {noteSaving ? <Loader2 size={14} className="animate-spin" /> : "Yuborish"}
               </button>
             </div>

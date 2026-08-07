@@ -1,11 +1,12 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { MessageSquareWarning, AlarmClock, UserX, Loader2, Check, X as XIcon } from "lucide-react";
+import { MessageSquareWarning, AlarmClock, UserX, MapPinned, Loader2, Check, X as XIcon } from "lucide-react";
 import { apiFetch } from "@/lib/api";
 import { getUser } from "@/lib/auth";
 
 type ReviewStatus = "kutilmoqda" | "sababli" | "sababsiz";
+type NoteType = "kechikish" | "kelmaslik" | "obyektda";
 
 interface AttendanceNote {
   id: number;
@@ -13,11 +14,13 @@ interface AttendanceNote {
   employee_nomi: string | null;
   position: string | null;
   department_nomi: string | null;
-  note_type: "kechikish" | "kelmaslik";
+  note_type: NoteType;
   text: string | null;
   date_from: string;
   date_to: string;
   expected_time: string | null;
+  object_time_from: string | null;
+  object_time_to: string | null;
   created_at: string;
   review_status: ReviewStatus;
   reviewed_by_nomi: string | null;
@@ -28,6 +31,12 @@ const REVIEW_CFG: Record<ReviewStatus, { label: string; color: string; bg: strin
   kutilmoqda: { label: "Kutilmoqda", color: "#91929E", bg: "rgba(145,146,158,0.12)" },
   sababli:    { label: "Sababli",    color: "#00A578", bg: "rgba(0,165,120,0.12)" },
   sababsiz:   { label: "Sababsiz",   color: "#FF5C5C", bg: "rgba(255,92,92,0.12)" },
+};
+
+const NOTE_TYPE_CFG: Record<NoteType, { label: string; icon: typeof AlarmClock; color: string; bg: string }> = {
+  obyektda:  { label: "Obyektda",  icon: MapPinned,  color: "#3F8CFF", bg: "rgba(63,140,255,0.12)" },
+  kechikish: { label: "Kechikadi", icon: AlarmClock, color: "#E0A400", bg: "rgba(224,164,0,0.15)"  },
+  kelmaslik: { label: "Kelmaydi",  icon: UserX,      color: "#FF5C5C", bg: "rgba(255,92,92,0.12)"  },
 };
 
 function fmtDt(d: string) {
@@ -86,24 +95,21 @@ export default function AttendanceNotesInbox() {
         <div className="flex flex-col gap-2.5">
           {notes.map(n => {
             const rc = REVIEW_CFG[n.review_status];
+            const tc = NOTE_TYPE_CFG[n.note_type];
+            const TypeIcon = tc.icon;
             return (
               <div key={n.id} className="flex items-start gap-3 p-3.5"
                 style={{ background: "#FAFCFF", borderRadius: 14, border: "1px solid #F0F3F8" }}>
                 <div className="w-9 h-9 flex-shrink-0 flex items-center justify-center rounded-full"
-                  style={{ background: n.note_type === "kelmaslik" ? "rgba(255,92,92,0.12)" : "rgba(224,164,0,0.15)" }}>
-                  {n.note_type === "kelmaslik"
-                    ? <UserX size={16} style={{ color: "#FF5C5C" }} />
-                    : <AlarmClock size={16} style={{ color: "#E0A400" }} />}
+                  style={{ background: tc.bg }}>
+                  <TypeIcon size={16} style={{ color: tc.color }} />
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
                     <p className="text-sm font-bold" style={{ color: "#0A1629" }}>{n.employee_nomi || "—"}</p>
                     <span className="text-xs font-bold px-2 py-0.5 rounded-full flex-shrink-0"
-                      style={{
-                        background: n.note_type === "kelmaslik" ? "rgba(255,92,92,0.1)" : "rgba(224,164,0,0.15)",
-                        color: n.note_type === "kelmaslik" ? "#FF5C5C" : "#B8860B",
-                      }}>
-                      {n.note_type === "kelmaslik" ? "Kelmaydi" : "Kechikadi"}
+                      style={{ background: tc.bg, color: tc.color }}>
+                      {tc.label}
                     </span>
                     <span className="text-xs font-bold px-2 py-0.5 rounded-full flex-shrink-0" style={{ background: rc.bg, color: rc.color }}>
                       {rc.label}
@@ -118,6 +124,9 @@ export default function AttendanceNotesInbox() {
                   <p className="text-xs mt-1.5" style={{ color: "#91929E" }}>
                     {n.date_from === n.date_to ? n.date_from : `${n.date_from} — ${n.date_to}`}
                     {n.note_type === "kechikish" && n.expected_time && <> · ~{n.expected_time} da keladi</>}
+                    {n.note_type === "obyektda" && (n.object_time_from || n.object_time_to) && (
+                      <> · {n.object_time_from || "—"}—{n.object_time_to || "—"}</>
+                    )}
                     {" "}· {fmtDt(n.created_at)}
                     {n.review_status !== "kutilmoqda" && n.reviewed_by_nomi && (
                       <> · {n.reviewed_by_nomi} tomonidan{n.reviewed_at ? `, ${fmtDt(n.reviewed_at)}` : ""}</>
