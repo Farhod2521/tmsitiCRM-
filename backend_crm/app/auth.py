@@ -9,7 +9,7 @@ from cryptography.fernet import Fernet, InvalidToken
 
 SECRET_KEY = os.getenv("SECRET_KEY", "tmsiti-crm-super-secret-key-2026-keltechnik")
 ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_HOURS = 24
+ACCESS_TOKEN_EXPIRE_HOURS = 24 * 365   # 1 yil — web va mobil ilova uchun bir xil
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
