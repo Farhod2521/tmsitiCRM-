@@ -21,7 +21,7 @@ type DocHolati = "jarayonda" | "bajarildi" | "muddati_yaqin" | "kechikmoqda" | "
 type DocManba  = "pq_pf" | "vm" | "qv" | "direktor";
 type DocTur    = "kiruvchi" | "chiquvchi" | "ichki";
 
-interface BolimInfo { id: number; name: string; holati: string; }
+interface BolimInfo { id: number; name: string; holati: string; ijrochi_turi?: string; }
 
 interface IjroDoc {
   id: number;
@@ -441,6 +441,13 @@ function YangiHujjatModal({ depts, onClose, onSaved, editDoc }:
     try { return JSON.parse(editDoc.masul_bolimlar); } catch { return []; }
   });
   const [bolimXodimlar, setBolimXodimlar] = useState<Record<number, number>>({});
+  const [bolimTurlari, setBolimTurlari] = useState<Record<number, "asosiy" | "qoshimcha">>(() => {
+    if (!editDoc?.masul_bolimlar_info) return {};
+    try {
+      const items: BolimInfo[] = JSON.parse(editDoc.masul_bolimlar_info);
+      return Object.fromEntries(items.map(it => [it.id, it.ijrochi_turi === "qoshimcha" ? "qoshimcha" : "asosiy"]));
+    } catch { return {}; }
+  });
   const [kelishuvchi, setKelishuvchi] = useState<string[]>(() =>
     editDoc?.kelishuvchi_tashkilotlar ? editDoc.kelishuvchi_tashkilotlar.split(", ").filter(Boolean) : []
   );
@@ -489,10 +496,21 @@ function YangiHujjatModal({ depts, onClose, onSaved, editDoc }:
       const head = bolimBoshligi(id);
       return head ? { ...p, [id]: head.id } : p;
     });
+    setBolimTurlari(p => {
+      if (masulBolimlar.includes(id)) {
+        const { [id]: _drop, ...rest } = p;
+        return rest;
+      }
+      // yangi bo'lim tanlandi — standart holatda "asosiy ijrochi"
+      return { ...p, [id]: "asosiy" };
+    });
   }
 
   function setBolimXodim(bolimId: number, xodimId: number) {
     setBolimXodimlar(p => ({ ...p, [bolimId]: xodimId }));
+  }
+  function setBolimTuri(bolimId: number, turi: "asosiy" | "qoshimcha") {
+    setBolimTurlari(p => ({ ...p, [bolimId]: turi }));
   }
   function toggleTashkilot(t: string) {
     setKelishuvchi(p => p.includes(t) ? p.filter(x => x !== t) : [...p, t]);
@@ -518,6 +536,9 @@ function YangiHujjatModal({ depts, onClose, onSaved, editDoc }:
       hujjat_sanasi:            form.hujjat_sanasi || null,
       masul_bolimlar:           masulBolimlar.length ? JSON.stringify(masulBolimlar) : null,
       masul_bolimlar_xodimlar:  masulBolimlar.length ? JSON.stringify(bolimXodimlar) : null,
+      masul_bolimlar_turlari:   masulBolimlar.length
+        ? JSON.stringify(Object.fromEntries(masulBolimlar.map(id => [id, bolimTurlari[id] ?? "asosiy"])))
+        : null,
       kelishuvchi_tashkilotlar: kelishuvchi.length ? kelishuvchi.join(", ") : null,
       fayl_name:                fileName,
       fayl_b64:                 fileB64,
@@ -653,18 +674,30 @@ function YangiHujjatModal({ depts, onClose, onSaved, editDoc }:
                         <span className="text-sm" style={{ color: "#0A1629" }}>{d.name}</span>
                       </label>
                       {checked && (
-                        <div className="ml-6 relative">
-                          <select
-                            value={bolimXodimlar[d.id] ?? ""}
-                            onChange={e => setBolimXodim(d.id, Number(e.target.value))}
-                            className="w-full appearance-none px-3 py-2 text-xs font-bold outline-none"
-                            style={{ background: "#FFFFFF", borderRadius: 10, border: "1.5px solid #EEF2FF", color: "#0A1629" }}>
-                            <option value="">Ijrochi xodim tanlanmagan</option>
-                            {deptEmployees.map(e => (
-                              <option key={e.id} value={e.id}>{e.full_name}{e.position ? ` (${e.position})` : ""}</option>
+                        <div className="ml-6 flex flex-col gap-2">
+                          <div className="relative">
+                            <select
+                              value={bolimXodimlar[d.id] ?? ""}
+                              onChange={e => setBolimXodim(d.id, Number(e.target.value))}
+                              className="w-full appearance-none px-3 py-2 text-xs font-bold outline-none"
+                              style={{ background: "#FFFFFF", borderRadius: 10, border: "1.5px solid #EEF2FF", color: "#0A1629" }}>
+                              <option value="">Ijrochi xodim tanlanmagan</option>
+                              {deptEmployees.map(e => (
+                                <option key={e.id} value={e.id}>{e.full_name}{e.position ? ` (${e.position})` : ""}</option>
+                              ))}
+                            </select>
+                            <ChevronDown size={13} className="absolute right-3 top-2.5 pointer-events-none" style={{ color: "#91929E" }} />
+                          </div>
+                          <div className="flex items-center gap-4">
+                            {([["asosiy", "Asosiy ijrochi"], ["qoshimcha", "Qo'shimcha ijrochi"]] as const).map(([v, label]) => (
+                              <label key={v} className="flex items-center gap-1.5 cursor-pointer">
+                                <input type="radio" name={`ijrochi-turi-${d.id}`} value={v}
+                                  checked={(bolimTurlari[d.id] ?? "asosiy") === v}
+                                  onChange={() => setBolimTuri(d.id, v)} className="accent-[#3F8CFF]" />
+                                <span className="text-xs font-bold" style={{ color: "#3D4557" }}>{label}</span>
+                              </label>
                             ))}
-                          </select>
-                          <ChevronDown size={13} className="absolute right-3 top-2.5 pointer-events-none" style={{ color: "#91929E" }} />
+                          </div>
                         </div>
                       )}
                     </div>

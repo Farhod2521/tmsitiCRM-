@@ -264,6 +264,10 @@ class IjroDocBolim(Base):
     bolim_id   = Column(Integer, ForeignKey("departments.id"),   nullable=False)
     holati     = Column(SAEnum(IjroDocBolimHolati, name="ijro_doc_bolim_holati_enum"),
                         default=IjroDocBolimHolati.yuborildi, nullable=False)
+    # "asosiy" | "qoshimcha" — shu bo'lim hujjat bo'yicha asosiy ijrochimi yoki
+    # qo'shimcha ijrochimi. Oddiy String (DB enum emas), enum kabi validatsiya
+    # Pydantic Literal orqali qilinadi.
+    ijrochi_turi = Column(String(20), default="asosiy", nullable=False)
     izoh       = Column(Text, nullable=True)
     assigned_at= Column(DateTime, default=datetime.utcnow)
     qaror_at   = Column(DateTime, nullable=True)

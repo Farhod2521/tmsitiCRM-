@@ -403,6 +403,7 @@ class IjroDocIn(BaseModel):
     masul_orinbosar_id:       Optional[int]      = None
     masul_bolimlar:           Optional[str]      = None   # JSON "[1,3]"
     masul_bolimlar_xodimlar:  Optional[str]      = None   # JSON {"1": 12, "3": 45} — bo'lim_id -> boshlang'ich ijrochi xodim_id
+    masul_bolimlar_turlari:   Optional[str]      = None   # JSON {"1": "asosiy", "3": "qoshimcha"} — bo'lim_id -> ijrochi turi
     ijro_muddati:             Optional[datetime] = None
     davriyligi:               IjroDocDavriyligi  = IjroDocDavriyligi.bir_martalik
     kelishuvchi_tashkilotlar: Optional[str]      = None
@@ -488,6 +489,7 @@ class IjroDocBolimOut(BaseModel):
     xodim_id:         Optional[int] = None
     xodim_nomi:       Optional[str] = None
     xodim_assigned_at: Optional[datetime] = None
+    ijrochi_turi:     str = "asosiy"   # "asosiy" | "qoshimcha"
     assign_log:    List[IjroDocBolimAssignLogOut] = []
     # Topshiriqni yakunlash (bajarildi deb belgilash) — izoh + fayllar
     yakunlash_izohi:    Optional[str] = None
@@ -540,6 +542,7 @@ class IjroDocUpdate(BaseModel):
     qoshimcha_malumot:        Optional[str]                = None
     masul_orinbosar_id:       Optional[int]                = None
     masul_bolimlar:           Optional[str]                = None
+    masul_bolimlar_turlari:   Optional[str]                = None   # JSON {"1": "asosiy", "3": "qoshimcha"}
     ijro_muddati:             Optional[datetime]           = None
     davriyligi:               Optional[IjroDocDavriyligi]  = None
     kelishuvchi_tashkilotlar: Optional[str]                = None
