@@ -312,7 +312,11 @@ def build_app() -> Application:
     app.job_queue.run_daily(
         send_daily_attendance_reminder,
         time=dt.time(hour=9, minute=0, tzinfo=TZ_UZ),
-        days=(0, 1, 2, 3, 4),  # dushanba—juma — shanba/yakshanba dam olish kuni, eslatma yuborilmaydi
+        # PTB 20.0+ da 0-6 = yakshanba—shanba (dushanba—yakshanba EMAS!). Shu sabab
+        # (0,1,2,3,4) aslida yaksh—payshanba edi va juma/shanba o'rniga yakshanba
+        # kuni ham xato yuborilardi. Dushanba(1)—juma(5) — shanba(6)/yakshanba(0)
+        # dam olish kuni, eslatma yuborilmaydi.
+        days=(1, 2, 3, 4, 5),
         name="daily_attendance_reminder",
     )
 
