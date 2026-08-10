@@ -1184,6 +1184,8 @@ function Topshiriqlar({ docs, depts, onRefresh }:
   const [filterSanaTo,   setFilterSanaTo]   = useState("");
   const [filterHolat,    setFilterHolat]    = useState("all");
   const bolimDropdownRef = useRef<HTMLDivElement>(null);
+  const [page, setPage] = useState(1);
+  const PAGE_SIZE = 10;
 
   useEffect(() => {
     function onDocClick(e: MouseEvent) {
@@ -1198,6 +1200,10 @@ function Topshiriqlar({ docs, depts, onRefresh }:
   function toggleFilterBolim(id: number) {
     setFilterBolimIds(p => p.includes(id) ? p.filter(x => x !== id) : [...p, id]);
   }
+
+  useEffect(() => {
+    setPage(1);
+  }, [activeManba, filterBolimIds, filterSanaFrom, filterSanaTo, filterHolat]);
 
   async function handleDelete(id: number) {
     if (!confirm("Hujjatni o'chirishni tasdiqlaysizmi?")) return;
@@ -1245,6 +1251,17 @@ function Topshiriqlar({ docs, depts, onRefresh }:
     direktor: docs.filter(d => d.manba === "direktor").length,
   };
 
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const pageSafe = Math.min(page, totalPages);
+  const paged = filtered.slice((pageSafe - 1) * PAGE_SIZE, pageSafe * PAGE_SIZE);
+  const pageNumbers = Array.from({ length: totalPages }, (_, idx) => idx + 1)
+    .filter(p => p === 1 || p === totalPages || Math.abs(p - pageSafe) <= 1)
+    .reduce<(number | "...")[]>((acc, p, idx, arr) => {
+      if (idx > 0 && (p as number) - (arr[idx - 1] as number) > 1) acc.push("...");
+      acc.push(p);
+      return acc;
+    }, []);
+
   return (
     <>
       <div style={{ background:"#FFFFFF", borderRadius:20, boxShadow:"0 4px 24px rgba(196,203,214,0.15)" }}>
@@ -1284,16 +1301,20 @@ function Topshiriqlar({ docs, depts, onRefresh }:
         <div style={{ borderTop:"2px solid #F4F9FD" }} />
 
         {/* Filters */}
-        <div className="flex items-center gap-3 flex-wrap px-6 py-4">
+        <div className="flex items-center gap-3 flex-wrap px-6 py-4 mx-6 my-4"
+          style={{ background:"#F7FAFF", borderRadius:16, border:"1.5px solid #E9F0FD" }}>
           {/* Bo'lim bo'yicha — checkbox popover */}
           <div className="relative" ref={bolimDropdownRef}>
             <button onClick={() => setBolimDropdownOpen(v => !v)}
-              className="flex items-center gap-2 px-3 py-2.5 min-w-[160px]"
-              style={{ background:"#F4F9FD", borderRadius:10 }}>
-              <span className="text-xs font-bold" style={{ color: filterBolimIds.length ? "#0A1629" : "#91929E" }}>
+              className="flex items-center gap-2.5 px-4 py-3 min-w-[190px]"
+              style={{ background:"#FFFFFF", borderRadius:12, border: filterBolimIds.length ? "1.5px solid #3F8CFF" : "1.5px solid #E3ECFB", boxShadow:"0 2px 8px rgba(63,140,255,0.06)" }}>
+              <div className="w-6 h-6 flex items-center justify-center flex-shrink-0" style={{ background:"rgba(63,140,255,0.12)", borderRadius:7 }}>
+                <FileText size={12} style={{ color:"#3F8CFF" }}/>
+              </div>
+              <span className="text-sm font-bold" style={{ color: filterBolimIds.length ? "#0A1629" : "#7D8592" }}>
                 {filterBolimIds.length ? `Bo'lim (${filterBolimIds.length})` : "Bo'lim bo'yicha"}
               </span>
-              <ChevronDown size={14} style={{ color:"#91929E", marginLeft:"auto" }}/>
+              <ChevronDown size={15} style={{ color:"#3F8CFF", marginLeft:"auto" }}/>
             </button>
             {bolimDropdownOpen && (
               <div className="absolute top-full left-0 mt-1 z-20 p-2 max-h-64 overflow-y-auto"
@@ -1316,35 +1337,40 @@ function Topshiriqlar({ docs, depts, onRefresh }:
           </div>
 
           {/* Sana oralig'i */}
-          <div className="flex items-center gap-2 px-3 py-2.5"
-            style={{ background:"#F4F9FD", borderRadius:10 }}>
-            <Calendar size={13} style={{ color:"#91929E", flexShrink:0 }}/>
+          <div className="flex items-center gap-2.5 px-4 py-3"
+            style={{ background:"#FFFFFF", borderRadius:12, border: (filterSanaFrom || filterSanaTo) ? "1.5px solid #3F8CFF" : "1.5px solid #E3ECFB", boxShadow:"0 2px 8px rgba(63,140,255,0.06)" }}>
+            <div className="w-6 h-6 flex items-center justify-center flex-shrink-0" style={{ background:"rgba(0,165,120,0.12)", borderRadius:7 }}>
+              <Calendar size={12} style={{ color:"#00A578" }}/>
+            </div>
             <input type="date" value={filterSanaFrom} onChange={e => setFilterSanaFrom(e.target.value)}
-              className="bg-transparent text-xs font-bold outline-none" style={{ color: filterSanaFrom ? "#0A1629" : "#91929E", width:120 }} />
-            <span className="text-xs" style={{ color:"#91929E" }}>—</span>
+              className="bg-transparent text-sm font-bold outline-none" style={{ color: filterSanaFrom ? "#0A1629" : "#91929E", width:128 }} />
+            <span className="text-xs font-bold" style={{ color:"#91929E" }}>—</span>
             <input type="date" value={filterSanaTo} onChange={e => setFilterSanaTo(e.target.value)}
-              className="bg-transparent text-xs font-bold outline-none" style={{ color: filterSanaTo ? "#0A1629" : "#91929E", width:120 }} />
+              className="bg-transparent text-sm font-bold outline-none" style={{ color: filterSanaTo ? "#0A1629" : "#91929E", width:128 }} />
           </div>
 
           {/* Holat */}
-          <div className="relative flex items-center px-3 py-2.5 min-w-[150px]"
-            style={{ background:"#F4F9FD", borderRadius:10 }}>
+          <div className="relative flex items-center gap-2.5 px-4 py-3 min-w-[190px]"
+            style={{ background:"#FFFFFF", borderRadius:12, border: filterHolat !== "all" ? "1.5px solid #3F8CFF" : "1.5px solid #E3ECFB", boxShadow:"0 2px 8px rgba(63,140,255,0.06)" }}>
+            <div className="w-6 h-6 flex items-center justify-center flex-shrink-0" style={{ background:"rgba(224,164,0,0.14)", borderRadius:7 }}>
+              <ChevronDown size={12} style={{ color:"#E0A400" }}/>
+            </div>
             <select value={filterHolat} onChange={e => setFilterHolat(e.target.value)}
-              className="appearance-none bg-transparent text-xs font-bold outline-none w-full pr-5"
-              style={{ color: filterHolat === "all" ? "#91929E" : "#0A1629" }}>
+              className="appearance-none bg-transparent text-sm font-bold outline-none w-full pr-5"
+              style={{ color: filterHolat === "all" ? "#7D8592" : "#0A1629" }}>
               <option value="all">Holat: barchasi</option>
               {(Object.keys(BOLIM_H_CFG) as BolimHolati[]).map(h => (
                 <option key={h} value={h}>{BOLIM_H_CFG[h].label}</option>
               ))}
             </select>
-            <ChevronDown size={14} style={{ color:"#91929E", position:"absolute", right:10, pointerEvents:"none" }}/>
+            <ChevronDown size={15} style={{ color:"#91929E", position:"absolute", right:12, pointerEvents:"none" }}/>
           </div>
 
           {(filterBolimIds.length > 0 || filterSanaFrom || filterSanaTo || filterHolat !== "all") && (
             <button onClick={() => { setFilterBolimIds([]); setFilterSanaFrom(""); setFilterSanaTo(""); setFilterHolat("all"); }}
-              className="flex items-center gap-1.5 px-4 py-2.5 text-xs font-bold"
-              style={{ background:"#FFFFFF", border:"1.5px solid #F0F4FB", color:"#7D8592", borderRadius:10 }}>
-              <X size={13}/> Tozalash
+              className="flex items-center gap-1.5 px-4 py-3 text-sm font-bold"
+              style={{ background:"#FFFFFF", border:"1.5px solid #FFD5D5", color:"#FF5C5C", borderRadius:12 }}>
+              <X size={14}/> Tozalash
             </button>
           )}
         </div>
@@ -1354,7 +1380,7 @@ function Topshiriqlar({ docs, depts, onRefresh }:
           <table className="w-full" style={{ minWidth:980 }}>
             <thead>
               <tr style={{ borderTop:"1px solid #F4F9FD", borderBottom:"1px solid #F4F9FD" }}>
-                {["HUJJAT № SANA VA MANBA","TOPSHIRIQ NOMI","TOPSHIRIQ MAZMUNI","MUDDATI","MAS'UL BO'LIM","HOLATI","AMALLAR"].map(h => (
+                {["#","HUJJAT № SANA VA MANBA","TOPSHIRIQ NOMI","TOPSHIRIQ MAZMUNI","MUDDATI","MAS'UL BO'LIM","HOLATI","AMALLAR"].map(h => (
                   <th key={h} className="px-4 py-3 text-left text-xs font-bold"
                     style={{ color:"#91929E", background:"#FAFCFF", letterSpacing:"0.04em", whiteSpace:"nowrap" }}>
                     {h}
@@ -1363,19 +1389,22 @@ function Topshiriqlar({ docs, depts, onRefresh }:
               </tr>
             </thead>
             <tbody>
-              {filtered.length === 0 ? (
+              {paged.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="py-14 text-center">
+                  <td colSpan={8} className="py-14 text-center">
                     <FileText size={32} className="mx-auto mb-3" style={{ color:"#D0D9E8" }}/>
                     <p className="text-sm font-bold" style={{ color:"#91929E" }}>Hali hujjat yo'q</p>
                     <p className="text-xs mt-1" style={{ color:"#91929E" }}>"Yangi hujjat ro'yxatga olish" tugmasini bosing</p>
                   </td>
                 </tr>
-              ) : filtered.map((d, i) => {
+              ) : paged.map((d, i) => {
                 const dl = daysLeft(d.ijro_muddati);
                 return (
                   <tr key={d.id} className="hover:bg-[#FAFCFF] transition-colors"
-                    style={{ borderBottom: i < filtered.length-1 ? "1px solid #F4F9FD" : "none" }}>
+                    style={{ borderBottom: i < paged.length-1 ? "1px solid #F4F9FD" : "none" }}>
+                    <td className="px-4 py-4 text-sm font-bold" style={{ color:"#91929E" }}>
+                      {(pageSafe - 1) * PAGE_SIZE + i + 1}
+                    </td>
                     <td className="px-4 py-4">
                       <p className="font-bold text-sm" style={{ color:"#3F8CFF" }}>№ {d.hujjat_raqami || `DOC-${d.id}`}</p>
                       <p className="text-xs mt-0.5" style={{ color:"#91929E" }}>{d.hujjat_sanasi || "—"}</p>
@@ -1467,13 +1496,31 @@ function Topshiriqlar({ docs, depts, onRefresh }:
 
         {/* Pagination */}
         <div className="flex items-center justify-between px-6 py-4" style={{ borderTop:"1px solid #F4F9FD" }}>
-          <p className="text-xs" style={{ color:"#91929E" }}>Jami {filtered.length} ta topshiriq ko'rsatilmoqda</p>
+          <p className="text-xs" style={{ color:"#91929E" }}>
+            {filtered.length === 0
+              ? "0 ta topshiriq"
+              : <>{(pageSafe - 1) * PAGE_SIZE + 1}–{Math.min(pageSafe * PAGE_SIZE, filtered.length)} / {filtered.length} ta ko'rsatilmoqda</>}
+          </p>
           <div className="flex items-center gap-1">
-            <button className="w-8 h-8 flex items-center justify-center" style={{ background:"#F4F9FD", borderRadius:8 }}>
+            <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={pageSafe <= 1}
+              className="w-8 h-8 flex items-center justify-center disabled:opacity-40"
+              style={{ background:"#F4F9FD", borderRadius:8 }}>
               <ChevronLeft size={13} style={{ color:"#7D8592" }}/>
             </button>
-            <button className="w-8 h-8 flex items-center justify-center text-xs font-bold text-white" style={{ background:"#3F8CFF", borderRadius:8 }}>1</button>
-            <button className="w-8 h-8 flex items-center justify-center" style={{ background:"#F4F9FD", borderRadius:8 }}>
+            {pageNumbers.map((p, idx) =>
+              p === "..." ? (
+                <span key={`dots-${idx}`} className="w-8 h-8 flex items-center justify-center text-xs font-bold" style={{ color:"#91929E" }}>…</span>
+              ) : (
+                <button key={p} onClick={() => setPage(p)}
+                  className="w-8 h-8 flex items-center justify-center text-xs font-bold"
+                  style={{ background: p === pageSafe ? "#3F8CFF" : "#F4F9FD", color: p === pageSafe ? "#FFFFFF" : "#7D8592", borderRadius:8 }}>
+                  {p}
+                </button>
+              )
+            )}
+            <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={pageSafe >= totalPages}
+              className="w-8 h-8 flex items-center justify-center disabled:opacity-40"
+              style={{ background:"#F4F9FD", borderRadius:8 }}>
               <ChevronRight size={13} style={{ color:"#7D8592" }}/>
             </button>
           </div>
