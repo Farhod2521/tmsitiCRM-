@@ -10,7 +10,7 @@ import {
   Crown, Scale, Wallet, Settings2, BookOpen, Globe, Award,
   ShieldCheck, Zap, FlaskConical, GraduationCap, Megaphone,
   ClipboardCheck, Calculator, Monitor, MapPinned, ShieldAlert,
-  PenTool, Wrench, Layers, Briefcase, Building2, Users, Download, XCircle,
+  PenTool, Wrench, Layers, Briefcase, Building2, Users, Download, XCircle, Check,
 } from "lucide-react";
 import { getUser } from "@/lib/auth";
 import { apiFetch } from "@/lib/api";
@@ -765,6 +765,16 @@ const BOLIM_H_CFG: Record<BolimHolati, { label: string; color: string; bg: strin
   bajarildi:         { label: "Bajarildi",                 color: "#00C48C", bg: "rgba(0,196,140,0.1)"   },
 };
 
+const HOLAT_FILTER_CFG: { key: "all" | BolimHolati; label: string; icon: typeof Send; color: string; bg: string }[] = [
+  { key: "all",               label: "Barchasi",                    icon: List,       color: "#7D8592", bg: "rgba(125,133,146,0.1)" },
+  { key: "yuborildi",         label: "Yuborildi",                   icon: Send,       color: "#3F8CFF", bg: "rgba(63,140,255,0.1)"  },
+  { key: "qabul_qilindi",     label: "Qabul qilindi",               icon: Download,   color: "#6D5DD3", bg: "rgba(109,93,211,0.1)" },
+  { key: "rad_etildi",        label: "Rad etildi",                  icon: XCircle,    color: "#FF5C5C", bg: "rgba(255,92,92,0.1)"  },
+  { key: "bajarilmoqda",      label: "Bajarilmoqda",                icon: RefreshCw,  color: "#FFBD21", bg: "rgba(255,189,33,0.1)" },
+  { key: "tasdiq_kutilmoqda", label: "Tasdiqlanishi kutilmoqda",    icon: Clock,      color: "#3F8CFF", bg: "rgba(63,140,255,0.1)" },
+  { key: "bajarildi",         label: "Bajarildi",                   icon: CheckCircle2, color: "#00C48C", bg: "rgba(0,196,140,0.1)" },
+];
+
 // Bo'limlar holatidan hujjatning umumiy (agregat) holatini chiqaradi — hujjatning
 // o'zidagi "holati" maydoni faqat to'liq yopilganda o'zgaradi, jadvalda esa
 // bo'limlar real holatini ko'rsatish kerak.
@@ -1184,6 +1194,8 @@ function Topshiriqlar({ docs, depts, onRefresh }:
   const [filterSanaTo,   setFilterSanaTo]   = useState("");
   const [filterHolat,    setFilterHolat]    = useState("all");
   const bolimDropdownRef = useRef<HTMLDivElement>(null);
+  const [holatDropdownOpen, setHolatDropdownOpen] = useState(false);
+  const holatDropdownRef = useRef<HTMLDivElement>(null);
   const [page, setPage] = useState(1);
   const PAGE_SIZE = 10;
 
@@ -1191,6 +1203,9 @@ function Topshiriqlar({ docs, depts, onRefresh }:
     function onDocClick(e: MouseEvent) {
       if (bolimDropdownRef.current && !bolimDropdownRef.current.contains(e.target as Node)) {
         setBolimDropdownOpen(false);
+      }
+      if (holatDropdownRef.current && !holatDropdownRef.current.contains(e.target as Node)) {
+        setHolatDropdownOpen(false);
       }
     }
     document.addEventListener("mousedown", onDocClick);
@@ -1350,20 +1365,44 @@ function Topshiriqlar({ docs, depts, onRefresh }:
           </div>
 
           {/* Holat */}
-          <div className="relative flex items-center gap-2.5 px-4 py-3 min-w-[190px]"
-            style={{ background:"#FFFFFF", borderRadius:12, border: filterHolat !== "all" ? "1.5px solid #3F8CFF" : "1.5px solid #E3ECFB", boxShadow:"0 2px 8px rgba(63,140,255,0.06)" }}>
-            <div className="w-6 h-6 flex items-center justify-center flex-shrink-0" style={{ background:"rgba(224,164,0,0.14)", borderRadius:7 }}>
-              <ChevronDown size={12} style={{ color:"#E0A400" }}/>
-            </div>
-            <select value={filterHolat} onChange={e => setFilterHolat(e.target.value)}
-              className="appearance-none bg-transparent text-sm font-bold outline-none w-full pr-5"
-              style={{ color: filterHolat === "all" ? "#7D8592" : "#0A1629" }}>
-              <option value="all">Holat: barchasi</option>
-              {(Object.keys(BOLIM_H_CFG) as BolimHolati[]).map(h => (
-                <option key={h} value={h}>{BOLIM_H_CFG[h].label}</option>
-              ))}
-            </select>
-            <ChevronDown size={15} style={{ color:"#91929E", position:"absolute", right:12, pointerEvents:"none" }}/>
+          <div className="relative" ref={holatDropdownRef}>
+            {(() => {
+              const selCfg = HOLAT_FILTER_CFG.find(c => c.key === filterHolat) || HOLAT_FILTER_CFG[0];
+              const SelIcon = selCfg.icon;
+              return (
+                <button onClick={() => setHolatDropdownOpen(v => !v)}
+                  className="flex items-center gap-2.5 px-4 py-3 min-w-[190px]"
+                  style={{ background:"#FFFFFF", borderRadius:12, border: filterHolat !== "all" ? "1.5px solid #3F8CFF" : "1.5px solid #E3ECFB", boxShadow:"0 2px 8px rgba(63,140,255,0.06)" }}>
+                  <div className="w-6 h-6 flex items-center justify-center flex-shrink-0" style={{ background: selCfg.bg, borderRadius:7 }}>
+                    <SelIcon size={13} style={{ color: selCfg.color }}/>
+                  </div>
+                  <span className="text-sm font-bold truncate" style={{ color: filterHolat === "all" ? "#7D8592" : "#0A1629" }}>
+                    {filterHolat === "all" ? "Holat: barchasi" : selCfg.label}
+                  </span>
+                  <ChevronDown size={15} style={{ color:"#3F8CFF", marginLeft:"auto", flexShrink:0, transform: holatDropdownOpen ? "rotate(180deg)" : "none", transition:"transform 0.15s" }}/>
+                </button>
+              );
+            })()}
+            {holatDropdownOpen && (
+              <div className="absolute top-full left-0 mt-1 z-20 p-2 max-h-80 overflow-y-auto"
+                style={{ background:"#FFFFFF", borderRadius:14, boxShadow:"0 8px 24px rgba(10,22,41,0.15)", minWidth:250, border:"1px solid #F0F4FB" }}>
+                {HOLAT_FILTER_CFG.map(c => {
+                  const Icon = c.icon;
+                  const active = filterHolat === c.key;
+                  return (
+                    <button key={c.key} onClick={() => { setFilterHolat(c.key); setHolatDropdownOpen(false); }}
+                      className="w-full flex items-center gap-2.5 px-2.5 py-2 text-left hover:bg-[#F4F9FD] transition-colors"
+                      style={{ borderRadius:10, background: active ? "rgba(63,140,255,0.08)" : "transparent" }}>
+                      <div className="w-7 h-7 flex items-center justify-center flex-shrink-0" style={{ background: c.bg, borderRadius:8 }}>
+                        <Icon size={14} style={{ color: c.color }}/>
+                      </div>
+                      <span className="text-sm font-bold flex-1" style={{ color: active ? "#0A1629" : "#3D4557" }}>{c.label}</span>
+                      {active && <Check size={15} style={{ color:"#3F8CFF", flexShrink:0 }}/>}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
           </div>
 
           {(filterBolimIds.length > 0 || filterSanaFrom || filterSanaTo || filterHolat !== "all") && (
