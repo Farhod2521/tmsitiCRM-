@@ -1231,6 +1231,12 @@ function Topshiriqlar({ docs, depts, onRefresh }:
     }
 
     return true;
+  }).sort((a, b) => {
+    // Muddati eng yaqinlari birinchi — muddati yo'qlar oxirida.
+    if (!a.ijro_muddati && !b.ijro_muddati) return 0;
+    if (!a.ijro_muddati) return 1;
+    if (!b.ijro_muddati) return -1;
+    return new Date(a.ijro_muddati).getTime() - new Date(b.ijro_muddati).getTime();
   });
 
   const counts = {
