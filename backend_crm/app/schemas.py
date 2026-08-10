@@ -138,6 +138,7 @@ class BotAttendanceReminderOut(BaseModel):
     date: str
     count: int
     group_text: str
+    names: List[str] = []   # rasm-eslatma uchun: barcha yo'q xodimlarning F.I.Sh. (telegram_id bor-yo'qligidan qat'i nazar)
     personal: List[BotAbsentEmployeeOut]
 
 

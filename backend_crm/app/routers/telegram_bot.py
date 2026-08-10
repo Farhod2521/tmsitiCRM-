@@ -86,5 +86,6 @@ def attendance_reminder(db: Session = Depends(get_db)):
         date=date,
         count=len(absent),
         group_text=build_pending_message_text(absent, date),
+        names=[e.full_name for e in absent],
         personal=personal,
     )

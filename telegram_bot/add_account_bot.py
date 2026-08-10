@@ -45,6 +45,8 @@ from telegram.ext import (
     ConversationHandler, MessageHandler, filters,
 )
 
+from reminder_image import build_reminder_image
+
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
 log = logging.getLogger("add_account_bot")
 
@@ -56,6 +58,8 @@ TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID")  # kunlik eslatma yuboriladigan
 SAMPLE_PHOTO_PATH = os.path.join(os.path.dirname(__file__), "sample_photo.jpg")
 
 TZ_UZ = dt.timezone(dt.timedelta(hours=5))  # O'zbekiston vaqti (DST yo'q, doim UTC+5)
+
+_WEEKDAYS_UZ = ["Dushanba", "Seshanba", "Chorshanba", "Payshanba", "Juma", "Shanba", "Yakshanba"]
 
 PHOTO, CONTACT, NEW_PASSWORD_LINK, NEW_PASSWORD_RESET = range(4)
 
@@ -286,12 +290,19 @@ async def send_daily_attendance_reminder(context: ContextTypes.DEFAULT_TYPE) -> 
         except TelegramError:
             log.warning("Shaxsiy eslatma yuborilmadi: %s (telegram_id=%s)", emp.get("full_name"), emp.get("telegram_id"))
 
-    if TELEGRAM_CHAT_ID and data.get("group_text"):
+    if TELEGRAM_CHAT_ID:
         try:
-            await context.bot.send_message(chat_id=TELEGRAM_CHAT_ID, text=data["group_text"])
-        except TelegramError:
-            log.exception("Guruhga eslatma yuborilmadi")
-    elif not TELEGRAM_CHAT_ID:
+            date_obj = dt.datetime.strptime(data["date"], "%Y-%m-%d")
+            image_bytes = build_reminder_image(
+                date_str=date_obj.strftime("%d-%m-%Y"),
+                weekday=_WEEKDAYS_UZ[date_obj.weekday()],
+                count=data.get("count", 0),
+                names=data.get("names", []),
+            )
+            await context.bot.send_photo(chat_id=TELEGRAM_CHAT_ID, photo=image_bytes)
+        except Exception:
+            log.exception("Guruhga eslatma rasmi yuborilmadi")
+    else:
         log.warning("TELEGRAM_CHAT_ID sozlanmagan — guruhga eslatma yuborilmadi")
 
 
