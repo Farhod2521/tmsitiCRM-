@@ -1595,15 +1595,19 @@ function Topshiriqlar({ docs, depts, onRefresh }:
 // ─── Tab 3: Kalandar ─────────────────────────────────────────────────────────
 
 const MONTH_NAMES = ["Yanvar","Fevral","Mart","Aprel","May","Iyun","Iyul","Avgust","Sentabr","Oktabr","Noyabr","Dekabr"];
-const WEEK_DAYS   = ["DUSHANBA","SESHANBA","CHORSHANBA","PAYSHANBA","JUMA","SHANBA","YAKSHANBA"];
+const WEEK_DAYS   = ["Dushanba","Seshanba","Chorshanba","Payshanba","Juma","Shanba","Yakshanba"];
 
-function KalendarTab({ docs }: { docs: IjroDoc[] }) {
+const WEEKDAY_FULL = ["Yakshanba","Dushanba","Seshanba","Chorshanba","Payshanba","Juma","Shanba"];
+
+function KalendarTab({ docs, onGoToTasks }: { docs: IjroDoc[]; onGoToTasks: () => void }) {
   const [cur, setCur] = useState(() => { const d = new Date(); return { y: d.getFullYear(), m: d.getMonth() }; });
   const { y, m } = cur;
 
   const today = new Date();
   const isToday = (d: Date) =>
     d.getDate() === today.getDate() && d.getMonth() === today.getMonth() && d.getFullYear() === today.getFullYear();
+
+  const [selectedDay, setSelectedDay] = useState<number>(today.getDate());
 
   // Build doc map: day-of-month → docs
   const docsByDay = new Map<number, IjroDoc[]>();
@@ -1631,86 +1635,198 @@ function KalendarTab({ docs }: { docs: IjroDoc[] }) {
 
   const prev = () => setCur(p => p.m === 0 ? { y: p.y - 1, m: 11 } : { y: p.y, m: p.m - 1 });
   const next = () => setCur(p => p.m === 11 ? { y: p.y + 1, m: 0  } : { y: p.y, m: p.m + 1 });
+  const goToday = () => { const n = new Date(); setCur({ y: n.getFullYear(), m: n.getMonth() }); setSelectedDay(n.getDate()); };
+
+  const selDay = Math.min(selectedDay, daysInMonth);
+  const selectedDocs = docsByDay.get(selDay) || [];
+  const selectedDate = new Date(y, m, selDay);
+
+  const doneCount    = selectedDocs.filter(d => d.holati === "bajarildi").length;
+  const dueSoonCount = selectedDocs.filter(d => d.holati === "muddati_yaqin" || d.holati === "kechikmoqda").length;
+  const stats = [
+    { label: "Topshiriqlar", value: selectedDocs.length,            color:"#3F8CFF", bg:"rgba(63,140,255,0.1)" },
+    { label: "Bajarildi",    value: doneCount,                       color:"#00C48C", bg:"rgba(0,196,140,0.1)" },
+    { label: "Qolgan",       value: selectedDocs.length - doneCount, color:"#FFBD21", bg:"rgba(255,189,33,0.1)" },
+    { label: "Muddati yaqin",value: dueSoonCount,                    color:"#FF5C5C", bg:"rgba(255,92,92,0.1)" },
+  ];
 
   return (
-    <div style={{ background:"#FFFFFF", borderRadius:20, boxShadow:"0 4px 24px rgba(196,203,214,0.15)", overflow:"hidden" }}>
-      {/* Header */}
-      <div className="flex items-center justify-between px-6 py-5" style={{ borderBottom:"1px solid #F4F9FD" }}>
-        <h2 className="font-bold text-lg" style={{ color:"#0A1629" }}>{MONTH_NAMES[m]} {y}</h2>
-        <div className="flex items-center gap-2">
-          <button onClick={prev} className="w-8 h-8 flex items-center justify-center"
-            style={{ background:"#F4F9FD", borderRadius:8 }}>
-            <ChevronLeft size={14} style={{ color:"#7D8592" }}/>
-          </button>
-          <button onClick={() => { const n = new Date(); setCur({ y: n.getFullYear(), m: n.getMonth() }); }}
-            className="px-3 py-1.5 text-xs font-bold text-white" style={{ background:"#3F8CFF", borderRadius:8 }}>
-            Bugun
-          </button>
-          <button onClick={next} className="w-8 h-8 flex items-center justify-center"
-            style={{ background:"#F4F9FD", borderRadius:8 }}>
-            <ChevronRight size={14} style={{ color:"#7D8592" }}/>
+    <div className="flex items-start gap-5 flex-wrap xl:flex-nowrap">
+      {/* Calendar card */}
+      <div className="flex-1 min-w-[320px]" style={{ background:"#FFFFFF", borderRadius:20, boxShadow:"0 4px 24px rgba(196,203,214,0.15)", overflow:"hidden" }}>
+        {/* Header */}
+        <div className="flex items-center justify-between px-6 py-5 flex-wrap gap-3" style={{ borderBottom:"1px solid #F4F9FD" }}>
+          <div className="flex items-center gap-3">
+            <h2 className="font-bold text-lg" style={{ color:"#0A1629" }}>{MONTH_NAMES[m]} {y}</h2>
+            <div className="flex items-center gap-1">
+              <button onClick={prev} className="w-7 h-7 flex items-center justify-center"
+                style={{ background:"#F4F9FD", borderRadius:8 }}>
+                <ChevronLeft size={13} style={{ color:"#7D8592" }}/>
+              </button>
+              <button onClick={next} className="w-7 h-7 flex items-center justify-center"
+                style={{ background:"#F4F9FD", borderRadius:8 }}>
+                <ChevronRight size={13} style={{ color:"#7D8592" }}/>
+              </button>
+            </div>
+          </div>
+          <button onClick={goToday}
+            className="flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold text-white"
+            style={{ background:"#3F8CFF", borderRadius:9, boxShadow:"0 4px 12px rgba(63,140,255,0.3)" }}>
+            <Calendar size={13}/> Bugun
           </button>
         </div>
-      </div>
 
-      {/* Day-of-week headers */}
-      <div className="grid grid-cols-7" style={{ borderBottom:"1px solid #F4F9FD" }}>
-        {WEEK_DAYS.map(d => (
-          <div key={d} className="py-3 text-center text-xs font-bold" style={{ color:"#91929E", letterSpacing:"0.03em" }}>
-            {d}
-          </div>
-        ))}
-      </div>
+        {/* Day-of-week headers */}
+        <div className="grid grid-cols-7" style={{ borderBottom:"1px solid #F4F9FD" }}>
+          {WEEK_DAYS.map(d => (
+            <div key={d} className="py-3 text-center text-xs font-bold" style={{ color:"#91929E", letterSpacing:"0.03em" }}>
+              {d}
+            </div>
+          ))}
+        </div>
 
-      {/* Weeks */}
-      {weeks.map((week, wi) => (
-        <div key={wi} className="grid grid-cols-7"
-          style={{ borderBottom: wi < weeks.length - 1 ? "1px solid #F4F9FD" : "none" }}>
-          {week.map((day, di) => {
-            if (!day) {
+        {/* Weeks */}
+        {weeks.map((week, wi) => (
+          <div key={wi} className="grid grid-cols-7"
+            style={{ borderBottom: wi < weeks.length - 1 ? "1px solid #F4F9FD" : "none" }}>
+            {week.map((day, di) => {
+              if (!day) {
+                return (
+                  <div key={di} className="min-h-[92px]"
+                    style={{ borderLeft: di > 0 ? "1px solid #F4F9FD" : "none", background:"#FAFCFF" }}/>
+                );
+              }
+              const dayDocs = docsByDay.get(day) || [];
+              const cur_day = isToday(new Date(y, m, day));
+              const isSel = day === selDay;
               return (
-                <div key={di} className="min-h-[100px]"
-                  style={{ borderLeft: di > 0 ? "1px solid #F4F9FD" : "none", background:"#FAFCFF" }}/>
-              );
-            }
-            const dayDocs = docsByDay.get(day) || [];
-            const cur_day = isToday(new Date(y, m, day));
-            return (
-              <div key={di} className="min-h-[100px] p-2 flex flex-col"
-                style={{
-                  borderLeft:  di > 0 ? "1px solid #F4F9FD" : "none",
-                  border:      cur_day ? "2px solid #00C48C" : undefined,
-                  background:  cur_day ? "rgba(0,196,140,0.03)" : undefined,
-                }}>
-                <span className="text-sm font-bold text-right block mb-1"
-                  style={{ color: cur_day ? "#00C48C" : "#0A1629" }}>
-                  {day}
-                </span>
-                {dayDocs.length > 0 && (
-                  <div className="flex flex-col gap-1 mt-1">
-                    <div className="flex items-center gap-1">
-                      <span className="text-xs font-bold" style={{ color:"#3F8CFF" }}>● {dayDocs.length}</span>
+                <button key={di} onClick={() => setSelectedDay(day)}
+                  className="min-h-[92px] p-2 flex flex-col items-stretch text-left transition-colors"
+                  style={{
+                    borderLeft:   di > 0 ? "1px solid #F4F9FD" : "none",
+                    border:       isSel ? "2px solid #3F8CFF" : cur_day ? "2px solid #00C48C" : undefined,
+                    background:   isSel ? "rgba(63,140,255,0.06)" : cur_day ? "rgba(0,196,140,0.03)" : undefined,
+                    borderRadius: isSel ? 10 : 0,
+                  }}>
+                  <span className="text-sm font-bold text-right block mb-1"
+                    style={{ color: isSel ? "#3F8CFF" : cur_day ? "#00C48C" : "#0A1629" }}>
+                    {day}
+                  </span>
+                  {dayDocs.length > 0 && (
+                    <div className="flex flex-col gap-1 mt-1">
+                      <span className="text-[11px] font-bold" style={{ color: isSel ? "#3F8CFF" : "#91929E" }}>
+                        {dayDocs.length} ta topshiriq
+                      </span>
+                      <div className="flex items-center gap-0.5">
+                        {dayDocs.slice(0, 4).map(doc => (
+                          <span key={doc.id} className="w-1.5 h-1.5 rounded-full"
+                            style={{ background: HOLATI_CFG[doc.holati].color }}/>
+                        ))}
+                      </div>
                     </div>
-                    {dayDocs.slice(0, 3).map(doc => (
-                      <div key={doc.id} className="h-[3px] rounded-full w-full"
-                        style={{ background: HOLATI_CFG[doc.holati].color }}/>
-                    ))}
-                  </div>
-                )}
-              </div>
-            );
-          })}
-        </div>
-      ))}
-
-      {/* Legend */}
-      <div className="flex items-center gap-4 flex-wrap px-6 py-4" style={{ borderTop:"1px solid #F4F9FD" }}>
-        {Object.values(HOLATI_CFG).map(c => (
-          <div key={c.label} className="flex items-center gap-1.5">
-            <div className="w-3 h-1.5 rounded-full" style={{ background: c.color }}/>
-            <span className="text-xs" style={{ color:"#91929E" }}>{c.label}</span>
+                  )}
+                </button>
+              );
+            })}
           </div>
         ))}
+
+        {/* Legend */}
+        <div className="flex items-center gap-4 flex-wrap px-6 py-4" style={{ borderTop:"1px solid #F4F9FD" }}>
+          {Object.values(HOLATI_CFG).map(c => (
+            <div key={c.label} className="flex items-center gap-1.5">
+              <div className="w-2.5 h-2.5 rounded-full" style={{ background: c.color }}/>
+              <span className="text-xs" style={{ color:"#91929E" }}>{c.label}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Side panel — tanlangan kun tafsiloti */}
+      <div className="w-full xl:w-[360px] flex-shrink-0"
+        style={{ background:"#FFFFFF", borderRadius:20, boxShadow:"0 4px 24px rgba(196,203,214,0.15)", padding:20 }}>
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <p className="font-bold text-base" style={{ color:"#0A1629" }}>{selDay} {MONTH_NAMES[m]}, {y}</p>
+            <p className="text-xs mt-0.5" style={{ color:"#91929E" }}>{WEEKDAY_FULL[selectedDate.getDay()]}</p>
+          </div>
+          <div className="w-9 h-9 flex items-center justify-center flex-shrink-0" style={{ background:"rgba(63,140,255,0.1)", borderRadius:10 }}>
+            <Calendar size={16} style={{ color:"#3F8CFF" }}/>
+          </div>
+        </div>
+
+        {/* Stat cards */}
+        <div className="grid grid-cols-4 gap-2 mb-5">
+          {stats.map(s => (
+            <div key={s.label} className="flex flex-col items-center py-2.5 px-1" style={{ background:s.bg, borderRadius:12 }}>
+              <span className="text-base font-bold" style={{ color:s.color }}>{s.value}</span>
+              <span className="text-[10px] font-bold text-center mt-0.5 leading-tight" style={{ color:s.color }}>{s.label}</span>
+            </div>
+          ))}
+        </div>
+
+        <p className="text-sm font-bold mb-3" style={{ color:"#0A1629" }}>Topshiriqlar</p>
+
+        {selectedDocs.length === 0 ? (
+          <div className="text-center py-10">
+            <FileText size={26} className="mx-auto mb-2" style={{ color:"#D0D9E8" }}/>
+            <p className="text-xs font-bold" style={{ color:"#91929E" }}>Bu kunga topshiriq yo'q</p>
+          </div>
+        ) : (
+          <div className="flex flex-col gap-2.5 max-h-[420px] overflow-y-auto pr-1">
+            {selectedDocs.map(doc => {
+              const hc = HOLATI_CFG[doc.holati];
+              const dl = daysLeft(doc.ijro_muddati);
+              let bolimItems: BolimInfo[] = [];
+              try { bolimItems = JSON.parse(doc.masul_bolimlar_info || "[]"); } catch { /* noop */ }
+              if (!bolimItems.length && doc.masul_bolimlar_nomi)
+                bolimItems = doc.masul_bolimlar_nomi.split(", ").map((n, i) => ({ id: i, name: n, holati: "yuborildi" }));
+              return (
+                <div key={doc.id} className="p-3" style={{ background:"#FAFCFF", borderRadius:14, border:"1px solid #F0F3F8" }}>
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex items-start gap-2 min-w-0">
+                      <span className="w-2 h-2 rounded-full mt-1.5 flex-shrink-0" style={{ background: hc.color }}/>
+                      <p className="text-sm font-bold truncate" style={{ color:"#0A1629" }}>{doc.sarlavha || `DOC-${doc.id}`}</p>
+                    </div>
+                    <span className="text-xs font-bold flex-shrink-0" style={{ color: dl.color }}>{dl.text}</span>
+                  </div>
+                  {doc.mazmun && (
+                    <p className="text-xs mt-1.5 line-clamp-2" style={{ color:"#7D8592" }}>{doc.mazmun}</p>
+                  )}
+                  <span className="inline-block text-xs font-bold px-2 py-0.5 rounded-full mt-2.5"
+                    style={{ background:hc.bg, color:hc.color }}>
+                    {hc.label}
+                  </span>
+                  {bolimItems.length > 0 && (
+                    <div className="flex items-center gap-1.5 flex-wrap mt-2">
+                      {bolimItems.map(b => {
+                        const isRad = b.holati === "rad_etildi";
+                        return (
+                          <span key={b.id} className="text-[10px] font-bold px-1.5 py-0.5 inline-flex items-center gap-1"
+                            style={{
+                              background: isRad ? "rgba(255,92,92,0.08)" : "rgba(63,140,255,0.08)",
+                              color: isRad ? "#FF5C5C" : "#3F8CFF",
+                              borderRadius: 5,
+                              textDecoration: isRad ? "line-through" : "none",
+                              opacity: isRad ? 0.7 : 1,
+                            }}>
+                            <Building2 size={9}/> {b.name}
+                          </span>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        <button onClick={onGoToTasks}
+          className="w-full flex items-center justify-center gap-2 mt-4 py-3 text-sm font-bold"
+          style={{ background:"rgba(63,140,255,0.08)", color:"#3F8CFF", borderRadius:12 }}>
+          <List size={15}/> Barcha topshiriqlarni ko'rish
+        </button>
       </div>
     </div>
   );
@@ -1805,7 +1921,7 @@ export default function IjroNazoratPage() {
       ) : tab === "tasks" ? (
         <Topshiriqlar docs={docs} depts={depts} onRefresh={loadDocs} />
       ) : (
-        <KalendarTab docs={docs} />
+        <KalendarTab docs={docs} onGoToTasks={() => setTab("tasks")} />
       )}
     </div>
   );
