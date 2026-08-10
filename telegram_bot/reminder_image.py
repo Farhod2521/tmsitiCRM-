@@ -89,9 +89,8 @@ def build_reminder_image(date_str: str, weekday: str, count: int, names: list[st
     draw.text((934, 89), "09:00 da", font=_font(21, bold=True), fill=WHITE, anchor="mm")
 
     # ── Qizil banner sarlavhasi ──
-    draw.text((225, 197), "\u2018ISHGA KELDIM\u2019 TUGMASINI", font=_font(30, bold=True), fill=WHITE, anchor="lm")
-    draw.text((225, 240), "BOSMAGAN XODIMLAR", font=_font(32, bold=True), fill=WHITE, anchor="lm")
-    draw.text((225, 283), "Iltimos, saytga kirib \u201cIshga keldim\u201d tugmasini bosing.", font=_font(15, bold=False), fill=(255, 220, 220), anchor="lm")
+    draw.text((225, 210), "\u2018ISHGA KELDIM\u2019 TUGMASINI", font=_font(30, bold=True), fill=WHITE, anchor="lm")
+    draw.text((225, 253), "BOSMAGAN XODIMLAR", font=_font(32, bold=True), fill=WHITE, anchor="lm")
 
     # ── To'q ko'k umumiy panel: sarlavha + son ──
     title_prefix = "\u2018ISHGA KELDIM\u2019 TUGMASINI BOSMAGAN XODIMLAR RO\u2018YXATI "
