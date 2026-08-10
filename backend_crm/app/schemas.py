@@ -403,7 +403,7 @@ class IjroDocIn(BaseModel):
     masul_orinbosar_id:       Optional[int]      = None
     masul_bolimlar:           Optional[str]      = None   # JSON "[1,3]"
     masul_bolimlar_xodimlar:  Optional[str]      = None   # JSON {"1": 12, "3": 45} — bo'lim_id -> boshlang'ich ijrochi xodim_id
-    masul_bolimlar_turlari:   Optional[str]      = None   # JSON {"1": "asosiy", "3": "qoshimcha"} — bo'lim_id -> ijrochi turi
+    ijrochi_turi:             Literal["asosiy", "qoshimcha"] = "asosiy"
     ijro_muddati:             Optional[datetime] = None
     davriyligi:               IjroDocDavriyligi  = IjroDocDavriyligi.bir_martalik
     kelishuvchi_tashkilotlar: Optional[str]      = None
@@ -425,6 +425,7 @@ class IjroDocOut(BaseModel):
     masul_bolimlar_nomi:      Optional[str]      = None   # "Bo'lim A, Bo'lim B"
     masul_bolimlar_info:      Optional[str]      = None   # JSON: [{id,name,holati}]
     masul_bolim_boshliqlari_nomi: Optional[str]  = None   # rad etilmagan bo'lim(lar) boshlig'i F.I.Sh.
+    ijrochi_turi:             str                = "asosiy"
     ijro_muddati:             Optional[datetime] = None
     davriyligi:               IjroDocDavriyligi
     kelishuvchi_tashkilotlar: Optional[str]      = None
@@ -453,6 +454,7 @@ class IjroDocListOut(BaseModel):
     masul_bolimlar_nomi:      Optional[str]      = None
     masul_bolimlar_info:      Optional[str]      = None
     masul_bolim_boshliqlari_nomi: Optional[str]  = None
+    ijrochi_turi:             str                = "asosiy"
     ijro_muddati:             Optional[datetime] = None
     davriyligi:               IjroDocDavriyligi
     kelishuvchi_tashkilotlar: Optional[str]      = None
@@ -489,7 +491,6 @@ class IjroDocBolimOut(BaseModel):
     xodim_id:         Optional[int] = None
     xodim_nomi:       Optional[str] = None
     xodim_assigned_at: Optional[datetime] = None
-    ijrochi_turi:     str = "asosiy"   # "asosiy" | "qoshimcha"
     assign_log:    List[IjroDocBolimAssignLogOut] = []
     # Topshiriqni yakunlash (bajarildi deb belgilash) — izoh + fayllar
     yakunlash_izohi:    Optional[str] = None
@@ -542,7 +543,7 @@ class IjroDocUpdate(BaseModel):
     qoshimcha_malumot:        Optional[str]                = None
     masul_orinbosar_id:       Optional[int]                = None
     masul_bolimlar:           Optional[str]                = None
-    masul_bolimlar_turlari:   Optional[str]                = None   # JSON {"1": "asosiy", "3": "qoshimcha"}
+    ijrochi_turi:             Optional[Literal["asosiy", "qoshimcha"]] = None
     ijro_muddati:             Optional[datetime]           = None
     davriyligi:               Optional[IjroDocDavriyligi]  = None
     kelishuvchi_tashkilotlar: Optional[str]                = None

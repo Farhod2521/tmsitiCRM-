@@ -1,0 +1,1 @@
+ALTER TABLE ijro_documents ADD COLUMN IF NOT EXISTS ijrochi_turi VARCHAR(20) NOT NULL DEFAULT 'asosiy';

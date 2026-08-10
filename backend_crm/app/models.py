@@ -239,6 +239,9 @@ class IjroDocument(Base):
     qoshimcha_malumot        = Column(Text,         nullable=True)
     masul_orinbosar_id       = Column(Integer, ForeignKey("employees.id"), nullable=True)
     masul_bolimlar           = Column(String(500),  nullable=True)   # JSON: "[1,3,5]"
+    # "asosiy" | "qoshimcha" — hujjat manbasi tanlangandan keyin belgilanadigan
+    # umumiy ijrochi turi. Oddiy String (DB enum emas).
+    ijrochi_turi             = Column(String(20), default="asosiy", nullable=False)
     ijro_muddati             = Column(DateTime,     nullable=True)
     davriyligi               = Column(SAEnum(IjroDocDavriyligi, name="ijro_doc_davriyligi_enum"), default=IjroDocDavriyligi.bir_martalik, nullable=False)
     kelishuvchi_tashkilotlar = Column(String(500),  nullable=True)
@@ -264,10 +267,6 @@ class IjroDocBolim(Base):
     bolim_id   = Column(Integer, ForeignKey("departments.id"),   nullable=False)
     holati     = Column(SAEnum(IjroDocBolimHolati, name="ijro_doc_bolim_holati_enum"),
                         default=IjroDocBolimHolati.yuborildi, nullable=False)
-    # "asosiy" | "qoshimcha" — shu bo'lim hujjat bo'yicha asosiy ijrochimi yoki
-    # qo'shimcha ijrochimi. Oddiy String (DB enum emas), enum kabi validatsiya
-    # Pydantic Literal orqali qilinadi.
-    ijrochi_turi = Column(String(20), default="asosiy", nullable=False)
     izoh       = Column(Text, nullable=True)
     assigned_at= Column(DateTime, default=datetime.utcnow)
     qaror_at   = Column(DateTime, nullable=True)

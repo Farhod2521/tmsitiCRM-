@@ -53,18 +53,9 @@ def _fill_doc_out(item, doc: models.IjroDocument, db: Session):
                 ab.bolim_id: ab.holati.value
                 for ab in doc.bolim_assignments
             }
-            turi_map: dict[int, str] = {
-                ab.bolim_id: (ab.ijrochi_turi or "asosiy")
-                for ab in doc.bolim_assignments
-            }
             item.masul_bolimlar_nomi = ", ".join(dept_map.get(i, str(i)) for i in ids)
             item.masul_bolimlar_info = json.dumps([
-                {
-                    "id": i,
-                    "name": dept_map.get(i, str(i)),
-                    "holati": holat_map.get(i, "yuborildi"),
-                    "ijrochi_turi": turi_map.get(i, "asosiy"),
-                }
+                {"id": i, "name": dept_map.get(i, str(i)), "holati": holat_map.get(i, "yuborildi")}
                 for i in ids
             ])
             # Rad etilmagan (hozir faol) bo'lim(lar)ning boshlig'i F.I.Sh.
@@ -160,7 +151,7 @@ def create_doc(
     db:      Session = Depends(get_db),
     current: models.Employee = Depends(_require_ijro),
 ):
-    doc_data = data.model_dump(exclude={"masul_bolimlar_xodimlar", "masul_bolimlar_turlari"})
+    doc_data = data.model_dump(exclude={"masul_bolimlar_xodimlar"})
     doc = models.IjroDocument(**doc_data, created_by=current.id)
     db.add(doc)
     db.flush()   # get doc.id before commit
@@ -173,22 +164,12 @@ def create_doc(
         except (json.JSONDecodeError, TypeError, ValueError):
             xodim_map = {}
 
-    # Bo'lim_id -> ijrochi turi ("asosiy" | "qoshimcha"), forma orqali tanlangan.
-    # Belgilanmagan bo'limlar uchun standart "asosiy" hisoblanadi.
-    turi_map: dict[int, str] = {}
-    if data.masul_bolimlar_turlari:
-        try:
-            turi_map = {int(k): v for k, v in json.loads(data.masul_bolimlar_turlari).items()}
-        except (json.JSONDecodeError, TypeError, ValueError):
-            turi_map = {}
-
     # Auto-create IjroDocBolim rows for each selected department
     if data.masul_bolimlar:
         try:
             bolim_ids = json.loads(data.masul_bolimlar)
             for bid in bolim_ids:
                 ab = models.IjroDocBolim(doc_id=doc.id, bolim_id=bid)
-                ab.ijrochi_turi = turi_map.get(bid) if turi_map.get(bid) in ("asosiy", "qoshimcha") else "asosiy"
                 xodim_id = xodim_map.get(bid)
                 if xodim_id:
                     xodim = db.query(models.Employee).filter(
@@ -477,19 +458,8 @@ def update_doc(
     doc = db.query(models.IjroDocument).filter(models.IjroDocument.id == doc_id).first()
     if not doc:
         raise HTTPException(status_code=404, detail="Topilmadi")
-    for field, value in data.model_dump(exclude_unset=True, exclude={"masul_bolimlar_turlari"}).items():
+    for field, value in data.model_dump(exclude_unset=True).items():
         setattr(doc, field, value)
-
-    if data.masul_bolimlar_turlari:
-        try:
-            turi_map = {int(k): v for k, v in json.loads(data.masul_bolimlar_turlari).items()}
-            for ab in doc.bolim_assignments:
-                t = turi_map.get(ab.bolim_id)
-                if t in ("asosiy", "qoshimcha"):
-                    ab.ijrochi_turi = t
-        except (json.JSONDecodeError, TypeError, ValueError):
-            pass
-
     db.commit()
     db.refresh(doc)
     return _fill_doc_out(schemas.IjroDocOut.model_validate(doc), doc, db)
