@@ -405,18 +405,6 @@ class MonthlyReportCalendarDay(BaseModel):
     weekday: int    # 0=Dushanba .. 6=Yakshanba
     status: Literal["kelgan", "kechikkan", "kelmagan", "dam_olish", "kelajak"]
 
-class MonthlyReportArrival(BaseModel):
-    date: str    # "01.05.2025"
-    time: str    # "08:58"
-
-class MonthlyReportDeparture(BaseModel):
-    date: str
-    time: str    # hozircha standart "18:15" — chiqish tugmasi qo'shilgach real vaqtga almashadi
-
-class MonthlyReportAbsentDay(BaseModel):
-    date: str
-    weekday_label: str
-
 class MonthlyReportWeekRow(BaseModel):
     week: int
     label: str
@@ -428,11 +416,9 @@ class MonthlyReportWeekRow(BaseModel):
 class MonthlyReportTimeAnalysis(BaseModel):
     samarali_min: int
     kechikish_min: int
-    tanaffus_min: int
-    total_min: int
+    total_min: int          # oyning talab qilinadigan jami soati (ish_kunlari_jami * 8 soat)
     samarali_pct: float
     kechikish_pct: float
-    tanaffus_pct: float
 
 class MonthlyReportScoreItem(BaseModel):
     label: str
@@ -460,9 +446,6 @@ class MonthlyReportOut(BaseModel):
     calendar: List[MonthlyReportCalendarDay]
     weekly_reports: List[MonthlyReportWeekRow]
     time_analysis: MonthlyReportTimeAnalysis
-    arrivals: List[MonthlyReportArrival]
-    departures: List[MonthlyReportDeparture]
-    absent_days: List[MonthlyReportAbsentDay]
     scores: MonthlyReportScores
     prepared_by_name: Optional[str] = None
     approved_by_name: Optional[str] = None

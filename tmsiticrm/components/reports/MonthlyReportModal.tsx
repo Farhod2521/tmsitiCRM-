@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import {
   X, Loader2, Clock, CheckCircle2, XCircle, FileText, Download,
-  Building2, Phone, IdCard, LogIn, LogOut,
+  Building2, Phone, IdCard,
 } from "lucide-react";
 import { apiFetch } from "@/lib/api";
 
@@ -12,16 +12,14 @@ const WEEK_DAYS = ["Du", "Se", "Ch", "Pa", "Ju", "Sh", "Ya"];
 type DayStatus = "kelgan" | "kechikkan" | "kelmagan" | "dam_olish" | "kelajak";
 
 interface CalendarDay { day: number; weekday: number; status: DayStatus; }
-interface ArrivalRow { date: string; time: string; }
-interface AbsentRow { date: string; weekday_label: string; }
 interface WeekRow {
   week: number; label: string;
   file_name: string | null; uploaded_at: string | null;
   ball: number | null; report_id: number | null;
 }
 interface TimeAnalysis {
-  samarali_min: number; kechikish_min: number; tanaffus_min: number; total_min: number;
-  samarali_pct: number; kechikish_pct: number; tanaffus_pct: number;
+  samarali_min: number; kechikish_min: number; total_min: number;
+  samarali_pct: number; kechikish_pct: number;
 }
 interface ScoreItem { label: string; ball: number | null; max_ball: number; }
 interface Scores { ijro: ScoreItem; kadr: ScoreItem; bolim: ScoreItem; umumiy: ScoreItem; comment: string | null; }
@@ -37,9 +35,6 @@ interface MonthlyReport {
   calendar: CalendarDay[];
   weekly_reports: WeekRow[];
   time_analysis: TimeAnalysis;
-  arrivals: ArrivalRow[];
-  departures: ArrivalRow[];
-  absent_days: AbsentRow[];
   scores: Scores;
   prepared_by_name: string | null;
   approved_by_name: string | null;
@@ -63,13 +58,12 @@ const DAY_CFG: Record<DayStatus, { icon: typeof CheckCircle2 | null; color: stri
   kelajak:    { icon: null,         color: "#D9E3F0", bg: "#FFFFFF" },
 };
 
-/* ── 3-segmentli donut (SVG) ── */
+/* ── Ishlash vaqti donuti — oyning talab qilingan soatidan qancha bajarilgani ── */
 function TimeDonut({ ta }: { ta: TimeAnalysis }) {
   const size = 160, stroke = 20, r = (size - stroke) / 2, c = 2 * Math.PI * r;
   const segs = [
     { pct: ta.samarali_pct, color: "#00C48C" },
     { pct: ta.kechikish_pct, color: "#FF8C42" },
-    { pct: ta.tanaffus_pct, color: "#B8C2D6" },
   ];
   let offsetAcc = 0;
   return (
@@ -241,7 +235,7 @@ export default function MonthlyReportModal({
                 </div>
               </div>
 
-              {/* Kalendar + Ishlar ro'yxati */}
+              {/* Kalendar + Ishlash vaqti tahlili */}
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
                 <div className="p-4" style={{ background: "#FFFFFF", borderRadius: 16, border: "1px solid #F0F3F8" }}>
                   <p className="text-xs font-bold mb-3" style={{ color: "#91929E", letterSpacing: "0.04em" }}>OYLIK ISH JADVALI</p>
@@ -273,17 +267,17 @@ export default function MonthlyReportModal({
                       </span>
                     ))}
                   </div>
+                </div>
 
-                  {/* Ishlash vaqti tahlili */}
-                  <div className="flex items-center gap-4 mt-4 pt-4" style={{ borderTop: "1px solid #F4F9FD" }}>
+                <div className="p-4" style={{ background: "#FFFFFF", borderRadius: 16, border: "1px solid #F0F3F8" }}>
+                  <p className="text-xs font-bold mb-3" style={{ color: "#91929E", letterSpacing: "0.04em" }}>ISHLASH VAQTI TAHLILI</p>
+                  <div className="flex items-center gap-4">
                     <TimeDonut ta={data.time_analysis} />
-                    <div className="flex flex-col gap-2 text-xs flex-1">
-                      <p className="font-bold" style={{ color: "#0A1629" }}>Ishlash vaqti tahlili</p>
-                      <p style={{ color: "#91929E" }}>Bu oyda <b style={{ color: "#0A1629" }}>{data.summary.ish_kunlari_jami}</b> ish kuni bo'lgan</p>
+                    <div className="flex flex-col gap-2.5 text-xs flex-1">
+                      <p style={{ color: "#91929E" }}>Bu oyda <b style={{ color: "#0A1629" }}>{data.summary.ish_kunlari_jami}</b> ish kuni bo'lgan (<b style={{ color: "#0A1629" }}>{fmtHM(data.time_analysis.total_min)}</b> soat ishlashi kerak)</p>
                       {[
                         { l: "Samarali ish vaqti", v: data.time_analysis.samarali_min, p: data.time_analysis.samarali_pct, c: "#00C48C" },
                         { l: "Kechikishlar", v: data.time_analysis.kechikish_min, p: data.time_analysis.kechikish_pct, c: "#FF8C42" },
-                        { l: "Tanaffus", v: data.time_analysis.tanaffus_min, p: data.time_analysis.tanaffus_pct, c: "#B8C2D6" },
                       ].map(r => (
                         <div key={r.l} className="flex items-center gap-2">
                           <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ background: r.c }} />
@@ -294,87 +288,42 @@ export default function MonthlyReportModal({
                     </div>
                   </div>
                 </div>
-
-                <div className="p-4" style={{ background: "#FFFFFF", borderRadius: 16, border: "1px solid #F0F3F8" }}>
-                  <p className="text-xs font-bold mb-3" style={{ color: "#91929E", letterSpacing: "0.04em" }}>ISHLAR RO'YXATI (HAFTALIK)</p>
-                  <div className="flex flex-col gap-2">
-                    {data.weekly_reports.map(w => (
-                      <div key={w.week} className="flex items-center gap-3 p-3" style={{ background: "#FAFCFF", borderRadius: 12, border: "1px solid #F0F3F8" }}>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-xs font-bold" style={{ color: "#0A1629" }}>{w.label}</p>
-                          <p className="text-[11px] mt-0.5" style={{ color: "#91929E" }}>
-                            {w.file_name ? w.file_name : "Fayl yuklanmagan"}
-                            {w.uploaded_at && <> · {new Date(w.uploaded_at).toLocaleDateString("uz-UZ")}</>}
-                          </p>
-                        </div>
-                        {w.ball != null && (
-                          <span className="text-xs font-bold px-2 py-1 flex-shrink-0" style={{ background: "rgba(0,196,140,0.1)", color: "#00C48C", borderRadius: 8 }}>
-                            {w.ball} ball
-                          </span>
-                        )}
-                        {w.report_id ? (
-                          <a href={`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/reports/weekly/file/${w.report_id}`}
-                            target="_blank" rel="noopener noreferrer"
-                            className="w-8 h-8 flex items-center justify-center flex-shrink-0 hover:opacity-80" style={{ background: "rgba(63,140,255,0.1)", borderRadius: 8 }}>
-                            <Download size={13} style={{ color: "#3F8CFF" }} />
-                          </a>
-                        ) : (
-                          <div className="w-8 h-8 flex items-center justify-center flex-shrink-0" style={{ background: "#F4F9FD", borderRadius: 8 }}>
-                            <FileText size={13} style={{ color: "#D9E3F0" }} />
-                          </div>
-                        )}
-                      </div>
-                    ))}
-                    {data.weekly_reports.length === 0 && (
-                      <p className="text-xs text-center py-6" style={{ color: "#91929E" }}>Bu oy uchun haftalik hisobot yo'q</p>
-                    )}
-                  </div>
-                </div>
               </div>
 
-              {/* Kim keldi / kim ketdi + Kelmagan kunlar */}
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-                <div className="p-4" style={{ background: "#FFFFFF", borderRadius: 16, border: "1px solid #F0F3F8" }}>
-                  <p className="text-xs font-bold mb-3" style={{ color: "#91929E", letterSpacing: "0.04em" }}>KIM KELDI / KIM KETDI</p>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <p className="text-[11px] font-bold flex items-center gap-1.5 mb-2" style={{ color: "#00C48C" }}><LogIn size={12} /> KIM KELDI</p>
-                      <div className="flex flex-col gap-1.5 max-h-40 overflow-y-auto pr-1">
-                        {data.arrivals.map((a, i) => (
-                          <div key={i} className="flex items-center justify-between text-[11px]">
-                            <span style={{ color: "#7D8592" }}>{a.date}</span>
-                            <span className="font-bold" style={{ color: "#0A1629" }}>{a.time}</span>
-                          </div>
-                        ))}
-                        {data.arrivals.length === 0 && <p className="text-[11px]" style={{ color: "#C4CBD6" }}>—</p>}
+              {/* Ishlar ro'yxati (haftalik) — to'liq kenglik */}
+              <div className="p-4" style={{ background: "#FFFFFF", borderRadius: 16, border: "1px solid #F0F3F8" }}>
+                <p className="text-xs font-bold mb-3" style={{ color: "#91929E", letterSpacing: "0.04em" }}>ISHLAR RO'YXATI (HAFTALIK)</p>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                  {data.weekly_reports.map(w => (
+                    <div key={w.week} className="flex items-center gap-3 p-3" style={{ background: "#FAFCFF", borderRadius: 12, border: "1px solid #F0F3F8" }}>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-bold" style={{ color: "#0A1629" }}>{w.label}</p>
+                        <p className="text-[11px] mt-0.5 truncate" style={{ color: "#91929E" }}>
+                          {w.file_name ? w.file_name : "Fayl yuklanmagan"}
+                          {w.uploaded_at && <> · {new Date(w.uploaded_at).toLocaleDateString("uz-UZ")}</>}
+                        </p>
                       </div>
+                      {w.ball != null && (
+                        <span className="text-xs font-bold px-2 py-1 flex-shrink-0" style={{ background: "rgba(0,196,140,0.1)", color: "#00C48C", borderRadius: 8 }}>
+                          {w.ball} ball
+                        </span>
+                      )}
+                      {w.report_id ? (
+                        <a href={`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/reports/weekly/file/${w.report_id}`}
+                          target="_blank" rel="noopener noreferrer"
+                          className="w-8 h-8 flex items-center justify-center flex-shrink-0 hover:opacity-80" style={{ background: "rgba(63,140,255,0.1)", borderRadius: 8 }}>
+                          <Download size={13} style={{ color: "#3F8CFF" }} />
+                        </a>
+                      ) : (
+                        <div className="w-8 h-8 flex items-center justify-center flex-shrink-0" style={{ background: "#F4F9FD", borderRadius: 8 }}>
+                          <FileText size={13} style={{ color: "#D9E3F0" }} />
+                        </div>
+                      )}
                     </div>
-                    <div>
-                      <p className="text-[11px] font-bold flex items-center gap-1.5 mb-2" style={{ color: "#FF5C5C" }}><LogOut size={12} /> KIM KETDI</p>
-                      <div className="flex flex-col gap-1.5 max-h-40 overflow-y-auto pr-1">
-                        {data.departures.map((a, i) => (
-                          <div key={i} className="flex items-center justify-between text-[11px]">
-                            <span style={{ color: "#7D8592" }}>{a.date}</span>
-                            <span className="font-bold" style={{ color: "#0A1629" }}>{a.time}</span>
-                          </div>
-                        ))}
-                        {data.departures.length === 0 && <p className="text-[11px]" style={{ color: "#C4CBD6" }}>—</p>}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="p-4" style={{ background: "#FFFFFF", borderRadius: 16, border: "1px solid #F0F3F8" }}>
-                  <p className="text-xs font-bold mb-3" style={{ color: "#91929E", letterSpacing: "0.04em" }}>KELMAGAN KUNLAR</p>
-                  <div className="flex flex-col gap-1.5 max-h-44 overflow-y-auto pr-1">
-                    {data.absent_days.map((a, i) => (
-                      <div key={i} className="flex items-center gap-2 text-[11px]">
-                        <XCircle size={12} style={{ color: "#FF5C5C" }} />
-                        <span style={{ color: "#3D4557" }}>{a.date} ({a.weekday_label})</span>
-                      </div>
-                    ))}
-                    {data.absent_days.length === 0 && <p className="text-[11px]" style={{ color: "#C4CBD6" }}>Kelmagan kun yo'q</p>}
-                  </div>
+                  ))}
+                  {data.weekly_reports.length === 0 && (
+                    <p className="text-xs text-center py-6 md:col-span-2" style={{ color: "#91929E" }}>Bu oy uchun haftalik hisobot yo'q</p>
+                  )}
                 </div>
               </div>
 

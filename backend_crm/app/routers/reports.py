@@ -393,13 +393,11 @@ def send_weekly_telegram(
 
 _MONTH_NAMES_UZ = ["Yanvar", "Fevral", "Mart", "Aprel", "May", "Iyun",
                     "Iyul", "Avgust", "Sentabr", "Oktabr", "Noyabr", "Dekabr"]
-_WEEKDAY_LABELS_UZ = ["Dushanba", "Seshanba", "Chorshanba", "Payshanba", "Juma", "Shanba", "Yakshanba"]
 
 # Haqiqiy ishlagan soat (kelish-ketish oralig'i) qayd etilmaydi — "chiqdim" tugmasi
-# hali yo'q. Shu sabab "jami ish soati" standart 8 soatlik kun + 1 soatlik tushlik
-# tanaffusi taxminiga asoslanadi; faqat kechikish daqiqalari haqiqiy GPS vaqtidan olinadi.
+# hali yo'q. Shu sabab "jami ish soati" standart 8 soatlik kun taxminiga asoslanadi;
+# faqat kechikish daqiqalari haqiqiy GPS vaqtidan olinadi.
 STANDARD_WORKDAY_MIN = 8 * 60
-STANDARD_BREAK_MIN = 60
 
 
 def _bolim_boshligi_nomi(db: Session, department_id: int | None) -> str | None:
@@ -442,9 +440,6 @@ def monthly_report(
     att_by_day = {int(a.date[-2:]): a for a in attendances}
 
     calendar_days: list[schemas.MonthlyReportCalendarDay] = []
-    arrivals: list[schemas.MonthlyReportArrival] = []
-    departures: list[schemas.MonthlyReportDeparture] = []
-    absent_days: list[schemas.MonthlyReportAbsentDay] = []
     kelgan = kechikkan = kelmagan = ish_kunlari_jami = 0
     late_minutes_total = 0
 
@@ -473,21 +468,21 @@ def monthly_report(
                 late_minutes_total += late
             else:
                 kelgan += 1
-            date_label = d.strftime("%d.%m.%Y")
-            arrivals.append(schemas.MonthlyReportArrival(date=date_label, time=ci_local.strftime("%H:%M")))
-            departures.append(schemas.MonthlyReportDeparture(date=date_label, time="18:15"))
             calendar_days.append(schemas.MonthlyReportCalendarDay(day=day, weekday=wd, status=status))
         else:
             kelmagan += 1
-            absent_days.append(schemas.MonthlyReportAbsentDay(date=d.strftime("%d.%m.%Y"), weekday_label=_WEEKDAY_LABELS_UZ[wd]))
             calendar_days.append(schemas.MonthlyReportCalendarDay(day=day, weekday=wd, status="kelmagan"))
 
     attended_days = kelgan + kechikkan
-    total_min = attended_days * STANDARD_WORKDAY_MIN
-    tanaffus_min = attended_days * STANDARD_BREAK_MIN
-    kechikish_min = min(late_minutes_total, max(0, total_min - tanaffus_min))
-    samarali_min = max(0, total_min - tanaffus_min - kechikish_min)
-    pct = lambda part: round(part / total_min * 100, 1) if total_min else 0.0
+    jami_ish_soati_min = attended_days * STANDARD_WORKDAY_MIN   # "Jami ish soati" statistika kartochkasi uchun
+
+    # "Ishlash vaqti tahlili" donutining maxraji — shu oyning TALAB QILINADIGAN jami
+    # soati (ish_kunlari_jami * 8 soat), attended kunlar emas — shunda halqa oy davomida
+    # qancha bajarilganini (yashil) va qolgan qismini (bo'sh) ko'rsatadi.
+    donut_total_min = ish_kunlari_jami * STANDARD_WORKDAY_MIN
+    kechikish_min = min(late_minutes_total, jami_ish_soati_min)
+    samarali_min = max(0, jami_ish_soati_min - kechikish_min)
+    pct = lambda part: round(part / donut_total_min * 100, 1) if donut_total_min else 0.0
 
     # Haftalik hisobotlar
     weeks = get_month_weeks(year, month)
@@ -542,22 +537,17 @@ def monthly_report(
             kechikkan_kunlar=kechikkan,
             kelmagan_kunlar=kelmagan,
             ish_kunlari_jami=ish_kunlari_jami,
-            jami_ish_soati_min=total_min,
+            jami_ish_soati_min=jami_ish_soati_min,
         ),
         calendar=calendar_days,
         weekly_reports=weekly_rows,
         time_analysis=schemas.MonthlyReportTimeAnalysis(
             samarali_min=samarali_min,
             kechikish_min=kechikish_min,
-            tanaffus_min=tanaffus_min,
-            total_min=total_min,
+            total_min=donut_total_min,
             samarali_pct=pct(samarali_min),
             kechikish_pct=pct(kechikish_min),
-            tanaffus_pct=pct(tanaffus_min),
         ),
-        arrivals=arrivals,
-        departures=departures,
-        absent_days=absent_days,
         scores=schemas.MonthlyReportScores(
             ijro=schemas.MonthlyReportScoreItem(label="Ijro bo'limi bahosi", ball=ijro_ball, max_ball=10),
             kadr=schemas.MonthlyReportScoreItem(label="Kadrlar bo'limi bahosi", ball=kadr_ball, max_ball=25),
