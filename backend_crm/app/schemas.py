@@ -392,6 +392,82 @@ class TelegramMessageIn(BaseModel):
     text: str
 
 
+# ── Xodim oylik hisoboti (direktor sahifasi) ─────────────────────────────────
+class MonthlyReportSummary(BaseModel):
+    kelgan_kunlar: int
+    kechikkan_kunlar: int
+    kelmagan_kunlar: int
+    ish_kunlari_jami: int          # oyning dushanba-juma kunlari soni
+    jami_ish_soati_min: int        # daqiqada — frontend "HH:MM"ga formatlaydi
+
+class MonthlyReportCalendarDay(BaseModel):
+    day: int
+    weekday: int    # 0=Dushanba .. 6=Yakshanba
+    status: Literal["kelgan", "kechikkan", "kelmagan", "dam_olish", "kelajak"]
+
+class MonthlyReportArrival(BaseModel):
+    date: str    # "01.05.2025"
+    time: str    # "08:58"
+
+class MonthlyReportDeparture(BaseModel):
+    date: str
+    time: str    # hozircha standart "18:15" — chiqish tugmasi qo'shilgach real vaqtga almashadi
+
+class MonthlyReportAbsentDay(BaseModel):
+    date: str
+    weekday_label: str
+
+class MonthlyReportWeekRow(BaseModel):
+    week: int
+    label: str
+    file_name: Optional[str] = None
+    uploaded_at: Optional[datetime] = None
+    ball: Optional[float] = None
+    report_id: Optional[int] = None   # WeeklyReport.id — faylni yuklab olish uchun
+
+class MonthlyReportTimeAnalysis(BaseModel):
+    samarali_min: int
+    kechikish_min: int
+    tanaffus_min: int
+    total_min: int
+    samarali_pct: float
+    kechikish_pct: float
+    tanaffus_pct: float
+
+class MonthlyReportScoreItem(BaseModel):
+    label: str
+    ball: Optional[float] = None
+    max_ball: float
+
+class MonthlyReportScores(BaseModel):
+    ijro: MonthlyReportScoreItem
+    kadr: MonthlyReportScoreItem
+    bolim: MonthlyReportScoreItem
+    umumiy: MonthlyReportScoreItem
+    comment: Optional[str] = None
+
+class MonthlyReportOut(BaseModel):
+    report_id: str
+    report_date: str
+    period_label: str
+    employee_id: int
+    full_name: str
+    position: str
+    department_name: Optional[str] = None
+    phone: str
+    has_photo: bool
+    summary: MonthlyReportSummary
+    calendar: List[MonthlyReportCalendarDay]
+    weekly_reports: List[MonthlyReportWeekRow]
+    time_analysis: MonthlyReportTimeAnalysis
+    arrivals: List[MonthlyReportArrival]
+    departures: List[MonthlyReportDeparture]
+    absent_days: List[MonthlyReportAbsentDay]
+    scores: MonthlyReportScores
+    prepared_by_name: Optional[str] = None
+    approved_by_name: Optional[str] = None
+
+
 # ── Ijro hujjatlari ───────────────────────────────────────────────────────────
 class IjroDocIn(BaseModel):
     tur:                      IjroDocTur         = IjroDocTur.kiruvchi

@@ -20,6 +20,7 @@ import {
   MapPin,
   User,
   X,
+  FileBarChart2,
 } from "lucide-react";
 import LottiePlayer from "@/components/ui/LottiePlayer";
 import MobileTopBar from "@/components/layout/MobileTopBar";
@@ -29,6 +30,7 @@ const navItems = [
   { href: "/superadmin/bolimlar",     icon: Building2,       label: "Bo'limlar",   enabled: true  },
   { href: "/superadmin/ball-berish",  icon: Star,            label: "Ball berish", enabled: true  },
   { href: "/superadmin/hisobotlar",   icon: BarChart3,       label: "Hisobotlar",    enabled: true  },
+  { href: "/superadmin/oylik-hisobot",icon: FileBarChart2,   label: "Oylik hisobot", enabled: true  },
   { href: "/superadmin/nazorat",      icon: FileCheck,       label: "Ijro nazorati", enabled: true  },
   { href: "/superadmin/davomat",      icon: ClipboardCheck,  label: "Davomat",     enabled: true  },
   { href: "/superadmin/sozlamalar",   icon: Settings,        label: "Sozlamalar",  enabled: true  },
@@ -45,6 +47,7 @@ const direktorNavItems = [
   { href: "/superadmin",              icon: LayoutDashboard, label: "Dashboard",     enabled: true },
   { href: "/superadmin/bolimlar",     icon: Building2,       label: "Bo'limlar",     enabled: true },
   { href: "/superadmin/hisobotlar",   icon: BarChart3,       label: "Hisobotlar",    enabled: true },
+  { href: "/superadmin/oylik-hisobot",icon: FileBarChart2,   label: "Oylik hisobot", enabled: true },
   { href: "/superadmin/nazorat",      icon: FileCheck,       label: "Ijro nazorati", enabled: true },
   { href: "/superadmin/davomat",      icon: ClipboardCheck,  label: "Davomat",       enabled: true },
   { href: "/superadmin/profile",      icon: User,            label: "Profil",        enabled: true },

@@ -1,4 +1,5 @@
-from datetime import datetime
+from calendar import monthrange
+from datetime import date, datetime, timedelta
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from typing import List
@@ -7,6 +8,7 @@ from ..database import get_db
 from ..deps import get_current_employee
 from ..utils_weeks import get_month_weeks, weekly_max, is_current_week, today_uz
 from ..telegram import send_telegram_message
+from .attendance import WORK_START_HOUR, WORK_START_MIN, TZ_UZ as TZ_UZ_ATTENDANCE
 
 router = APIRouter(prefix="/reports", tags=["Haftalik hisobot"])
 
@@ -385,3 +387,184 @@ def send_weekly_telegram(
     if not ok:
         raise HTTPException(status_code=502, detail="Telegram xabarini yuborib bo'lmadi")
     return {"ok": True}
+
+
+# ─── Xodim oylik hisoboti (direktor sahifasi) ─────────────────────────────────
+
+_MONTH_NAMES_UZ = ["Yanvar", "Fevral", "Mart", "Aprel", "May", "Iyun",
+                    "Iyul", "Avgust", "Sentabr", "Oktabr", "Noyabr", "Dekabr"]
+_WEEKDAY_LABELS_UZ = ["Dushanba", "Seshanba", "Chorshanba", "Payshanba", "Juma", "Shanba", "Yakshanba"]
+
+# Haqiqiy ishlagan soat (kelish-ketish oralig'i) qayd etilmaydi — "chiqdim" tugmasi
+# hali yo'q. Shu sabab "jami ish soati" standart 8 soatlik kun + 1 soatlik tushlik
+# tanaffusi taxminiga asoslanadi; faqat kechikish daqiqalari haqiqiy GPS vaqtidan olinadi.
+STANDARD_WORKDAY_MIN = 8 * 60
+STANDARD_BREAK_MIN = 60
+
+
+def _bolim_boshligi_nomi(db: Session, department_id: int | None) -> str | None:
+    if department_id is None:
+        return None
+    head = db.query(models.Employee).filter(
+        models.Employee.department_id == department_id,
+        models.Employee.role.in_([models.RoleEnum.bolim_boshligi, models.RoleEnum.boshqarma_boshligi]),
+    ).first()
+    return head.full_name if head else None
+
+
+@router.get("/monthly/{employee_id}", response_model=schemas.MonthlyReportOut)
+def monthly_report(
+    employee_id: int,
+    year: int,
+    month: int,
+    db: Session = Depends(get_db),
+    current: models.Employee = Depends(get_current_employee),
+):
+    """Bitta xodimning bir oylik to'liq hisoboti — davomat, ish vaqti tahlili,
+    haftalik hisobotlar va baholash natijalari. Faqat direktor/zamdirektor/superadmin."""
+    if current.role not in _ADMIN_ROLES:
+        raise HTTPException(status_code=403, detail="Ruxsat yo'q")
+
+    emp = db.query(models.Employee).filter(models.Employee.id == employee_id).first()
+    if not emp:
+        raise HTTPException(status_code=404, detail="Xodim topilmadi")
+
+    days_in_month = monthrange(year, month)[1]
+    today = today_uz()
+    last_day_to_count = today.day if (year, month) == (today.year, today.month) else days_in_month
+
+    month_prefix = f"{year:04d}-{month:02d}-"
+    attendances = db.query(models.Attendance).filter(
+        models.Attendance.employee_id == employee_id,
+        models.Attendance.date >= f"{month_prefix}01",
+        models.Attendance.date <= f"{month_prefix}{days_in_month:02d}",
+    ).all()
+    att_by_day = {int(a.date[-2:]): a for a in attendances}
+
+    calendar_days: list[schemas.MonthlyReportCalendarDay] = []
+    arrivals: list[schemas.MonthlyReportArrival] = []
+    departures: list[schemas.MonthlyReportDeparture] = []
+    absent_days: list[schemas.MonthlyReportAbsentDay] = []
+    kelgan = kechikkan = kelmagan = ish_kunlari_jami = 0
+    late_minutes_total = 0
+
+    for day in range(1, days_in_month + 1):
+        d = date(year, month, day)
+        wd = d.weekday()  # 0=Dushanba
+        if wd >= 5:
+            calendar_days.append(schemas.MonthlyReportCalendarDay(day=day, weekday=wd, status="dam_olish"))
+            continue
+
+        ish_kunlari_jami += 1
+        if day > last_day_to_count:
+            calendar_days.append(schemas.MonthlyReportCalendarDay(day=day, weekday=wd, status="kelajak"))
+            continue
+
+        att = att_by_day.get(day)
+        if att:
+            # check_in DB'da odatda mahalliy (UTC+5) vaqt sifatida saqlanadi (naive) — attendance.py'dagi
+            # _to_out bilan bir xil mantiq (tzinfo mavjud bo'lsa ham to'g'ri ishlaydi).
+            ci_local = att.check_in.astimezone(TZ_UZ_ATTENDANCE) if att.check_in.tzinfo is not None else att.check_in
+            work_start = ci_local.replace(hour=WORK_START_HOUR, minute=WORK_START_MIN, second=0, microsecond=0)
+            late = max(0, int(round((ci_local - work_start).total_seconds() / 60.0)))
+            status = "kechikkan" if late > 0 else "kelgan"
+            if status == "kechikkan":
+                kechikkan += 1
+                late_minutes_total += late
+            else:
+                kelgan += 1
+            date_label = d.strftime("%d.%m.%Y")
+            arrivals.append(schemas.MonthlyReportArrival(date=date_label, time=ci_local.strftime("%H:%M")))
+            departures.append(schemas.MonthlyReportDeparture(date=date_label, time="18:15"))
+            calendar_days.append(schemas.MonthlyReportCalendarDay(day=day, weekday=wd, status=status))
+        else:
+            kelmagan += 1
+            absent_days.append(schemas.MonthlyReportAbsentDay(date=d.strftime("%d.%m.%Y"), weekday_label=_WEEKDAY_LABELS_UZ[wd]))
+            calendar_days.append(schemas.MonthlyReportCalendarDay(day=day, weekday=wd, status="kelmagan"))
+
+    attended_days = kelgan + kechikkan
+    total_min = attended_days * STANDARD_WORKDAY_MIN
+    tanaffus_min = attended_days * STANDARD_BREAK_MIN
+    kechikish_min = min(late_minutes_total, max(0, total_min - tanaffus_min))
+    samarali_min = max(0, total_min - tanaffus_min - kechikish_min)
+    pct = lambda part: round(part / total_min * 100, 1) if total_min else 0.0
+
+    # Haftalik hisobotlar
+    weeks = get_month_weeks(year, month)
+    reports_by_week = {
+        r.week: r
+        for r in db.query(models.WeeklyReport).filter(
+            models.WeeklyReport.employee_id == employee_id,
+            models.WeeklyReport.year == year,
+            models.WeeklyReport.month == month,
+        ).all()
+    }
+    weekly_rows = []
+    for w in weeks:
+        r = reports_by_week.get(w["week"])
+        weekly_rows.append(schemas.MonthlyReportWeekRow(
+            week=w["week"],
+            label=f"{w['week']}-hafta ({w['label']})",
+            file_name=r.file_name if r else None,
+            uploaded_at=r.uploaded_at if r else None,
+            ball=r.ball if r else None,
+            report_id=r.id if r else None,
+        ))
+
+    # Baholash
+    sc = db.query(models.Score).filter(
+        models.Score.employee_id == employee_id,
+        models.Score.year == year,
+        models.Score.month == month,
+    ).first()
+    ijro_ball  = sc.ijro_ball if sc else None
+    kadr_ball  = sc.kadr_ball if sc else None
+    bolim_ball = sc.bolim_ball if sc else None
+    umumiy = None
+    if ijro_ball is not None or kadr_ball is not None or bolim_ball is not None:
+        umumiy = (ijro_ball or 0) + (kadr_ball or 0) + (bolim_ball or 0)
+
+    dept = emp.department
+    hr = db.query(models.Employee).filter(models.Employee.role == models.RoleEnum.kadr).first()
+
+    return schemas.MonthlyReportOut(
+        report_id=f"{today.strftime('%y%m%d')}-{employee_id:03d}",
+        report_date=today.strftime("%d.%m.%Y"),
+        period_label=f"{year}-yil {_MONTH_NAMES_UZ[month - 1]}",
+        employee_id=emp.id,
+        full_name=emp.full_name,
+        position=emp.position,
+        department_name=dept.name if dept else None,
+        phone=emp.phone,
+        has_photo=bool(emp.photo_base64),
+        summary=schemas.MonthlyReportSummary(
+            kelgan_kunlar=kelgan,
+            kechikkan_kunlar=kechikkan,
+            kelmagan_kunlar=kelmagan,
+            ish_kunlari_jami=ish_kunlari_jami,
+            jami_ish_soati_min=total_min,
+        ),
+        calendar=calendar_days,
+        weekly_reports=weekly_rows,
+        time_analysis=schemas.MonthlyReportTimeAnalysis(
+            samarali_min=samarali_min,
+            kechikish_min=kechikish_min,
+            tanaffus_min=tanaffus_min,
+            total_min=total_min,
+            samarali_pct=pct(samarali_min),
+            kechikish_pct=pct(kechikish_min),
+            tanaffus_pct=pct(tanaffus_min),
+        ),
+        arrivals=arrivals,
+        departures=departures,
+        absent_days=absent_days,
+        scores=schemas.MonthlyReportScores(
+            ijro=schemas.MonthlyReportScoreItem(label="Ijro bo'limi bahosi", ball=ijro_ball, max_ball=10),
+            kadr=schemas.MonthlyReportScoreItem(label="Kadrlar bo'limi bahosi", ball=kadr_ball, max_ball=25),
+            bolim=schemas.MonthlyReportScoreItem(label="Bo'lim boshlig'i bahosi", ball=bolim_ball, max_ball=65),
+            umumiy=schemas.MonthlyReportScoreItem(label="Umumiy natija", ball=umumiy, max_ball=100),
+            comment=sc.comment if sc else None,
+        ),
+        prepared_by_name=hr.full_name if hr else None,
+        approved_by_name=_bolim_boshligi_nomi(db, emp.department_id),
+    )
