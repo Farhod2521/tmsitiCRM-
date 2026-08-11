@@ -89,13 +89,13 @@ function TimeDonut({ ta }: { ta: TimeAnalysis }) {
 }
 
 /* ── Baholash gauge (dumaloq) ── */
-function ScoreGauge({ item }: { item: ScoreItem }) {
-  const size = 110, stroke = 9, r = (size - stroke) / 2, c = 2 * Math.PI * r;
+function ScoreGauge({ item, size = 110, compact = false }: { item: ScoreItem; size?: number; compact?: boolean }) {
+  const stroke = compact ? 6 : 9, r = (size - stroke) / 2, c = 2 * Math.PI * r;
   const val = item.ball ?? 0;
   const pct = item.max_ball ? Math.min(val / item.max_ball, 1) : 0;
   const color = pct >= 0.8 ? "#00C48C" : pct >= 0.5 ? "#FFBD21" : "#FF5C5C";
   return (
-    <div className="flex flex-col items-center gap-2 flex-1 min-w-[130px]">
+    <div className="flex flex-col items-center gap-1.5 flex-1" style={{ minWidth: size + 20 }}>
       <div className="relative" style={{ width: size, height: size }}>
         <svg width={size} height={size} className="-rotate-90">
           <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="#F0F3F8" strokeWidth={stroke} />
@@ -105,14 +105,14 @@ function ScoreGauge({ item }: { item: ScoreItem }) {
           )}
         </svg>
         <div className="absolute inset-0 flex flex-col items-center justify-center leading-none">
-          <span className="font-bold text-xl" style={{ color: item.ball != null ? "#0A1629" : "#C4CBD6" }}>
+          <span className={compact ? "font-bold text-sm" : "font-bold text-xl"} style={{ color: item.ball != null ? "#0A1629" : "#C4CBD6" }}>
             {item.ball != null ? item.ball : "—"}
           </span>
-          <span className="text-[10px] mt-0.5" style={{ color: "#A8B0BD" }}>/{item.max_ball}</span>
+          <span className="text-[9px] mt-0.5" style={{ color: "#A8B0BD" }}>/{item.max_ball}</span>
         </div>
       </div>
-      <p className="text-xs font-bold text-center" style={{ color: "#0A1629" }}>{item.label}</p>
-      <p className="text-[10px]" style={{ color: "#91929E" }}>Maksimal ball: {item.max_ball}</p>
+      <p className={compact ? "text-[10px] font-bold text-center leading-tight" : "text-xs font-bold text-center"} style={{ color: "#0A1629" }}>{item.label}</p>
+      {!compact && <p className="text-[10px]" style={{ color: "#91929E" }}>Maksimal ball: {item.max_ball}</p>}
     </div>
   );
 }
@@ -215,22 +215,13 @@ export default function MonthlyReportModal({
                   </div>
                 </div>
 
-                <div className="flex-1">
-                  <p className="text-xs font-bold mb-2" style={{ color: "#91929E", letterSpacing: "0.04em" }}>UMUMIY MA'LUMOT</p>
-                  <div className="grid grid-cols-4 gap-2 h-[calc(100%-22px)]">
-                    {[
-                      { label: "Jami ish soati", value: fmtHM(data.summary.jami_ish_soati_min), suffix: "soat", icon: Clock, color: "#3F8CFF" },
-                      { label: "Kelgan kunlar", value: data.summary.kelgan_kunlar, suffix: "kun", icon: CheckCircle2, color: "#00C48C" },
-                      { label: "Kechikishlar", value: data.summary.kechikkan_kunlar, suffix: "kun", icon: Clock, color: "#FFBD21" },
-                      { label: "Kelmagan kunlar", value: data.summary.kelmagan_kunlar, suffix: "kun", icon: XCircle, color: "#FF5C5C" },
-                    ].map(s => (
-                      <div key={s.label} className="flex flex-col items-center justify-center text-center p-2" style={{ background: "#FAFCFF", borderRadius: 14, border: "1px solid #F0F3F8" }}>
-                        <s.icon size={16} style={{ color: s.color }} />
-                        <span className="font-bold text-sm mt-1" style={{ color: "#0A1629" }}>{s.value}</span>
-                        <span className="text-[9px]" style={{ color: "#91929E" }}>{s.suffix}</span>
-                        <span className="text-[9px] mt-0.5 leading-tight" style={{ color: "#A8B0BD" }}>{s.label}</span>
-                      </div>
-                    ))}
+                <div className="flex-1 p-4" style={{ background: "#FFFFFF", borderRadius: 16, border: "1px solid #F0F3F8" }}>
+                  <p className="text-[11px] font-bold mb-2" style={{ color: "#91929E", letterSpacing: "0.04em" }}>BAHOLASH NATIJALARI</p>
+                  <div className="flex items-start justify-around gap-2">
+                    <ScoreGauge item={data.scores.ijro} size={64} compact />
+                    <ScoreGauge item={data.scores.kadr} size={64} compact />
+                    <ScoreGauge item={data.scores.bolim} size={64} compact />
+                    <ScoreGauge item={data.scores.umumiy} size={64} compact />
                   </div>
                 </div>
               </div>
@@ -272,7 +263,22 @@ export default function MonthlyReportModal({
 
                 <div className="p-4" style={{ background: "#FFFFFF", borderRadius: 16, border: "1px solid #F0F3F8" }}>
                   <p className="text-xs font-bold mb-3" style={{ color: "#91929E", letterSpacing: "0.04em" }}>ISHLASH VAQTI TAHLILI</p>
-                  <div className="flex items-center gap-4">
+                  <div className="grid grid-cols-4 gap-2 mb-4">
+                    {[
+                      { label: "Jami ish soati", value: fmtHM(data.summary.jami_ish_soati_min), suffix: "soat", icon: Clock, color: "#3F8CFF" },
+                      { label: "Kelgan kunlar", value: data.summary.kelgan_kunlar, suffix: "kun", icon: CheckCircle2, color: "#00C48C" },
+                      { label: "Kechikishlar", value: data.summary.kechikkan_kunlar, suffix: "kun", icon: Clock, color: "#FFBD21" },
+                      { label: "Kelmagan kunlar", value: data.summary.kelmagan_kunlar, suffix: "kun", icon: XCircle, color: "#FF5C5C" },
+                    ].map(s => (
+                      <div key={s.label} className="flex flex-col items-center justify-center text-center p-2" style={{ background: "#FAFCFF", borderRadius: 14, border: "1px solid #F0F3F8" }}>
+                        <s.icon size={16} style={{ color: s.color }} />
+                        <span className="font-bold text-sm mt-1" style={{ color: "#0A1629" }}>{s.value}</span>
+                        <span className="text-[9px]" style={{ color: "#91929E" }}>{s.suffix}</span>
+                        <span className="text-[9px] mt-0.5 leading-tight" style={{ color: "#A8B0BD" }}>{s.label}</span>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="flex items-center gap-4 pt-4" style={{ borderTop: "1px solid #F4F9FD" }}>
                     <TimeDonut ta={data.time_analysis} />
                     <div className="flex flex-col gap-2.5 text-xs flex-1">
                       <p style={{ color: "#91929E" }}>Bu oyda <b style={{ color: "#0A1629" }}>{data.summary.ish_kunlari_jami}</b> ish kuni bo'lgan (<b style={{ color: "#0A1629" }}>{fmtHM(data.time_analysis.total_min)}</b> soat ishlashi kerak)</p>
@@ -325,17 +331,6 @@ export default function MonthlyReportModal({
                   {data.weekly_reports.length === 0 && (
                     <p className="text-xs text-center py-6 md:col-span-2" style={{ color: "#91929E" }}>Bu oy uchun haftalik hisobot yo'q</p>
                   )}
-                </div>
-              </div>
-
-              {/* Baholash natijalari */}
-              <div className="p-4" style={{ background: "#FFFFFF", borderRadius: 16, border: "1px solid #F0F3F8" }}>
-                <p className="text-xs font-bold mb-4" style={{ color: "#91929E", letterSpacing: "0.04em" }}>BAHOLASH NATIJALARI</p>
-                <div className="flex flex-wrap justify-around gap-4">
-                  <ScoreGauge item={data.scores.ijro} />
-                  <ScoreGauge item={data.scores.kadr} />
-                  <ScoreGauge item={data.scores.bolim} />
-                  <ScoreGauge item={data.scores.umumiy} />
                 </div>
               </div>
 
