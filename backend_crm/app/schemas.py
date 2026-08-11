@@ -404,6 +404,7 @@ class MonthlyReportCalendarDay(BaseModel):
     day: int
     weekday: int    # 0=Dushanba .. 6=Yakshanba
     status: Literal["kelgan", "kechikkan", "kelmagan", "dam_olish", "kelajak"]
+    time: Optional[str] = None   # "kelgan"/"kechikkan" uchun kelish vaqti, "09:03"
 
 class MonthlyReportWeekRow(BaseModel):
     week: int

@@ -11,7 +11,7 @@ const WEEK_DAYS = ["Du", "Se", "Ch", "Pa", "Ju", "Sh", "Ya"];
 
 type DayStatus = "kelgan" | "kechikkan" | "kelmagan" | "dam_olish" | "kelajak";
 
-interface CalendarDay { day: number; weekday: number; status: DayStatus; }
+interface CalendarDay { day: number; weekday: number; status: DayStatus; time: string | null; }
 interface WeekRow {
   week: number; label: string;
   file_name: string | null; uploaded_at: string | null;
@@ -251,9 +251,10 @@ export default function MonthlyReportModal({
                         const cfg = DAY_CFG[cd.status];
                         const Icon = cfg.icon;
                         return (
-                          <div key={di} className="aspect-square flex flex-col items-center justify-center gap-0.5" style={{ background: cfg.bg, borderRadius: 8 }}>
+                          <div key={di} className="min-h-[52px] flex flex-col items-center justify-center gap-0.5 py-1" style={{ background: cfg.bg, borderRadius: 8 }}>
                             <span className="text-[10px] font-bold" style={{ color: cd.status === "kelajak" ? "#C4CBD6" : "#0A1629" }}>{cd.day}</span>
                             {Icon && <Icon size={10} style={{ color: cfg.color }} />}
+                            {cd.time && <span className="text-[8px] font-bold leading-none" style={{ color: cfg.color }}>{cd.time}</span>}
                           </div>
                         );
                       })}

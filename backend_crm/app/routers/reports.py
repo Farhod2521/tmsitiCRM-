@@ -468,7 +468,7 @@ def monthly_report(
                 late_minutes_total += late
             else:
                 kelgan += 1
-            calendar_days.append(schemas.MonthlyReportCalendarDay(day=day, weekday=wd, status=status))
+            calendar_days.append(schemas.MonthlyReportCalendarDay(day=day, weekday=wd, status=status, time=ci_local.strftime("%H:%M")))
         else:
             kelmagan += 1
             calendar_days.append(schemas.MonthlyReportCalendarDay(day=day, weekday=wd, status="kelmagan"))
