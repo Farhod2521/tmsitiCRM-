@@ -452,6 +452,32 @@ class MonthlyReportOut(BaseModel):
     approved_by_name: Optional[str] = None
 
 
+# ── Barcha xodimlar oylik davomat jadvali (XLSX ko'rish/yuklab olish) ────────
+class MonthlyTableCell(BaseModel):
+    day: int
+    status: Literal["kelgan", "kechikkan", "kelmagan", "kelajak"]
+    time: Optional[str] = None
+    late_min: Optional[int] = None
+
+class MonthlyTableDayLabel(BaseModel):
+    day: int
+    label: str   # "01.08"
+
+class MonthlyTableRow(BaseModel):
+    employee_id: int
+    full_name: str
+    department_name: Optional[str] = None
+    cells: List[Optional[MonthlyTableCell]]
+    kelgan: int
+    kechikkan: int
+    kelmagan: int
+
+class MonthlyTableOut(BaseModel):
+    period_label: str
+    days: List[MonthlyTableDayLabel]
+    rows: List[MonthlyTableRow]
+
+
 # ── Ijro hujjatlari ───────────────────────────────────────────────────────────
 class IjroDocIn(BaseModel):
     tur:                      IjroDocTur         = IjroDocTur.kiruvchi

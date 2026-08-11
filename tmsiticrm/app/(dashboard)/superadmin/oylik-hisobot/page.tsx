@@ -5,9 +5,10 @@ import Header from "@/components/layout/Header";
 import { apiFetch } from "@/lib/api";
 import {
   ChevronDown, ChevronLeft, ChevronRight, Loader2, Building2,
-  Users, Eye,
+  Users, Eye, FileSpreadsheet,
 } from "lucide-react";
 import MonthlyReportModal from "@/components/reports/MonthlyReportModal";
+import MonthlyTableModal from "@/components/reports/MonthlyTableModal";
 
 const MON_NAMES = [
   "Yanvar", "Fevral", "Mart", "Aprel", "May", "Iyun",
@@ -37,6 +38,7 @@ export default function OylikHisobotPage() {
   const [loading, setLoading] = useState(true);
   const [expanded, setExpanded] = useState<Set<number>>(new Set());
   const [reportTarget, setReportTarget] = useState<Employee | null>(null);
+  const [showTable, setShowTable] = useState(false);
 
   const load = useCallback(() => {
     setLoading(true);
@@ -81,7 +83,12 @@ export default function OylikHisobotPage() {
     <div>
       <Header title="Oylik hisobot" subtitle="Bo'limlar bo'yicha xodimlarning to'liq oylik hisobotini ko'ring" />
 
-      <div className="flex items-center justify-end mb-5">
+      <div className="flex items-center justify-end gap-3 mb-5 flex-wrap">
+        <button onClick={() => setShowTable(true)}
+          className="flex items-center gap-2 px-4 py-2.5 text-sm font-bold text-white hover:opacity-90 transition-opacity"
+          style={{ background: "#00C48C", borderRadius: 12, boxShadow: "0px 6px 12px rgba(0,196,140,0.3)" }}>
+          <FileSpreadsheet size={16} /> XLSX ko'rish
+        </button>
         <div className="flex items-center gap-1 p-1" style={{ background: "#FFFFFF", borderRadius: 12, boxShadow: "0px 6px 58px rgba(196,203,214,0.103611)" }}>
           <button onClick={() => chMonth(-1)} className="w-8 h-8 flex items-center justify-center rounded hover:bg-[#F4F9FD] transition-colors">
             <ChevronLeft size={15} style={{ color: "#3F8CFF" }} />
@@ -176,6 +183,14 @@ export default function OylikHisobotPage() {
           year={year}
           month={month}
           onClose={() => setReportTarget(null)}
+        />
+      )}
+
+      {showTable && (
+        <MonthlyTableModal
+          year={year}
+          month={month}
+          onClose={() => setShowTable(false)}
         />
       )}
     </div>

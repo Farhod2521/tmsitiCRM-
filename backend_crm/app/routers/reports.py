@@ -1,8 +1,13 @@
+import io
 from calendar import monthrange
 from datetime import date, datetime, timedelta
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
-from typing import List
+from typing import List, Optional
+from openpyxl import Workbook
+from openpyxl.styles import Font, PatternFill, Alignment
+from openpyxl.utils import get_column_letter
 from .. import models, schemas
 from ..database import get_db
 from ..deps import get_current_employee
@@ -557,4 +562,169 @@ def monthly_report(
         ),
         prepared_by_name=hr.full_name if hr else None,
         approved_by_name=_bolim_boshligi_nomi(db, emp.department_id),
+    )
+
+
+# ─── Barcha xodimlar oylik davomat jadvali (XLSX ko'rish/yuklab olish) ───────
+
+def _employee_month_days(
+    db: Session, employee_id: int, year: int, month: int, days_in_month: int, last_day_to_count: int,
+) -> tuple[list[schemas.MonthlyTableCell], int, int, int]:
+    """Bitta xodim uchun shu oydagi ISH KUNLARI (dam olish kunlarisiz) bo'yicha
+    holat ro'yxati — monthly_report'dagi kalendar mantig'i bilan bir xil, lekin
+    faqat ish kunlari qaytariladi va bir nechta xodim uchun jadval qurishga mos."""
+    month_prefix = f"{year:04d}-{month:02d}-"
+    attendances = db.query(models.Attendance).filter(
+        models.Attendance.employee_id == employee_id,
+        models.Attendance.date >= f"{month_prefix}01",
+        models.Attendance.date <= f"{month_prefix}{days_in_month:02d}",
+    ).all()
+    att_by_day = {int(a.date[-2:]): a for a in attendances}
+
+    cells: list[schemas.MonthlyTableCell] = []
+    kelgan = kechikkan = kelmagan = 0
+    for day in range(1, days_in_month + 1):
+        d = date(year, month, day)
+        if d.weekday() >= 5:
+            continue
+        if day > last_day_to_count:
+            cells.append(schemas.MonthlyTableCell(day=day, status="kelajak"))
+            continue
+        att = att_by_day.get(day)
+        if att:
+            ci_local = att.check_in.astimezone(TZ_UZ_ATTENDANCE) if att.check_in.tzinfo is not None else att.check_in
+            work_start = ci_local.replace(hour=WORK_START_HOUR, minute=WORK_START_MIN, second=0, microsecond=0)
+            late = max(0, int(round((ci_local - work_start).total_seconds() / 60.0)))
+            status = "kechikkan" if late > 0 else "kelgan"
+            if status == "kechikkan":
+                kechikkan += 1
+            else:
+                kelgan += 1
+            cells.append(schemas.MonthlyTableCell(day=day, status=status, time=ci_local.strftime("%H:%M"), late_min=late or None))
+        else:
+            kelmagan += 1
+            cells.append(schemas.MonthlyTableCell(day=day, status="kelmagan"))
+    return cells, kelgan, kechikkan, kelmagan
+
+
+def _build_monthly_table_data(db: Session, year: int, month: int) -> schemas.MonthlyTableOut:
+    days_in_month = monthrange(year, month)[1]
+    today = today_uz()
+    last_day_to_count = today.day if (year, month) == (today.year, today.month) else days_in_month
+
+    working_days = [d for d in range(1, days_in_month + 1) if date(year, month, d).weekday() < 5]
+    day_labels = [schemas.MonthlyTableDayLabel(day=d, label=date(year, month, d).strftime("%d.%m")) for d in working_days]
+
+    # "Hamma xodimlar" = barcha FAOL xodimlar — rahbariyat, direktor/zamdirektor ham
+    # kiradi (rol bo'yicha filtrlanmaydi, faqat is_active).
+    emps = (
+        db.query(models.Employee)
+        .filter(models.Employee.is_active == True)
+        .order_by(models.Employee.department_id, models.Employee.id)
+        .all()
+    )
+    dept_map = {d.id: d.name for d in db.query(models.Department).all()}
+
+    rows: list[schemas.MonthlyTableRow] = []
+    for e in emps:
+        cells, kelgan, kechikkan, kelmagan = _employee_month_days(db, e.id, year, month, days_in_month, last_day_to_count)
+        cell_map = {c.day: c for c in cells}
+        rows.append(schemas.MonthlyTableRow(
+            employee_id=e.id,
+            full_name=e.full_name,
+            department_name=dept_map.get(e.department_id),
+            cells=[cell_map.get(d) for d in working_days],
+            kelgan=kelgan,
+            kechikkan=kechikkan,
+            kelmagan=kelmagan,
+        ))
+
+    return schemas.MonthlyTableOut(
+        period_label=f"{year}-yil {_MONTH_NAMES_UZ[month - 1]}",
+        days=day_labels,
+        rows=rows,
+    )
+
+
+@router.get("/monthly-table", response_model=schemas.MonthlyTableOut)
+def monthly_table(
+    year: int,
+    month: int,
+    db: Session = Depends(get_db),
+    current: models.Employee = Depends(get_current_employee),
+):
+    """Barcha faol xodimlarning shu oydagi kunma-kun davomat jadvali (XLSX
+    ko'rish oynasi uchun) — faqat direktor/zamdirektor/superadmin."""
+    if current.role not in _ADMIN_ROLES:
+        raise HTTPException(status_code=403, detail="Ruxsat yo'q")
+    return _build_monthly_table_data(db, year, month)
+
+
+def _cell_text(cell: Optional[schemas.MonthlyTableCell]) -> str:
+    if cell is None or cell.status == "kelajak":
+        return ""
+    if cell.status == "kelmagan":
+        return "Kelmadi"
+    if cell.status == "kechikkan":
+        return f"{cell.time} (+{cell.late_min} daq.)"
+    return cell.time or ""
+
+
+@router.get("/monthly-xlsx")
+def monthly_xlsx(
+    year: int,
+    month: int,
+    db: Session = Depends(get_db),
+    current: models.Employee = Depends(get_current_employee),
+):
+    """Barcha faol xodimlarning shu oydagi davomat jadvalini .xlsx fayl sifatida
+    yuklab beradi — faqat direktor/zamdirektor/superadmin."""
+    if current.role not in _ADMIN_ROLES:
+        raise HTTPException(status_code=403, detail="Ruxsat yo'q")
+    table = _build_monthly_table_data(db, year, month)
+
+    wb = Workbook()
+    ws = wb.active
+    ws.title = table.period_label[:31]
+
+    header = ["Bo'lim", "F.I.Sh."] + [d.label for d in table.days] + ["Kelgan", "Kechikkan", "Kelmagan"]
+    ws.append(header)
+    for c in ws[1]:
+        c.font = Font(bold=True)
+        c.alignment = Alignment(horizontal="center")
+
+    ok_fill     = PatternFill("solid", fgColor="FFE3F7EC")
+    late_fill   = PatternFill("solid", fgColor="FFFFF3CD")
+    absent_fill = PatternFill("solid", fgColor="FFFDE2E2")
+
+    for row in table.rows:
+        ws.append([row.department_name or "", row.full_name] + [_cell_text(c) for c in row.cells] + [row.kelgan, row.kechikkan, row.kelmagan])
+
+    for ri, row in enumerate(table.rows, start=2):
+        for ci, cell in enumerate(row.cells, start=3):
+            if cell is None:
+                continue
+            xl_cell = ws.cell(row=ri, column=ci)
+            xl_cell.alignment = Alignment(horizontal="center")
+            if cell.status == "kelmagan":
+                xl_cell.fill = absent_fill
+            elif cell.status == "kechikkan":
+                xl_cell.fill = late_fill
+            elif cell.status == "kelgan":
+                xl_cell.fill = ok_fill
+
+    ws.column_dimensions["A"].width = 30
+    ws.column_dimensions["B"].width = 26
+    for i in range(len(table.days) + 3):
+        ws.column_dimensions[get_column_letter(3 + i)].width = 14
+    ws.freeze_panes = "C2"
+
+    buf = io.BytesIO()
+    wb.save(buf)
+    buf.seek(0)
+    filename = f"oylik_hisobot_{year}_{month:02d}.xlsx"
+    return StreamingResponse(
+        buf,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )
