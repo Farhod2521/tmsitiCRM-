@@ -87,7 +87,7 @@ export default function WeeklyReportUploadModal({
           </div>
 
           <div>
-            <label className="text-xs font-bold mb-2 block" style={{ color: "#91929E" }}>Hisobot fayli</label>
+            <label className="text-xs font-bold mb-2 block" style={{ color: "#91929E" }}>Qilgan ish fayli</label>
             <label className="flex flex-col items-center justify-center gap-1.5 py-6 cursor-pointer"
               style={{ background: "rgba(63,140,255,0.06)", borderRadius: 12, border: "1.5px dashed rgba(63,140,255,0.3)" }}>
               <Upload size={18} style={{ color: "#3F8CFF" }} />
