@@ -352,8 +352,9 @@ class WeeklyReportUploadIn(BaseModel):
     year: int
     month: int
     week: int
-    file_name: str
-    file_b64: str   # "data:application/pdf;base64,..."
+    description: Optional[str] = None   # bajarilgan ish tavsifi (CKEditor HTML)
+    file_name: Optional[str] = None
+    file_b64: Optional[str] = None   # "data:application/pdf;base64,..." — berilmasa, mavjud fayl saqlanib qoladi (faqat tavsifni yangilash)
 
 class WeeklyReportScoreIn(BaseModel):
     ball: float
@@ -368,6 +369,7 @@ class WeeklyReportOut(BaseModel):
     week_label: Optional[str] = None
     max_ball: Optional[float] = None
     is_current: bool = False
+    description: Optional[str] = None
     file_name: Optional[str] = None
     uploaded_at: Optional[datetime] = None
     ball: Optional[float] = None

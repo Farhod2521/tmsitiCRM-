@@ -123,8 +123,8 @@ def build_reminder_image(date_str: str, weekday: str, count: int, names: list[st
                    f"+{extra} yana boshqa xodim", font=_font(13, bold=True), fill=RED, anchor="lm")
 
     # ── Pastki eslatma banneri ──
-    draw.text((180, 1450), "Eslatma: Ishga o\u2018z vaqtida kelish \u2013", font=_font(16, bold=False), fill=NAVY, anchor="lm")
-    draw.text((180, 1481), "samarali ishning boshlanishi!", font=_font(19, bold=True), fill=NAVY, anchor="lm")
+    draw.text((180, 1450), "Eslatma: Ish vaqtida kelmasangiz \u2013", font=_font(16, bold=False), fill=NAVY, anchor="lm")
+    draw.text((180, 1481), "oylik maoshingizga ta\u2018sir qiladi!", font=_font(19, bold=True), fill=NAVY, anchor="lm")
 
     buf = BytesIO()
     im.save(buf, format="PNG")

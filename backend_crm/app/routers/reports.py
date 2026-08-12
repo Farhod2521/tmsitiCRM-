@@ -108,13 +108,23 @@ def list_weeks(
     ]
 
 
+MAX_WEEKLY_FILE_BYTES = 10 * 1024 * 1024   # 10MB
+
+
+def _b64_payload_size_bytes(data_uri: str) -> int:
+    """Data-URI'dagi base64 qismining taxminiy dekodlangan hajmi (baytda)."""
+    b64 = data_uri.split(",", 1)[-1]
+    return (len(b64) * 3) // 4 - b64.count("=")
+
+
 @router.post("/weekly", response_model=schemas.WeeklyReportOut)
 def upload_weekly_report(
     payload: schemas.WeeklyReportUploadIn,
     db: Session = Depends(get_db),
     current: models.Employee = Depends(get_current_employee),
 ):
-    """Joriy foydalanuvchi o'zining haftalik hisobot faylini yuklaydi — faqat joriy hafta uchun."""
+    """Joriy foydalanuvchi o'zining haftalik hisobot faylini (va ish tavsifini)
+    yuklaydi/yangilaydi — faqat joriy hafta uchun."""
     weeks = _week_info_map(payload.year, payload.month)
     if payload.week not in weeks:
         raise HTTPException(status_code=422, detail="Noto'g'ri hafta raqami")
@@ -122,6 +132,9 @@ def upload_weekly_report(
     w_info = weeks[payload.week]
     if not is_current_week(w_info["start"], w_info["end"]):
         raise HTTPException(status_code=400, detail="Faqat joriy hafta uchun hisobot yuklash mumkin")
+
+    if payload.file_b64 and _b64_payload_size_bytes(payload.file_b64) > MAX_WEEKLY_FILE_BYTES:
+        raise HTTPException(status_code=413, detail="Fayl hajmi 10MB dan oshmasligi kerak")
 
     rep = db.query(models.WeeklyReport).filter(
         models.WeeklyReport.employee_id == current.id,
@@ -139,8 +152,10 @@ def upload_weekly_report(
         )
         db.add(rep)
 
-    rep.file_name = payload.file_name
-    rep.file_b64 = payload.file_b64
+    rep.description = payload.description
+    if payload.file_b64:
+        rep.file_name = payload.file_name
+        rep.file_b64 = payload.file_b64
     rep.uploaded_at = datetime.utcnow()
     db.commit()
     db.refresh(rep)
@@ -151,6 +166,25 @@ def upload_weekly_report(
     out.is_current = True
     out.employee_name = current.full_name
     return out
+
+
+@router.delete("/weekly/{report_id}", status_code=204)
+def delete_weekly_report(
+    report_id: int,
+    db: Session = Depends(get_db),
+    current: models.Employee = Depends(get_current_employee),
+):
+    """Joriy foydalanuvchi o'zining (hali tasdiqlanmagan) haftalik hisobotini
+    butunlay o'chiradi — fayl bazadan ham tozalanadi, axlat bo'lib qolmaydi."""
+    rep = db.query(models.WeeklyReport).filter(models.WeeklyReport.id == report_id).first()
+    if not rep:
+        raise HTTPException(status_code=404, detail="Hisobot topilmadi")
+    if rep.employee_id != current.id:
+        raise HTTPException(status_code=403, detail="Ruxsat yo'q")
+    if rep.confirmed_at is not None:
+        raise HTTPException(status_code=400, detail="Tasdiqlangan hisobotni o'chirib bo'lmaydi")
+    db.delete(rep)
+    db.commit()
 
 
 @router.get("/weekly/mine", response_model=List[schemas.WeeklyReportOut])

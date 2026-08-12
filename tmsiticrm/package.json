@@ -9,7 +9,9 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "@ckeditor/ckeditor5-react": "^11.2.0",
     "@lottiefiles/dotlottie-react": "^0.19.2",
+    "ckeditor5": "^48.4.0",
     "docx": "^9.7.1",
     "docx-preview": "^0.3.7",
     "lucide-react": "^1.14.0",

@@ -322,6 +322,7 @@ class WeeklyReport(Base):
     year          = Column(Integer, nullable=False)
     month         = Column(Integer, nullable=False)   # 1-12
     week          = Column(Integer, nullable=False)   # 1-5 (shu oydagi taqvim haftasi tartib raqami)
+    description   = Column(Text, nullable=True)        # bajarilgan ish tavsifi (CKEditor HTML)
     file_name     = Column(String(255), nullable=True)
     file_b64      = Column(Text, nullable=True)
     uploaded_at   = Column(DateTime, nullable=True)

@@ -3,10 +3,11 @@
 import { useState, useEffect, useCallback } from "react";
 import {
   ChevronLeft, ChevronRight, Calendar, Upload, FileText,
-  CheckCircle2, Clock, Download, Loader2, Lock,
+  CheckCircle2, Clock, Download, Loader2, Lock, Pencil, Trash2, Info,
 } from "lucide-react";
 import { apiFetch } from "@/lib/api";
 import LottiePlayer from "@/components/ui/LottiePlayer";
+import WeeklyReportUploadModal from "@/components/reports/WeeklyReportUploadModal";
 
 const MON_NAMES = [
   "Yanvar","Fevral","Mart","Aprel","May","Iyun",
@@ -21,6 +22,7 @@ interface WeeklyReportRow {
   week_label: string | null;
   max_ball: number | null;
   is_current: boolean;
+  description: string | null;
   file_name: string | null;
   uploaded_at: string | null;
   ball: number | null;
@@ -33,7 +35,8 @@ export default function WeeklyReportCard() {
   const [month, setMonth] = useState(now.getMonth() + 1);
   const [rows,  setRows]  = useState<WeeklyReportRow[]>([]);
   const [loading, setLoading] = useState(true);
-  const [uploadingWeek, setUploadingWeek] = useState<number | null>(null);
+  const [uploadTarget, setUploadTarget] = useState<WeeklyReportRow | null>(null);
+  const [deletingId, setDeletingId] = useState<number | null>(null);
 
   const load = useCallback(async (y: number, m: number) => {
     setLoading(true);
@@ -56,33 +59,17 @@ export default function WeeklyReportCard() {
     setYear(y); setMonth(m); load(y, m);
   }
 
-  function triggerUpload(week: number) {
-    const inp = document.createElement("input");
-    inp.type = "file";
-    inp.accept = ".pdf,.doc,.docx,.xlsx,.xls";
-    inp.onchange = async (e) => {
-      const file = (e.target as HTMLInputElement).files?.[0];
-      if (!file) return;
-      if (file.size > 10 * 1024 * 1024) { alert("Fayl 10MB dan katta bo'lmasin"); return; }
-      const reader = new FileReader();
-      reader.onload = async (ev) => {
-        const b64 = ev.target?.result as string;
-        setUploadingWeek(week);
-        try {
-          await apiFetch("/reports/weekly", {
-            method: "POST",
-            body: JSON.stringify({ year, month, week, file_name: file.name, file_b64: b64 }),
-          });
-          load(year, month);
-        } catch (err) {
-          alert(err instanceof Error ? err.message : "Yuklashda xato");
-        } finally {
-          setUploadingWeek(null);
-        }
-      };
-      reader.readAsDataURL(file);
-    };
-    inp.click();
+  async function deleteReport(reportId: number) {
+    if (!confirm("Hisobotni o'chirishni tasdiqlaysizmi? Fayl serverdan butunlay o'chiriladi.")) return;
+    setDeletingId(reportId);
+    try {
+      await apiFetch(`/reports/weekly/${reportId}`, { method: "DELETE" });
+      load(year, month);
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "O'chirishda xato");
+    } finally {
+      setDeletingId(null);
+    }
   }
 
   async function downloadFile(reportId: number, fileName: string) {
@@ -152,26 +139,41 @@ export default function WeeklyReportCard() {
           <p className="text-sm mt-1" style={{ color: "#91929E" }}>Quyidagi haftalardan birini tanlab fayl yuklang</p>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 px-6 mt-6 w-full">
             {rows.map((r,idx) => (
-              <WeekCell key={r.week} row={r} uploading={uploadingWeek === r.week} locked={lockedState(r,idx)}
-                onUpload={() => triggerUpload(r.week)} onDownload={() => downloadFile(r.id, r.file_name || "fayl")}/>
+              <WeekCell key={r.week} row={r} deleting={deletingId === r.id} locked={lockedState(r,idx)}
+                onEdit={() => setUploadTarget(r)} onDelete={() => deleteReport(r.id)} onDownload={() => downloadFile(r.id, r.file_name || "fayl")}/>
             ))}
           </div>
         </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 p-6">
           {rows.map((r,idx) => (
-            <WeekCell key={r.week} row={r} uploading={uploadingWeek === r.week} locked={lockedState(r,idx)}
-              onUpload={() => triggerUpload(r.week)} onDownload={() => downloadFile(r.id, r.file_name || "fayl")}/>
+            <WeekCell key={r.week} row={r} deleting={deletingId === r.id} locked={lockedState(r,idx)}
+              onEdit={() => setUploadTarget(r)} onDelete={() => deleteReport(r.id)} onDownload={() => downloadFile(r.id, r.file_name || "fayl")}/>
           ))}
         </div>
+      )}
+
+      <p className="flex items-center gap-1.5 text-[11px] px-6 pb-5" style={{ color: "#91929E" }}>
+        <Info size={12}/> Fayl hajmi maksimal 10MB bo'lishi kerak (PDF, DOC, DOCX, XLS, XLSX).
+      </p>
+
+      {uploadTarget && (
+        <WeeklyReportUploadModal
+          year={year} month={month} week={uploadTarget.week}
+          weekLabel={uploadTarget.week_label || `${uploadTarget.week}-hafta`}
+          initialDescription={uploadTarget.description}
+          initialFileName={uploadTarget.file_name}
+          onClose={() => setUploadTarget(null)}
+          onSaved={() => load(year, month)}
+        />
       )}
     </div>
   );
 }
 
-function WeekCell({ row, uploading, locked, onUpload, onDownload }: {
-  row: WeeklyReportRow; uploading: boolean; locked: "past" | "future" | null;
-  onUpload: () => void; onDownload: () => void;
+function WeekCell({ row, deleting, locked, onEdit, onDelete, onDownload }: {
+  row: WeeklyReportRow; deleting: boolean; locked: "past" | "future" | null;
+  onEdit: () => void; onDelete: () => void; onDownload: () => void;
 }) {
   const hasFile = !!row.file_name;
   const isConfirmed = !!row.confirmed_at;
@@ -198,11 +200,11 @@ function WeekCell({ row, uploading, locked, onUpload, onDownload }: {
           </span>
         </div>
       ) : !hasFile ? (
-        <button onClick={onUpload} disabled={uploading}
-          className="w-full flex flex-col items-center justify-center gap-1.5 py-5 disabled:opacity-50"
+        <button onClick={onEdit}
+          className="w-full flex flex-col items-center justify-center gap-1.5 py-5"
           style={{ background: "rgba(63,140,255,0.06)", borderRadius: 12, border: "1.5px dashed rgba(63,140,255,0.3)" }}>
-          {uploading ? <Loader2 size={18} className="animate-spin" style={{ color: "#3F8CFF" }}/> : <Upload size={18} style={{ color: "#3F8CFF" }}/>}
-          <span className="text-xs font-bold" style={{ color: "#3F8CFF" }}>{uploading ? "Yuklanmoqda..." : "Fayl yuklash"}</span>
+          <Upload size={18} style={{ color: "#3F8CFF" }}/>
+          <span className="text-xs font-bold" style={{ color: "#3F8CFF" }}>Fayl yuklash</span>
         </button>
       ) : (
         <div className="flex flex-col gap-2">
@@ -222,9 +224,23 @@ function WeekCell({ row, uploading, locked, onUpload, onDownload }: {
               <span className="text-xs font-bold" style={{ color: "#0A1629" }}>{row.ball} / {row.max_ball}</span>
             </div>
           ) : (
-            <span className="flex items-center gap-1 text-xs font-bold px-1" style={{ color: "#FFBD21" }}>
-              <Clock size={12}/> Kutilmoqda
-            </span>
+            <div className="flex items-center justify-between px-1 gap-2">
+              <span className="flex items-center gap-1 text-xs font-bold" style={{ color: "#FFBD21" }}>
+                <Clock size={12}/> Kutilmoqda
+              </span>
+              <div className="flex items-center gap-1">
+                <button onClick={onEdit} title="Tahrirlash"
+                  className="w-6 h-6 flex items-center justify-center hover:opacity-80 transition-opacity"
+                  style={{ background: "rgba(63,140,255,0.1)", borderRadius: 7 }}>
+                  <Pencil size={11} style={{ color: "#3F8CFF" }}/>
+                </button>
+                <button onClick={onDelete} disabled={deleting} title="O'chirish"
+                  className="w-6 h-6 flex items-center justify-center hover:opacity-80 transition-opacity disabled:opacity-50"
+                  style={{ background: "rgba(255,92,92,0.1)", borderRadius: 7 }}>
+                  {deleting ? <Loader2 size={11} className="animate-spin" style={{ color: "#FF5C5C" }}/> : <Trash2 size={11} style={{ color: "#FF5C5C" }}/>}
+                </button>
+              </div>
+            </div>
           )}
         </div>
       )}
