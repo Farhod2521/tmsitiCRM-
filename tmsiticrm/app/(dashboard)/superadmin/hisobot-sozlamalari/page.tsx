@@ -37,21 +37,29 @@ export default function HisobotSozlamalariPage() {
   const [weeks, setWeeks] = useState<WeekInfo[]>([]);
   const [overrides, setOverrides] = useState<WindowOverride[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   const [extendTarget, setExtendTarget] = useState<WeekInfo | null>(null);
   const [notifyTarget, setNotifyTarget] = useState<WeekInfo | null>(null);
 
   const load = useCallback(async (y: number, m: number) => {
     setLoading(true);
+    setError(null);
     try {
-      const [w, o] = await Promise.all([
-        apiFetch<WeekInfo[]>(`/reports/weekly/weeks?year=${y}&month=${m}`),
-        apiFetch<WindowOverride[]>(`/reports/weekly/window-overrides?year=${y}&month=${m}`),
-      ]);
+      const w = await apiFetch<WeekInfo[]>(`/reports/weekly/weeks?year=${y}&month=${m}`);
       setWeeks(w);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Haftalar ro'yxatini yuklab bo'lmadi");
+      setWeeks([]);
+      setLoading(false);
+      return;
+    }
+    try {
+      const o = await apiFetch<WindowOverride[]>(`/reports/weekly/window-overrides?year=${y}&month=${m}`);
       setOverrides(o);
     } catch (e) {
-      console.error(e);
+      console.error("window-overrides yuklashda xato (backend yangilanmagan bo'lishi mumkin):", e);
+      setOverrides([]);
     } finally {
       setLoading(false);
     }
@@ -98,6 +106,15 @@ export default function HisobotSozlamalariPage() {
       {loading ? (
         <div className="flex items-center justify-center py-20">
           <Loader2 size={28} className="animate-spin" style={{ color: "#3F8CFF" }} />
+        </div>
+      ) : error ? (
+        <div className="py-20 text-center" style={{ background: "#FFFFFF", borderRadius: 24, boxShadow: "0px 6px 58px rgba(196,203,214,0.103611)" }}>
+          <p className="font-bold" style={{ color: "#FF5C5C" }}>{error}</p>
+          <p className="text-xs mt-2" style={{ color: "#91929E" }}>Backend yangilanganini va deploy qilinganini tekshiring.</p>
+        </div>
+      ) : weeks.length === 0 ? (
+        <div className="py-20 text-center" style={{ background: "#FFFFFF", borderRadius: 24, boxShadow: "0px 6px 58px rgba(196,203,214,0.103611)" }}>
+          <p className="font-bold" style={{ color: "#0A1629" }}>Bu oy uchun haftalar topilmadi</p>
         </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
