@@ -46,7 +46,7 @@ export default function HisobotSozlamalariPage() {
     setLoading(true);
     setError(null);
     try {
-      const w = await apiFetch<WeekInfo[]>(`/reports/weekly/weeks?year=${y}&month=${m}`);
+      const w = await apiFetch<WeekInfo[]>(`/reports/weeks?year=${y}&month=${m}`);
       setWeeks(w);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Haftalar ro'yxatini yuklab bo'lmadi");
