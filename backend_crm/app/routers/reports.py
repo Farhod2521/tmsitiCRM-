@@ -91,6 +91,34 @@ def _week_info_map(year: int, month: int) -> dict[int, dict]:
     return {w["week"]: w for w in get_month_weeks(year, month)}
 
 
+def _now_uz() -> datetime:
+    return datetime.now(TZ_UZ_ATTENDANCE).replace(tzinfo=None)
+
+
+def _active_override(db: Session, year: int, month: int, week: int) -> Optional[models.WeeklyReportWindowOverride]:
+    """Berilgan hafta uchun hozir amalda bo'lgan (muddati o'tmagan) uzaytirish
+    yozuvini qaytaradi, bo'lmasa None."""
+    row = db.query(models.WeeklyReportWindowOverride).filter(
+        models.WeeklyReportWindowOverride.year == year,
+        models.WeeklyReportWindowOverride.month == month,
+        models.WeeklyReportWindowOverride.week == week,
+    ).first()
+    if row and row.open_until > _now_uz():
+        return row
+    return None
+
+
+def _overrides_map(db: Session, year: int, month: int) -> dict[int, models.WeeklyReportWindowOverride]:
+    """Shu oydagi barcha HALI AMALDAGI uzaytirishlarni week -> row shaklida qaytaradi."""
+    now = _now_uz()
+    rows = db.query(models.WeeklyReportWindowOverride).filter(
+        models.WeeklyReportWindowOverride.year == year,
+        models.WeeklyReportWindowOverride.month == month,
+        models.WeeklyReportWindowOverride.open_until > now,
+    ).all()
+    return {r.week: r for r in rows}
+
+
 @router.get("/weeks", response_model=List[schemas.WeekInfo])
 def list_weeks(
     year: int,
@@ -130,8 +158,11 @@ def upload_weekly_report(
         raise HTTPException(status_code=422, detail="Noto'g'ri hafta raqami")
 
     w_info = weeks[payload.week]
+    override = None
     if not is_current_week(w_info["start"], w_info["end"]):
-        raise HTTPException(status_code=400, detail="Faqat joriy hafta uchun hisobot yuklash mumkin")
+        override = _active_override(db, payload.year, payload.month, payload.week)
+        if not override:
+            raise HTTPException(status_code=400, detail="Faqat joriy hafta uchun hisobot yuklash mumkin")
 
     if payload.file_b64 and _b64_payload_size_bytes(payload.file_b64) > MAX_WEEKLY_FILE_BYTES:
         raise HTTPException(status_code=413, detail="Fayl hajmi 10MB dan oshmasligi kerak")
@@ -163,7 +194,9 @@ def upload_weekly_report(
     out = schemas.WeeklyReportOut.model_validate(rep)
     out.week_label = w_info["label"]
     out.max_ball = weekly_max(payload.year, payload.month)
-    out.is_current = True
+    out.is_current = is_current_week(w_info["start"], w_info["end"])
+    out.upload_open = True
+    out.open_until = override.open_until if override else None
     out.employee_name = current.full_name
     return out
 
@@ -187,6 +220,72 @@ def delete_weekly_report(
     db.commit()
 
 
+@router.get("/weekly/window-overrides", response_model=List[schemas.WeeklyWindowOverrideOut])
+def list_window_overrides(
+    year: int,
+    month: int,
+    db: Session = Depends(get_db),
+    current: models.Employee = Depends(get_current_employee),
+):
+    """Shu oy uchun berilgan barcha muddat-uzaytirishlar (amal qilish muddati
+    o'tganlari ham) — sozlamalar sahifasida ko'rsatish uchun."""
+    if current.role not in _ADMIN_ROLES:
+        raise HTTPException(status_code=403, detail="Ruxsat yo'q")
+    return (
+        db.query(models.WeeklyReportWindowOverride)
+        .filter(
+            models.WeeklyReportWindowOverride.year == year,
+            models.WeeklyReportWindowOverride.month == month,
+        )
+        .order_by(models.WeeklyReportWindowOverride.week)
+        .all()
+    )
+
+
+@router.post("/weekly/window-override", response_model=schemas.WeeklyWindowOverrideOut)
+def set_window_override(
+    payload: schemas.WeeklyWindowOverrideIn,
+    db: Session = Depends(get_db),
+    current: models.Employee = Depends(get_current_employee),
+):
+    """O'tgan (yopilgan) haftaga vaqtincha ochiq muddat beradi — belgilangan
+    open_until vaqtigacha o'sha hafta uchun hisobot yuklash yana ruxsat etiladi."""
+    if current.role not in _ADMIN_ROLES:
+        raise HTTPException(status_code=403, detail="Ruxsat yo'q")
+    weeks = _week_info_map(payload.year, payload.month)
+    if payload.week not in weeks:
+        raise HTTPException(status_code=422, detail="Noto'g'ri hafta raqami")
+
+    row = db.query(models.WeeklyReportWindowOverride).filter(
+        models.WeeklyReportWindowOverride.year == payload.year,
+        models.WeeklyReportWindowOverride.month == payload.month,
+        models.WeeklyReportWindowOverride.week == payload.week,
+    ).first()
+    if not row:
+        row = models.WeeklyReportWindowOverride(year=payload.year, month=payload.month, week=payload.week)
+        db.add(row)
+    row.open_until = payload.open_until
+    row.created_by = current.id
+    db.commit()
+    db.refresh(row)
+    return row
+
+
+@router.delete("/weekly/window-override/{override_id}", status_code=204)
+def delete_window_override(
+    override_id: int,
+    db: Session = Depends(get_db),
+    current: models.Employee = Depends(get_current_employee),
+):
+    """Berilgan muddat-uzaytirishni bekor qiladi (haftani muddatidan oldin yopadi)."""
+    if current.role not in _ADMIN_ROLES:
+        raise HTTPException(status_code=403, detail="Ruxsat yo'q")
+    row = db.query(models.WeeklyReportWindowOverride).filter(models.WeeklyReportWindowOverride.id == override_id).first()
+    if row:
+        db.delete(row)
+        db.commit()
+
+
 @router.get("/weekly/mine", response_model=List[schemas.WeeklyReportOut])
 def my_weekly_reports(
     year: int,
@@ -197,6 +296,7 @@ def my_weekly_reports(
     """Joriy foydalanuvchining shu oydagi haftalik hisobotlari (yuklanmaganlar ham bo'sh hafta sifatida)."""
     weeks = get_month_weeks(year, month)
     wmax = weekly_max(year, month)
+    overrides = _overrides_map(db, year, month)
     existing = {
         r.week: r
         for r in db.query(models.WeeklyReport).filter(
@@ -217,6 +317,9 @@ def my_weekly_reports(
         out.week_label = w["label"]
         out.max_ball = wmax
         out.is_current = is_current_week(w["start"], w["end"])
+        override = overrides.get(w["week"])
+        out.upload_open = out.is_current or override is not None
+        out.open_until = override.open_until if override else None
         out.employee_name = current.full_name
         result.append(out)
     return result
@@ -228,6 +331,7 @@ def _build_team_rows(targets: List[models.Employee], year: int, month: int, db: 
 
     weeks = get_month_weeks(year, month)
     wmax = weekly_max(year, month)
+    overrides = _overrides_map(db, year, month)
     target_ids = [t.id for t in targets]
 
     reports = db.query(models.WeeklyReport).filter(
@@ -262,6 +366,9 @@ def _build_team_rows(targets: List[models.Employee], year: int, month: int, db: 
             out.week_label = w["label"]
             out.max_ball = wmax
             out.is_current = is_current_week(w["start"], w["end"])
+            override = overrides.get(w["week"])
+            out.upload_open = out.is_current or override is not None
+            out.open_until = override.open_until if override else None
             week_outs.append(out)
         dept = dept_map.get(emp.department_id) if emp.department_id else None
         rows.append(schemas.WeeklyTeamRowOut(
@@ -426,6 +533,54 @@ def send_weekly_telegram(
     if not ok:
         raise HTTPException(status_code=502, detail="Telegram xabarini yuborib bo'lmadi")
     return {"ok": True}
+
+
+@router.get("/weekly/missing", response_model=schemas.MissingReportOut)
+def missing_weekly_reports(
+    year: int,
+    month: int,
+    week: int,
+    db: Session = Depends(get_db),
+    current: models.Employee = Depends(get_current_employee),
+):
+    """Berilgan (istalgan — o'tgan yoki joriy) hafta uchun hisobot fayli
+    yuklamagan barcha FAOL xodimlar ro'yxati va Telegramga yuborish uchun
+    tayyor xabar matni — faqat superadmin/direktor/zamdirektor."""
+    if current.role not in _ADMIN_ROLES:
+        raise HTTPException(status_code=403, detail="Ruxsat yo'q")
+    weeks = _week_info_map(year, month)
+    if week not in weeks:
+        raise HTTPException(status_code=422, detail="Noto'g'ri hafta raqami")
+    week_label = weeks[week]["label"]
+
+    emps = (
+        db.query(models.Employee)
+        .filter(models.Employee.is_active == True)
+        .order_by(models.Employee.department_id, models.Employee.id)
+        .all()
+    )
+    uploaded_ids = {
+        r.employee_id for r in db.query(models.WeeklyReport.employee_id).filter(
+            models.WeeklyReport.year == year,
+            models.WeeklyReport.month == month,
+            models.WeeklyReport.week == week,
+            models.WeeklyReport.file_name.isnot(None),
+        ).all()
+    }
+    missing = [e for e in emps if e.id not in uploaded_ids]
+
+    if missing:
+        lines = [f"\U0001F4CC {week}-hafta ({week_label}) uchun hisobot topshirmaganlar:", ""]
+        lines += [f"{i}) {e.full_name}" for i, e in enumerate(missing, 1)]
+        lines += ["", "Iltimos, hisobotingizni tezroq yuklang."]
+        text = "\n".join(lines)
+    else:
+        text = ""
+
+    return schemas.MissingReportOut(
+        week=week, week_label=week_label, count=len(missing),
+        names=[e.full_name for e in missing], text=text,
+    )
 
 
 # ─── Xodim oylik hisoboti (direktor sahifasi) ─────────────────────────────────

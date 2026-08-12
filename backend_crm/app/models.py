@@ -334,6 +334,26 @@ class WeeklyReport(Base):
     reviewer      = relationship("Employee", foreign_keys=[confirmed_by])
 
 
+class WeeklyReportWindowOverride(Base):
+    """Superadmin/direktor tomonidan o'tgan (yopilgan) haftaga vaqtincha ochiq
+    muddat berish — belgilangan open_until vaqtigacha o'sha hafta uchun hisobot
+    yuklash/tahrirlash yana ruxsat etiladi."""
+    __tablename__ = "weekly_report_window_overrides"
+    __table_args__ = (
+        UniqueConstraint("year", "month", "week", name="uq_weekly_window_override"),
+    )
+
+    id          = Column(Integer, primary_key=True, index=True)
+    year        = Column(Integer, nullable=False)
+    month       = Column(Integer, nullable=False)
+    week        = Column(Integer, nullable=False)
+    open_until  = Column(DateTime, nullable=False)   # mahalliy (UTC+5) vaqt, naive
+    created_by  = Column(Integer, ForeignKey("employees.id"), nullable=True)
+    created_at  = Column(DateTime, default=datetime.utcnow)
+
+    author      = relationship("Employee", foreign_keys=[created_by])
+
+
 class TelegramLinkToken(Base):
     """Xodim CRM profilida "Telegram" tugmasini bosganda yaratiladigan, bir martalik,
     muddati tez tugaydigan token — add_account_bot shu orqali xodimni aniqlaydi

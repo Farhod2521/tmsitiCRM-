@@ -22,6 +22,8 @@ interface WeeklyReportRow {
   week_label: string | null;
   max_ball: number | null;
   is_current: boolean;
+  upload_open: boolean;
+  open_until: string | null;
   description: string | null;
   file_name: string | null;
   uploaded_at: string | null;
@@ -91,7 +93,7 @@ export default function WeeklyReportCard() {
   const currentWeekIdx = rows.findIndex(r => r.is_current);
 
   function lockedState(row: WeeklyReportRow, idx: number): "past" | "future" | null {
-    if (row.is_current) return null;
+    if (row.is_current || row.upload_open) return null;
     if (isPastMonth) return "past";
     if (isFutureMonth) return "future";
     if (currentWeekIdx === -1) return "past";
@@ -187,6 +189,12 @@ function WeekCell({ row, deleting, locked, onEdit, onDelete, onDownload }: {
         {row.is_current && !hasFile && (
           <span className="text-[10px] font-bold px-1.5 py-0.5" style={{ background:"rgba(63,140,255,0.1)", color:"#3F8CFF", borderRadius:6 }}>
             Joriy
+          </span>
+        )}
+        {!row.is_current && row.open_until && (
+          <span className="text-[10px] font-bold px-1.5 py-0.5" style={{ background:"rgba(0,196,140,0.1)", color:"#00C48C", borderRadius:6 }}>
+            {new Date(row.open_until).toLocaleDateString("uz-UZ", { day: "2-digit", month: "2-digit" })}{" "}
+            {new Date(row.open_until).toLocaleTimeString("uz-UZ", { hour: "2-digit", minute: "2-digit" })} gacha
           </span>
         )}
       </div>

@@ -369,6 +369,8 @@ class WeeklyReportOut(BaseModel):
     week_label: Optional[str] = None
     max_ball: Optional[float] = None
     is_current: bool = False
+    upload_open: bool = False    # is_current YOKI vaqtincha uzaytirilgan muddat ichida
+    open_until: Optional[datetime] = None   # uzaytirilgan bo'lsa, muddat vaqti
     description: Optional[str] = None
     file_name: Optional[str] = None
     uploaded_at: Optional[datetime] = None
@@ -391,6 +393,30 @@ class PendingMessageOut(BaseModel):
     count: int
 
 class TelegramMessageIn(BaseModel):
+    text: str
+
+
+# ── Haftalik hisobot muddatini vaqtincha uzaytirish (superadmin/direktor) ────
+class WeeklyWindowOverrideIn(BaseModel):
+    year: int
+    month: int
+    week: int
+    open_until: datetime   # mahalliy (UTC+5) vaqt, masalan "2026-08-13T11:00:00"
+
+class WeeklyWindowOverrideOut(BaseModel):
+    id: int
+    year: int
+    month: int
+    week: int
+    open_until: datetime
+    created_by: Optional[int] = None
+    model_config = {"from_attributes": True}
+
+class MissingReportOut(BaseModel):
+    week: int
+    week_label: str
+    count: int
+    names: List[str]
     text: str
 
 

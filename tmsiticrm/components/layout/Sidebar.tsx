@@ -21,6 +21,7 @@ import {
   User,
   X,
   FileBarChart2,
+  Timer,
 } from "lucide-react";
 import LottiePlayer from "@/components/ui/LottiePlayer";
 import MobileTopBar from "@/components/layout/MobileTopBar";
@@ -31,6 +32,7 @@ const navItems = [
   { href: "/superadmin/ball-berish",  icon: Star,            label: "Ball berish", enabled: true  },
   { href: "/superadmin/hisobotlar",   icon: BarChart3,       label: "Hisobotlar",    enabled: true  },
   { href: "/superadmin/oylik-hisobot",icon: FileBarChart2,   label: "Oylik hisobot", enabled: true  },
+  { href: "/superadmin/hisobot-sozlamalari", icon: Timer,    label: "Hisobot sozlamalari", enabled: true  },
   { href: "/superadmin/nazorat",      icon: FileCheck,       label: "Ijro nazorati", enabled: true  },
   { href: "/superadmin/davomat",      icon: ClipboardCheck,  label: "Davomat",     enabled: true  },
   { href: "/superadmin/sozlamalar",   icon: Settings,        label: "Sozlamalar",  enabled: true  },
