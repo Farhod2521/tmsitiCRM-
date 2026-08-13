@@ -30,6 +30,7 @@ interface NoteDetail {
 }
 interface WeekRow {
   week: number; label: string;
+  description: string | null;
   file_name: string | null; uploaded_at: string | null;
   ball: number | null; report_id: number | null;
 }
@@ -235,6 +236,75 @@ function NoteDetailModal({ note, onClose }: { note: NoteDetail; onClose: () => v
   );
 }
 
+/* ── Haftalik hisobot: ish tavsifi + fayl modali ── */
+function WeekReportModal({ week, onClose }: { week: WeekRow; onClose: () => void }) {
+  const [downloading, setDownloading] = useState(false);
+
+  async function handleDownload() {
+    if (!week.report_id) return;
+    setDownloading(true);
+    try {
+      const d = await apiFetch<{ file_name: string; file_b64: string }>(`/reports/weekly/file/${week.report_id}`);
+      const a = document.createElement("a");
+      a.href = d.file_b64;
+      a.download = d.file_name || week.file_name || "fayl";
+      a.click();
+    } catch (e) {
+      alert(e instanceof Error ? e.message : "Fayl topilmadi");
+    } finally {
+      setDownloading(false);
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4"
+      style={{ background: "rgba(10,22,41,0.55)", backdropFilter: "blur(3px)" }}
+      onClick={onClose}>
+      <div className="w-full max-w-lg max-h-[85vh] flex flex-col" style={{ background: "#FFFFFF", borderRadius: 20, boxShadow: "0 20px 60px rgba(10,22,41,0.3)" }}
+        onClick={e => e.stopPropagation()}>
+        <div className="flex items-center justify-between px-6 py-4 flex-shrink-0" style={{ borderBottom: "1px solid #F4F9FD" }}>
+          <div>
+            <h3 className="font-bold text-base" style={{ color: "#0A1629" }}>{week.label}</h3>
+            {week.uploaded_at && (
+              <p className="text-xs mt-0.5" style={{ color: "#91929E" }}>Yuklangan: {new Date(week.uploaded_at).toLocaleString("uz-UZ", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" })}</p>
+            )}
+          </div>
+          <button onClick={onClose} className="w-8 h-8 flex items-center justify-center hover:opacity-70" style={{ background: "#F4F9FD", borderRadius: 9 }}>
+            <X size={14} style={{ color: "#7D8592" }} />
+          </button>
+        </div>
+
+        <div className="flex-1 overflow-y-auto px-6 py-5">
+          <p className="text-xs font-bold mb-2" style={{ color: "#91929E", letterSpacing: "0.04em" }}>ISH TAVSIFI</p>
+          {week.description ? (
+            <div className="text-sm rte-content" style={{ color: "#3D4557", lineHeight: 1.7 }}
+              dangerouslySetInnerHTML={{ __html: week.description }} />
+          ) : (
+            <p className="text-sm" style={{ color: "#C4CBD6" }}>Ish tavsifi yozilmagan</p>
+          )}
+
+          <p className="text-xs font-bold mb-2 mt-5" style={{ color: "#91929E", letterSpacing: "0.04em" }}>FAYL</p>
+          {week.file_name && week.report_id ? (
+            <button onClick={handleDownload} disabled={downloading}
+              className="w-full flex items-center gap-2 px-3 py-2.5 hover:opacity-80 transition-opacity disabled:opacity-60"
+              style={{ background: "#FAFCFF", borderRadius: 10, border: "1px solid #F0F3F8" }}>
+              <FileText size={14} style={{ color: "#6D5DD3", flexShrink: 0 }} />
+              <span className="text-xs font-bold truncate flex-1 text-left" style={{ color: "#0A1629" }}>{week.file_name}</span>
+              {downloading ? <Loader2 size={13} className="animate-spin" style={{ color: "#91929E" }} /> : <Download size={13} style={{ color: "#91929E", flexShrink: 0 }} />}
+            </button>
+          ) : (
+            <p className="text-sm" style={{ color: "#C4CBD6" }}>Fayl yuklanmagan</p>
+          )}
+
+          {week.ball != null && (
+            <p className="text-xs font-bold mt-4" style={{ color: "#00A578" }}>Ball: {week.ball}</p>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function MonthlyReportModal({
   employeeId, year, month, onClose,
 }: { employeeId: number; year: number; month: number; onClose: () => void }) {
@@ -243,6 +313,7 @@ export default function MonthlyReportModal({
   const [error, setError] = useState<string | null>(null);
   const [photo, setPhoto] = useState<string | null>(null);
   const [selectedNote, setSelectedNote] = useState<NoteDetail | null>(null);
+  const [selectedWeek, setSelectedWeek] = useState<WeekRow | null>(null);
 
   function noteForDay(day: number): NoteDetail | undefined {
     if (!data) return undefined;
@@ -438,12 +509,15 @@ export default function MonthlyReportModal({
                 <p className="text-xs font-bold mb-3" style={{ color: "#91929E", letterSpacing: "0.04em" }}>ISHLAR RO'YXATI (HAFTALIK)</p>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
                   {data.weekly_reports.map(w => (
-                    <div key={w.week} className="flex items-center gap-3 p-3" style={{ background: "#FAFCFF", borderRadius: 12, border: "1px solid #F0F3F8" }}>
+                    <button key={w.week} onClick={() => setSelectedWeek(w)}
+                      className="flex items-center gap-3 p-3 text-left hover:opacity-85 transition-opacity"
+                      style={{ background: "#FAFCFF", borderRadius: 12, border: "1px solid #F0F3F8" }}>
                       <div className="flex-1 min-w-0">
                         <p className="text-xs font-bold" style={{ color: "#0A1629" }}>{w.label}</p>
                         <p className="text-[11px] mt-0.5 truncate" style={{ color: "#91929E" }}>
                           {w.file_name ? w.file_name : "Fayl yuklanmagan"}
                           {w.uploaded_at && <> · {new Date(w.uploaded_at).toLocaleDateString("uz-UZ")}</>}
+                          {w.description && <> · Ish tavsifi bor</>}
                         </p>
                       </div>
                       {w.ball != null && (
@@ -451,18 +525,10 @@ export default function MonthlyReportModal({
                           {w.ball} ball
                         </span>
                       )}
-                      {w.report_id ? (
-                        <a href={`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/reports/weekly/file/${w.report_id}`}
-                          target="_blank" rel="noopener noreferrer"
-                          className="w-8 h-8 flex items-center justify-center flex-shrink-0 hover:opacity-80" style={{ background: "rgba(63,140,255,0.1)", borderRadius: 8 }}>
-                          <Download size={13} style={{ color: "#3F8CFF" }} />
-                        </a>
-                      ) : (
-                        <div className="w-8 h-8 flex items-center justify-center flex-shrink-0" style={{ background: "#F4F9FD", borderRadius: 8 }}>
-                          <FileText size={13} style={{ color: "#D9E3F0" }} />
-                        </div>
-                      )}
-                    </div>
+                      <div className="w-8 h-8 flex items-center justify-center flex-shrink-0" style={{ background: w.file_name || w.description ? "rgba(63,140,255,0.1)" : "#F4F9FD", borderRadius: 8 }}>
+                        <FileText size={13} style={{ color: w.file_name || w.description ? "#3F8CFF" : "#D9E3F0" }} />
+                      </div>
+                    </button>
                   ))}
                   {data.weekly_reports.length === 0 && (
                     <p className="text-xs text-center py-6 md:col-span-2" style={{ color: "#91929E" }}>Bu oy uchun haftalik hisobot yo'q</p>
@@ -493,6 +559,7 @@ export default function MonthlyReportModal({
       </div>
 
       {selectedNote && <NoteDetailModal note={selectedNote} onClose={() => setSelectedNote(null)} />}
+      {selectedWeek && <WeekReportModal week={selectedWeek} onClose={() => setSelectedWeek(null)} />}
     </div>
   );
 }

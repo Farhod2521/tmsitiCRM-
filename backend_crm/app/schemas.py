@@ -455,6 +455,7 @@ class MonthlyReportCalendarDay(BaseModel):
 class MonthlyReportWeekRow(BaseModel):
     week: int
     label: str
+    description: Optional[str] = None   # bajarilgan ish tavsifi (CKEditor HTML)
     file_name: Optional[str] = None
     uploaded_at: Optional[datetime] = None
     ball: Optional[float] = None

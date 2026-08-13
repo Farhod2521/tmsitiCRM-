@@ -703,6 +703,7 @@ def monthly_report(
         weekly_rows.append(schemas.MonthlyReportWeekRow(
             week=w["week"],
             label=f"{w['week']}-hafta ({w['label']})",
+            description=r.description if r else None,
             file_name=r.file_name if r else None,
             uploaded_at=r.uploaded_at if r else None,
             ball=r.ball if r else None,

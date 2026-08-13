@@ -53,3 +53,11 @@ body {
   border-color: #3F8CFF !important;
   box-shadow: none !important;
 }
+
+/* CKEditor natijasini (ish tavsifi matnini) o'qish rejimida ko'rsatish */
+.rte-content p { margin-bottom: 0.6em; }
+.rte-content ul, .rte-content ol { margin: 0.4em 0 0.6em 1.4em; }
+.rte-content ul { list-style: disc; }
+.rte-content ol { list-style: decimal; }
+.rte-content a { color: #3F8CFF; font-weight: 700; text-decoration: underline; }
+.rte-content p:last-child { margin-bottom: 0; }
