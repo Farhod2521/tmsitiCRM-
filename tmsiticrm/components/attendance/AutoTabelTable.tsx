@@ -16,10 +16,19 @@ interface AutoTabelRow {
   department_id: number | null;
   department_name: string | null;
   cells: Record<string, string>;
+  worked_min: number;
+  late_min: number;
 }
 interface AutoTabelData {
   days_in_month: number;
+  working_days: number;
   rows: AutoTabelRow[];
+}
+
+function fmtHM(totalMin: number): string {
+  const h = Math.floor(totalMin / 60);
+  const m = totalMin % 60;
+  return `${h}:${String(m).padStart(2, "0")}`;
 }
 
 const CODE_CFG: Record<string, { color: string; bg: string }> = {
@@ -136,7 +145,10 @@ export default function AutoTabelTable() {
           <table style={{ borderCollapse: "collapse" }}>
             <thead>
               <tr>
-                <th className="text-left px-3 py-2 text-xs font-bold sticky left-0" style={{ color: "#91929E", background: "#FAFCFF", minWidth: 190, zIndex: 1 }}>
+                <th className="text-center px-2 py-2 text-xs font-bold sticky left-0" style={{ color: "#91929E", background: "#FAFCFF", minWidth: 32, zIndex: 1 }}>
+                  #
+                </th>
+                <th className="text-left px-3 py-2 text-xs font-bold sticky left-0" style={{ color: "#91929E", background: "#FAFCFF", minWidth: 190, left: 32, zIndex: 1 }}>
                   Ism familiyasi
                 </th>
                 {days.map(d => (
@@ -145,12 +157,21 @@ export default function AutoTabelTable() {
                     <div className="text-[8px]" style={{ color: "#B8C2D6" }}>{WEEK_DAYS[weekdayOf(year, month, d)]}</div>
                   </th>
                 ))}
+                <th className="px-3 py-2 text-center text-[10px] font-bold" style={{ minWidth: 110, background: "#FAFCFF", color: "#91929E" }}>
+                  Jami ish soati
+                </th>
+                <th className="px-3 py-2 text-center text-[10px] font-bold" style={{ minWidth: 90, background: "#FAFCFF", color: "#91929E" }}>
+                  Kechikkan vaqti
+                </th>
               </tr>
             </thead>
             <tbody>
               {data.rows.map((r, ri) => (
                 <tr key={r.employee_id} style={{ borderTop: "1px solid #F4F9FD" }}>
-                  <td className="px-3 py-2 text-xs font-bold sticky left-0 whitespace-nowrap" style={{ color: "#0A1629", background: ri % 2 ? "#FFFFFF" : "#FAFCFF" }}>
+                  <td className="px-2 py-2 text-xs font-bold text-center sticky left-0" style={{ color: "#91929E", background: ri % 2 ? "#FFFFFF" : "#FAFCFF" }}>
+                    {ri + 1}
+                  </td>
+                  <td className="px-3 py-2 text-xs font-bold sticky whitespace-nowrap" style={{ color: "#0A1629", background: ri % 2 ? "#FFFFFF" : "#FAFCFF", left: 32 }}>
                     {r.full_name}
                   </td>
                   {days.map(d => {
@@ -167,6 +188,12 @@ export default function AutoTabelTable() {
                       </td>
                     );
                   })}
+                  <td className="text-center py-2 text-xs font-bold whitespace-nowrap" style={{ color: "#0A1629", background: ri % 2 ? "#FFFFFF" : "#FAFCFF" }}>
+                    {fmtHM(r.worked_min)}/{fmtHM(data.working_days * 480)}
+                  </td>
+                  <td className="text-center py-2 text-xs font-bold whitespace-nowrap" style={{ color: r.late_min > 0 ? "#FF8C42" : "#D9E3F0", background: ri % 2 ? "#FFFFFF" : "#FAFCFF" }}>
+                    {fmtHM(r.late_min)}
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -175,7 +202,7 @@ export default function AutoTabelTable() {
       )}
 
       <div className="flex items-center gap-4 flex-wrap px-6 py-4" style={{ borderTop: "1px solid #F4F9FD" }}>
-        {[["8", "Kelgan"], ["X", "Dam olish kuni"], ["MT", "Mehnat ta'tili"], ["O'", "O'quv ta'tili"], ["K", "Xizmat safari"], ["B", "Bolnichniy"], ["Д", "Dekret"]].map(([code, label]) => (
+        {[["8", "Kelgan"], ["X", "Dam olish kuni"], ["MT", "Mehnat ta'tili"], ["O'", "O'quv ta'tili"], ["K", "Xizmat safari"], ["B", "Bolnichniy"]].map(([code, label]) => (
           <span key={code} className="flex items-center gap-1.5 text-[11px]" style={{ color: "#91929E" }}>
             <span className="inline-flex items-center justify-center text-[9px] font-bold" style={{ width: 18, height: 16, borderRadius: 4, color: CODE_CFG[code]?.color, background: CODE_CFG[code]?.bg }}>
               {code}

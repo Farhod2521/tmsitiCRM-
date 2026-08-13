@@ -196,9 +196,12 @@ class AutoTabelRow(BaseModel):
     department_id: Optional[int] = None
     department_name: Optional[str] = None
     cells: dict  # {day: code}  e.g. {"1":"8","2":"X","15":"MT",...}
+    worked_min: int = 0    # hozirgacha ishlagan (kelgan kunlar * 8 soat), daqiqada
+    late_min: int = 0      # shu oydagi jami kechikish, daqiqada
 
 class AutoTabelOut(BaseModel):
     days_in_month: int
+    working_days: int      # shu oyning ish kunlari soni (dush-juma)
     rows: List[AutoTabelRow]
 
 
