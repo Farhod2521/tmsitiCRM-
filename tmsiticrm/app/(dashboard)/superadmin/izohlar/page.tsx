@@ -38,19 +38,18 @@ const NOTE_TYPE_CFG: Record<NoteType, { label: string; icon: typeof AlarmClock; 
   ruxsat:    { label: "Ruxsat so'ragan", icon: DoorOpen,   color: "#6D5DD3", bg: "rgba(109,93,211,0.12)"  },
 };
 
-type FilterKey = "barchasi" | "kutilmoqda" | "kadr_tasdiqladi" | "sababli" | "sababsiz";
+type FilterKey = "barchasi" | "kadr_tasdiqladi" | "sababli" | "sababsiz";
 
 const FILTERS: { key: FilterKey; label: string }[] = [
-  { key: "barchasi",  label: "Barchasi" },
-  { key: "kutilmoqda", label: "Kutilmoqda" },
-  { key: "kadr_tasdiqladi", label: "Zamdirektorda" },
-  { key: "sababli",   label: "Sababli" },
-  { key: "sababsiz",  label: "Sababsiz" },
+  { key: "barchasi",        label: "Barchasi" },
+  { key: "kadr_tasdiqladi", label: "Sizning tasdig'ingiz kutilmoqda" },
+  { key: "sababli",         label: "Sababli" },
+  { key: "sababsiz",        label: "Sababsiz" },
 ];
 
 const REVIEW_CFG: Record<ReviewStatus, { label: string; color: string; bg: string }> = {
-  kutilmoqda:      { label: "Kutilmoqda",                        color: "#91929E", bg: "rgba(145,146,158,0.12)" },
-  kadr_tasdiqladi: { label: "Zamdirektor tasdiqlashi kutilmoqda", color: "#3F8CFF", bg: "rgba(63,140,255,0.12)" },
+  kutilmoqda:      { label: "Kadr ko'rib chiqmoqda",             color: "#91929E", bg: "rgba(145,146,158,0.12)" },
+  kadr_tasdiqladi: { label: "Tasdig'ingiz kutilmoqda",           color: "#3F8CFF", bg: "rgba(63,140,255,0.12)" },
   sababli:         { label: "Sababli",                           color: "#00A578", bg: "rgba(0,165,120,0.12)" },
   sababsiz:        { label: "Sababsiz",                          color: "#FF5C5C", bg: "rgba(255,92,92,0.12)" },
 };
@@ -62,10 +61,10 @@ function fmtDt(d: string) {
   return new Date(d).toLocaleString("uz-UZ", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
 }
 
-export default function XodimIzohlarPage() {
+export default function DirektorIzohlarPage() {
   const [notes,   setNotes]   = useState<AttendanceNote[]>([]);
   const [loading, setLoading] = useState(true);
-  const [filter,  setFilter]  = useState<FilterKey>("barchasi");
+  const [filter,  setFilter]  = useState<FilterKey>("kadr_tasdiqladi");
   const [reviewingId, setReviewingId] = useState<number | null>(null);
 
   const load = useCallback(() => {
@@ -86,25 +85,26 @@ export default function XodimIzohlarPage() {
         body: JSON.stringify({ status }),
       });
       await load();
-    } catch {
-      // sokin
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Xatolik");
     } finally {
       setReviewingId(null);
     }
   }
 
   const counts = {
-    barchasi:   notes.length,
-    kutilmoqda: notes.filter(n => n.review_status === "kutilmoqda").length,
+    barchasi:        notes.length,
     kadr_tasdiqladi: notes.filter(n => n.review_status === "kadr_tasdiqladi").length,
-    sababli:    notes.filter(n => n.review_status === "sababli").length,
-    sababsiz:   notes.filter(n => n.review_status === "sababsiz").length,
+    sababli:         notes.filter(n => n.review_status === "sababli").length,
+    sababsiz:        notes.filter(n => n.review_status === "sababsiz").length,
   };
-  const visible = notes.filter(n => filter === "barchasi" || n.review_status === filter);
+  const visible = notes
+    .filter(n => n.review_status !== "kutilmoqda")
+    .filter(n => filter === "barchasi" || n.review_status === filter);
 
   return (
     <div>
-      <Header title="Izohlar" subtitle="Xodimlarning kechikish/kelmaslik haqidagi izohlarini ko'rib chiqing" />
+      <Header title="Izohlar" subtitle="Kadr tasdiqlagan izohlarni yakuniy tasdiqlang" />
 
       <div className="p-6" style={{ background: "#FFFFFF", boxShadow: "0px 6px 58px rgba(196,203,214,0.103611)", borderRadius: 24 }}>
         {/* Filter tabs */}
@@ -213,7 +213,7 @@ export default function XodimIzohlarPage() {
                         style={{ background: REVIEW_CFG[n.review_status].bg, color: REVIEW_CFG[n.review_status].color }}>
                         {REVIEW_CFG[n.review_status].label}
                       </span>
-                      {n.review_status !== "kutilmoqda" && n.reviewed_by_nomi && (
+                      {n.reviewed_by_nomi && (
                         <p className="text-[11px] mt-1" style={{ color: "#91929E" }}>
                           Kadr: {n.reviewed_by_nomi}{n.reviewed_at ? `, ${fmtDt(n.reviewed_at)}` : ""}
                         </p>
@@ -226,7 +226,7 @@ export default function XodimIzohlarPage() {
                     </td>
 
                     <td className="py-4">
-                      {n.review_status === "kutilmoqda" ? (
+                      {n.review_status === "kadr_tasdiqladi" ? (
                         <div className="flex items-center gap-1.5">
                           <button onClick={() => handleReview(n.id, "sababli")} disabled={reviewingId === n.id}
                             title="Tasdiqlash"
@@ -257,7 +257,7 @@ export default function XodimIzohlarPage() {
 
         {!loading && (
           <p className="text-sm mt-4" style={{ color: "#91929E" }}>
-            {visible.length} ta izoh ko'rsatilmoqda (jami {notes.length} ta)
+            {visible.length} ta izoh ko'rsatilmoqda
           </p>
         )}
       </div>

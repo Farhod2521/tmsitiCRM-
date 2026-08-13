@@ -319,14 +319,21 @@ def set_employee_role(
     return emp
 
 
+def _require_status_editor(current: models.Employee = Depends(get_current_employee)) -> models.Employee:
+    """Xodim holatini o'zgartira oladiganlar — superadmin va kadrlar bo'limi."""
+    if current.role not in {models.RoleEnum.superadmin, models.RoleEnum.kadr}:
+        raise HTTPException(status_code=403, detail="Ruxsat yo'q")
+    return current
+
+
 @router.patch("/{emp_id}/set-status", response_model=EmployeeOut)
 def set_employee_status(
     emp_id: int,
     data: SetStatusIn,
     db: Session = Depends(get_db),
-    _: models.Employee = Depends(require_superadmin),
+    _: models.Employee = Depends(_require_status_editor),
 ):
-    """Xodim holatini belgilash (superadmin). Ba'zi statuslar (mehnat ta'tili, xizmat
+    """Xodim holatini belgilash (superadmin yoki kadr). Ba'zi statuslar (mehnat ta'tili, xizmat
     safari, o'quv ta'tili, bolnichniy) muddatli bo'ladi — sanadan/sanagacha talab qilinadi
     va shu sana o'tgach xodim avtomatik "faol"ga qaytadi. Faol bo'lmagan statuslarda
     is_active=False bo'ladi — ball berishda chiqmaydi, lekin Bo'limlar sahifasida

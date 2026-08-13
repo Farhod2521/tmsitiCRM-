@@ -22,6 +22,7 @@ import {
   X,
   FileBarChart2,
   Timer,
+  MessageSquareWarning,
 } from "lucide-react";
 import LottiePlayer from "@/components/ui/LottiePlayer";
 import MobileTopBar from "@/components/layout/MobileTopBar";
@@ -35,6 +36,7 @@ const navItems = [
   { href: "/superadmin/hisobot-sozlamalari", icon: Timer,    label: "Hisobot sozlamalari", enabled: true  },
   { href: "/superadmin/nazorat",      icon: FileCheck,       label: "Ijro nazorati", enabled: true  },
   { href: "/superadmin/davomat",      icon: ClipboardCheck,  label: "Davomat",     enabled: true  },
+  { href: "/superadmin/izohlar",      icon: MessageSquareWarning, label: "Izohlar", enabled: true  },
   { href: "/superadmin/sozlamalar",   icon: Settings,        label: "Sozlamalar",  enabled: true  },
   { href: "/superadmin/xodimlar",     icon: Users,           label: "Xodimlar",    enabled: true  },
   { href: "/superadmin/lokatsiya",    icon: MapPin,          label: "Lokatsiya",   enabled: true  },
@@ -52,6 +54,7 @@ const direktorNavItems = [
   { href: "/superadmin/oylik-hisobot",icon: FileBarChart2,   label: "Oylik hisobot", enabled: true },
   { href: "/superadmin/nazorat",      icon: FileCheck,       label: "Ijro nazorati", enabled: true },
   { href: "/superadmin/davomat",      icon: ClipboardCheck,  label: "Davomat",       enabled: true },
+  { href: "/superadmin/izohlar",      icon: MessageSquareWarning, label: "Izohlar",  enabled: true },
   { href: "/superadmin/profile",      icon: User,            label: "Profil",        enabled: true },
 ];
 

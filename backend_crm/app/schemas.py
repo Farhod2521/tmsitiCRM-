@@ -189,6 +189,19 @@ class TabelMonthRecord(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class AutoTabelRow(BaseModel):
+    """Attendance/Employee.status asosida avtomatik hisoblangan bitta xodim qatori."""
+    employee_id: int
+    full_name: str
+    department_id: Optional[int] = None
+    department_name: Optional[str] = None
+    cells: dict  # {day: code}  e.g. {"1":"8","2":"X","15":"MT",...}
+
+class AutoTabelOut(BaseModel):
+    days_in_month: int
+    rows: List[AutoTabelRow]
+
+
 # ── Attendance / Davomat ──────────────────────────────────────────────────────
 class CheckInIn(BaseModel):
     latitude: float
@@ -243,6 +256,8 @@ class AttendanceNoteOut(BaseModel):
     review_status: str = "kutilmoqda"
     reviewed_by_nomi: Optional[str] = None
     reviewed_at: Optional[datetime] = None
+    zamdirektor_by_nomi: Optional[str] = None
+    zamdirektor_at: Optional[datetime] = None
     model_config = {"from_attributes": True}
 
 class AttendanceNoteReviewIn(BaseModel):

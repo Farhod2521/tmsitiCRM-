@@ -5,7 +5,7 @@ import { MessageSquareWarning, AlarmClock, UserX, MapPinned, DoorOpen, Loader2, 
 import { apiFetch } from "@/lib/api";
 import { getUser } from "@/lib/auth";
 
-type ReviewStatus = "kutilmoqda" | "sababli" | "sababsiz";
+type ReviewStatus = "kutilmoqda" | "kadr_tasdiqladi" | "sababli" | "sababsiz";
 type NoteType = "kechikish" | "kelmaslik" | "obyektda" | "ruxsat";
 
 interface AttendanceNote {
@@ -27,12 +27,15 @@ interface AttendanceNote {
   review_status: ReviewStatus;
   reviewed_by_nomi: string | null;
   reviewed_at: string | null;
+  zamdirektor_by_nomi: string | null;
+  zamdirektor_at: string | null;
 }
 
 const REVIEW_CFG: Record<ReviewStatus, { label: string; color: string; bg: string }> = {
-  kutilmoqda: { label: "Kutilmoqda", color: "#91929E", bg: "rgba(145,146,158,0.12)" },
-  sababli:    { label: "Sababli",    color: "#00A578", bg: "rgba(0,165,120,0.12)" },
-  sababsiz:   { label: "Sababsiz",   color: "#FF5C5C", bg: "rgba(255,92,92,0.12)" },
+  kutilmoqda:      { label: "Kutilmoqda",                     color: "#91929E", bg: "rgba(145,146,158,0.12)" },
+  kadr_tasdiqladi: { label: "Zamdirektor tasdiqlashi kutilmoqda", color: "#3F8CFF", bg: "rgba(63,140,255,0.12)" },
+  sababli:         { label: "Sababli",                        color: "#00A578", bg: "rgba(0,165,120,0.12)" },
+  sababsiz:        { label: "Sababsiz",                       color: "#FF5C5C", bg: "rgba(255,92,92,0.12)" },
 };
 
 const NOTE_TYPE_CFG: Record<NoteType, { label: string; icon: typeof AlarmClock; color: string; bg: string }> = {
@@ -142,6 +145,9 @@ export default function AttendanceNotesInbox() {
                     )}
                     {n.review_status !== "kutilmoqda" && n.reviewed_by_nomi && (
                       <> · {n.reviewed_by_nomi} tomonidan{n.reviewed_at ? `, ${fmtDt(n.reviewed_at)}` : ""}</>
+                    )}
+                    {n.zamdirektor_by_nomi && (
+                      <> · {n.zamdirektor_by_nomi} tomonidan{n.zamdirektor_at ? `, ${fmtDt(n.zamdirektor_at)}` : ""}</>
                     )}
                   </p>
 

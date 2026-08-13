@@ -2,34 +2,19 @@
 
 import { useState, useEffect, useCallback } from "react";
 import Header from "@/components/layout/Header";
-import Badge from "@/components/ui/Badge";
 import { Users, Search, Loader2, Paperclip } from "lucide-react";
 import { apiFetch } from "@/lib/api";
 import EmployeeFilesModal from "@/components/employees/EmployeeFilesModal";
+import StatusMenu from "@/components/employees/StatusMenu";
 
 interface ApiDept { id: number; name: string; dept_type: string; }
 interface ApiEmp {
   id: number; full_name: string; position: string;
-  department_id: number | null; status: string;
+  department_id: number | null; status: string; role: string;
   status_date_from?: string | null;
   status_date_to?: string | null;
   department?: ApiDept | null;
 }
-
-const STATUS_LABEL: Record<string, string> = {
-  faol: "Faol",
-  otpuska: "Mehnat ta'tilida",
-  dekret: "Dekretda",
-  shafyor_farrosh: "Texnik xodimlar",
-  xizmat_safarida: "Xizmat safarida",
-  oquv_tatilida: "O'quv ta'tilida",
-  mehnatga_layoqatsiz: "Mehnatga layoqatsiz (bolnichniy)",
-  online: "Online ishlaydi",
-};
-const STATUS_BADGE: Record<string, "success" | "gray"> = {
-  faol: "success", otpuska: "gray", dekret: "gray", shafyor_farrosh: "gray",
-  xizmat_safarida: "gray", oquv_tatilida: "gray", mehnatga_layoqatsiz: "gray", online: "gray",
-};
 
 function fmtDateUz(iso: string) {
   const [y, m, d] = iso.split("-");
@@ -59,6 +44,12 @@ export default function KadrXodimlarPage() {
   }, []);
 
   useEffect(() => { load(); }, [load]);
+
+  function handleStatusChange(id: number, status: string, dateFrom: string | null, dateTo: string | null) {
+    setEmployees(prev => prev.map(e => e.id === id
+      ? { ...e, status, status_date_from: dateFrom, status_date_to: dateTo }
+      : e));
+  }
 
   const filtered = employees.filter(e =>
     e.full_name.toLowerCase().includes(search.toLowerCase()) ||
@@ -123,7 +114,7 @@ export default function KadrXodimlarPage() {
                     )}
                   </td>
                   <td className="py-4" style={{ paddingRight: 16 }}>
-                    <Badge label={STATUS_LABEL[emp.status] || emp.status} variant={STATUS_BADGE[emp.status] || "gray"} />
+                    <StatusMenu empId={emp.id} status={emp.status} onChanged={handleStatusChange} />
                   </td>
                   <td className="py-4" style={{ paddingRight: 16 }}>
                     {emp.status === "dekret" ? (

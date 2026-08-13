@@ -356,6 +356,8 @@ def _note_out(n: models.AttendanceNote) -> schemas.AttendanceNoteOut:
         out.department_nomi = n.employee.department.name if n.employee.department else None
     if n.reviewer:
         out.reviewed_by_nomi = n.reviewer.full_name
+    if n.zamdirektor_reviewer:
+        out.zamdirektor_by_nomi = n.zamdirektor_reviewer.full_name
     return out
 
 
@@ -431,13 +433,19 @@ def inbox_notes(
                 models.Employee.role.notin_(_BOLIM_HEAD_ROLES),
             )
         )
-    elif current.role == models.RoleEnum.kadr:
+    elif current.role in (
+        models.RoleEnum.kadr, models.RoleEnum.superadmin,
+        models.RoleEnum.direktor, models.RoleEnum.zamdirektor,
+    ):
         q = db.query(models.AttendanceNote)
     else:
         raise HTTPException(status_code=403, detail="Ruxsat yo'q")
 
     notes = q.order_by(models.AttendanceNote.created_at.desc()).limit(200).all()
     return [_note_out(n) for n in notes]
+
+
+_ADMIN_REVIEW_ROLES = {models.RoleEnum.superadmin, models.RoleEnum.direktor, models.RoleEnum.zamdirektor}
 
 
 @router.post("/notes/{note_id}/review", response_model=schemas.AttendanceNoteOut)
@@ -447,17 +455,29 @@ def review_note(
     db:      Session = Depends(get_db),
     current: models.Employee = Depends(get_current_employee),
 ):
-    """Kadr roli izohni ko'rib chiqadi: 'sababli' (tasdiqlangan) yoki
-    'sababsiz' (rad etilgan) deb belgilaydi."""
-    if current.role != models.RoleEnum.kadr:
-        raise HTTPException(status_code=403, detail="Ruxsat yo'q")
+    """Ikki bosqichli tasdiqlash:
+    1-bosqich (kutilmoqda -> kadr_tasdiqladi/sababsiz) — faqat kadr roli.
+    2-bosqich (kadr_tasdiqladi -> sababli/sababsiz) — faqat zamdirektor/direktor/superadmin.
+    Rad etish ('sababsiz') istalgan bosqichda darhol yakuniy holat bo'ladi."""
     note = db.query(models.AttendanceNote).filter(models.AttendanceNote.id == note_id).first()
     if not note:
         raise HTTPException(status_code=404, detail="Topilmadi")
 
-    note.review_status = data.status
-    note.reviewed_by = current.id
-    note.reviewed_at = datetime.utcnow()
+    if note.review_status == "kutilmoqda":
+        if current.role != models.RoleEnum.kadr:
+            raise HTTPException(status_code=403, detail="Ruxsat yo'q")
+        note.review_status = "sababsiz" if data.status == "sababsiz" else "kadr_tasdiqladi"
+        note.reviewed_by = current.id
+        note.reviewed_at = datetime.utcnow()
+    elif note.review_status == "kadr_tasdiqladi":
+        if current.role not in _ADMIN_REVIEW_ROLES:
+            raise HTTPException(status_code=403, detail="Ruxsat yo'q")
+        note.review_status = "sababli" if data.status == "sababli" else "sababsiz"
+        note.zamdirektor_by = current.id
+        note.zamdirektor_at = datetime.utcnow()
+    else:
+        raise HTTPException(status_code=400, detail="Bu izoh allaqachon ko'rib chiqilgan")
+
     db.commit()
     db.refresh(note)
     return _note_out(note)

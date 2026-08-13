@@ -143,13 +143,17 @@ class AttendanceNote(Base):
     object_longitude = Column(Float, nullable=True)
     created_at    = Column(DateTime, default=datetime.utcnow)
 
-    # Kadr roli tomonidan ko'rib chiqilishi: "kutilmoqda" | "sababli" | "sababsiz"
+    # Ikki bosqichli tasdiqlash: "kutilmoqda" -> (kadr) -> "kadr_tasdiqladi" -> (zamdirektor) -> "sababli"
+    # Rad etish istalgan bosqichda darhol "sababsiz" (yakuniy) deb belgilaydi.
     review_status = Column(String(20), nullable=False, default="kutilmoqda")
-    reviewed_by   = Column(Integer, ForeignKey("employees.id"), nullable=True)
+    reviewed_by   = Column(Integer, ForeignKey("employees.id"), nullable=True)   # kadr bosqichi
     reviewed_at   = Column(DateTime, nullable=True)
+    zamdirektor_by = Column(Integer, ForeignKey("employees.id"), nullable=True)  # zamdirektor bosqichi
+    zamdirektor_at = Column(DateTime, nullable=True)
 
     employee    = relationship("Employee", foreign_keys=[employee_id])
     reviewer    = relationship("Employee", foreign_keys=[reviewed_by])
+    zamdirektor_reviewer = relationship("Employee", foreign_keys=[zamdirektor_by])
 
 
 class PasswordResetCode(Base):

@@ -1,9 +1,12 @@
+from calendar import monthrange
+from datetime import date, datetime
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from typing import List
 from .. import models, schemas
 from ..database import get_db
 from ..deps import get_current_employee
+from .attendance import TZ_UZ
 
 router = APIRouter(prefix="/tabel", tags=["Tabel"])
 
@@ -96,6 +99,94 @@ def save_tabel(
             ))
     db.commit()
     return {"saved": len(payload.records)}
+
+
+_STATUS_RANGE_CODE = {
+    models.EmployeeStatusEnum.otpuska:             "MT",
+    models.EmployeeStatusEnum.oquv_tatilida:        "O'",
+    models.EmployeeStatusEnum.xizmat_safarida:      "K",
+    models.EmployeeStatusEnum.mehnatga_layoqatsiz:  "B",
+}
+
+
+@router.get("/auto", response_model=schemas.AutoTabelOut)
+def get_auto_tabel(
+    year: int,
+    month: int,
+    db: Session = Depends(get_db),
+    current: models.Employee = Depends(get_current_employee),
+):
+    """Attendance (GPS) va Employee.status asosida avtomatik hisoblangan oylik
+    davomat jadvali — kadr/superadmin/direktor/zamdirektor uchun. Kod: "8" (kelgan),
+    "X" (dam olish kuni), "MT" (mehnat ta'tili), "O'" (o'quv ta'tili), "K" (xizmat
+    safari), "B" (bolnichniy), "Д" (dekret), "" (belgilanmagan/kelmagan)."""
+    if current.role not in (
+        models.RoleEnum.kadr, models.RoleEnum.superadmin,
+        models.RoleEnum.direktor, models.RoleEnum.zamdirektor,
+    ):
+        raise HTTPException(status_code=403, detail="Ruxsat yo'q")
+
+    days_in_month = monthrange(year, month)[1]
+    today = datetime.now(TZ_UZ).date()
+    last_day_to_count = today.day if (year, month) == (today.year, today.month) else days_in_month
+
+    depts = db.query(models.Department).all()
+    dept_order = {d.id: d.order_num for d in depts}
+    dept_map = {d.id: d.name for d in depts}
+
+    employees = (
+        db.query(models.Employee)
+        .filter(models.Employee.role != models.RoleEnum.superadmin)
+        .all()
+    )
+    employees.sort(key=lambda e: (dept_order.get(e.department_id, 9999), e.full_name))
+    emp_ids = [e.id for e in employees]
+
+    month_prefix = f"{year:04d}-{month:02d}-"
+    attendances = db.query(models.Attendance).filter(
+        models.Attendance.employee_id.in_(emp_ids),
+        models.Attendance.date >= f"{month_prefix}01",
+        models.Attendance.date <= f"{month_prefix}{days_in_month:02d}",
+    ).all()
+    att_by_emp_day: dict[int, set] = {}
+    for a in attendances:
+        att_by_emp_day.setdefault(a.employee_id, set()).add(int(a.date[-2:]))
+
+    rows = []
+    for emp in employees:
+        emp_days = att_by_emp_day.get(emp.id, set())
+        cells: dict[str, str] = {}
+        for day in range(1, days_in_month + 1):
+            d = date(year, month, day)
+            if d.weekday() >= 5:
+                cells[str(day)] = "X"
+                continue
+            if day > last_day_to_count:
+                cells[str(day)] = ""
+                continue
+
+            in_status_range = bool(
+                emp.status_date_from and emp.status_date_to
+                and emp.status_date_from <= d.isoformat() <= emp.status_date_to
+            )
+            if emp.status == models.EmployeeStatusEnum.dekret:
+                cells[str(day)] = "Д"
+            elif in_status_range and emp.status in _STATUS_RANGE_CODE:
+                cells[str(day)] = _STATUS_RANGE_CODE[emp.status]
+            elif day in emp_days:
+                cells[str(day)] = "8"
+            else:
+                cells[str(day)] = ""
+
+        rows.append(schemas.AutoTabelRow(
+            employee_id=emp.id,
+            full_name=emp.full_name,
+            department_id=emp.department_id,
+            department_name=dept_map.get(emp.department_id),
+            cells=cells,
+        ))
+
+    return schemas.AutoTabelOut(days_in_month=days_in_month, rows=rows)
 
 
 @router.delete("/clear")
