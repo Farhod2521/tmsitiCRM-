@@ -539,8 +539,8 @@ def score_weekly_report(
     rep = db.query(models.WeeklyReport).filter(models.WeeklyReport.id == report_id).first()
     if not rep:
         raise HTTPException(status_code=404, detail="Hisobot topilmadi")
-    if not rep.file_b64:
-        raise HTTPException(status_code=400, detail="Hali fayl yuklanmagan")
+    if _files_count(db, rep) == 0 and not rep.description:
+        raise HTTPException(status_code=400, detail="Hali hisobot yuklanmagan")
     if rep.confirmed_at is not None:
         raise HTTPException(status_code=400, detail="Allaqachon tasdiqlangan")
 
@@ -591,6 +591,32 @@ def download_weekly_file(
     return {"file_name": rep.file_name, "file_b64": rep.file_b64}
 
 
+def _employee_ids_with_content(db: Session, employee_ids: List[int], year: int, month: int, week: int) -> set[int]:
+    """Berilgan xodimlardan shu hafta uchun HAQIQATDA biror narsa (fayl yoki tavsif)
+    yuklaganlarning employee_id to'plamini qaytaradi — eski yagona-fayl va yangi
+    ko'p-fayl tizimlarining ikkalasini ham hisobga oladi."""
+    if not employee_ids:
+        return set()
+    reports = db.query(models.WeeklyReport).filter(
+        models.WeeklyReport.employee_id.in_(employee_ids),
+        models.WeeklyReport.year == year,
+        models.WeeklyReport.month == month,
+        models.WeeklyReport.week == week,
+    ).all()
+    if not reports:
+        return set()
+    report_ids = [r.id for r in reports]
+    file_report_ids = {
+        fr.weekly_report_id for fr in db.query(models.WeeklyReportFile.weekly_report_id).filter(
+            models.WeeklyReportFile.weekly_report_id.in_(report_ids)
+        ).all()
+    }
+    return {
+        r.employee_id for r in reports
+        if r.id in file_report_ids or r.file_name or (r.description and r.description.strip())
+    }
+
+
 def _generate_pending_message(targets: List[models.Employee], db: Session) -> tuple[str, int]:
     """Joriy hafta uchun hisobot yuklamaganlar ro'yxatidan Telegram xabari matnini tayyorlaydi."""
     today = today_uz()
@@ -600,15 +626,7 @@ def _generate_pending_message(targets: List[models.Employee], db: Session) -> tu
         return "", 0
 
     target_ids = [t.id for t in targets]
-    uploaded_ids = {
-        r.employee_id for r in db.query(models.WeeklyReport.employee_id).filter(
-            models.WeeklyReport.employee_id.in_(target_ids),
-            models.WeeklyReport.year == today.year,
-            models.WeeklyReport.month == today.month,
-            models.WeeklyReport.week == current_week["week"],
-            models.WeeklyReport.file_name.isnot(None),
-        ).all()
-    }
+    uploaded_ids = _employee_ids_with_content(db, target_ids, today.year, today.month, current_week["week"])
     pending = [t for t in targets if t.id not in uploaded_ids]
     if not pending:
         return "", 0
@@ -683,14 +701,7 @@ def missing_weekly_reports(
         .order_by(models.Employee.department_id, models.Employee.id)
         .all()
     )
-    uploaded_ids = {
-        r.employee_id for r in db.query(models.WeeklyReport.employee_id).filter(
-            models.WeeklyReport.year == year,
-            models.WeeklyReport.month == month,
-            models.WeeklyReport.week == week,
-            models.WeeklyReport.file_name.isnot(None),
-        ).all()
-    }
+    uploaded_ids = _employee_ids_with_content(db, [e.id for e in emps], year, month, week)
     missing = [e for e in emps if e.id not in uploaded_ids]
 
     override = _active_override(db, year, month, week)
