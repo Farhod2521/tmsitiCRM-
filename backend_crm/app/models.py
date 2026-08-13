@@ -336,6 +336,21 @@ class WeeklyReport(Base):
 
     employee      = relationship("Employee", foreign_keys=[employee_id])
     reviewer      = relationship("Employee", foreign_keys=[confirmed_by])
+    files         = relationship("WeeklyReportFile", back_populates="weekly_report", cascade="all, delete-orphan")
+
+
+class WeeklyReportFile(Base):
+    """Haftalik hisobotga biriktirilgan fayllar — bitta hisobotga bir nechta fayl
+    (jami ko'pi bilan 10 ta, har biri 10MB dan oshmasligi kerak)."""
+    __tablename__ = "weekly_report_files"
+
+    id                = Column(Integer, primary_key=True, index=True)
+    weekly_report_id  = Column(Integer, ForeignKey("weekly_reports.id", ondelete="CASCADE"), nullable=False, index=True)
+    file_name         = Column(String(300), nullable=False)
+    file_b64          = Column(Text, nullable=False)
+    uploaded_at       = Column(DateTime, default=datetime.utcnow)
+
+    weekly_report     = relationship("WeeklyReport", back_populates="files")
 
 
 class WeeklyReportWindowOverride(Base):

@@ -25,7 +25,7 @@ interface WeeklyReportRow {
   upload_open: boolean;
   open_until: string | null;
   description: string | null;
-  file_name: string | null;
+  files_count: number;
   uploaded_at: string | null;
   ball: number | null;
   confirmed_at: string | null;
@@ -71,18 +71,6 @@ export default function WeeklyReportCard() {
       alert(err instanceof Error ? err.message : "O'chirishda xato");
     } finally {
       setDeletingId(null);
-    }
-  }
-
-  async function downloadFile(reportId: number, fileName: string) {
-    try {
-      const d = await apiFetch<{ file_name: string; file_b64: string }>(`/reports/weekly/file/${reportId}`);
-      const a = document.createElement("a");
-      a.href = d.file_b64;
-      a.download = d.file_name || fileName;
-      a.click();
-    } catch {
-      alert("Fayl topilmadi");
     }
   }
 
@@ -142,7 +130,7 @@ export default function WeeklyReportCard() {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 px-6 mt-6 w-full">
             {rows.map((r,idx) => (
               <WeekCell key={r.week} row={r} deleting={deletingId === r.id} locked={lockedState(r,idx)}
-                onEdit={() => setUploadTarget(r)} onDelete={() => deleteReport(r.id)} onDownload={() => downloadFile(r.id, r.file_name || "fayl")}/>
+                onEdit={() => setUploadTarget(r)} onDelete={() => deleteReport(r.id)}/>
             ))}
           </div>
         </div>
@@ -150,7 +138,7 @@ export default function WeeklyReportCard() {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 p-6">
           {rows.map((r,idx) => (
             <WeekCell key={r.week} row={r} deleting={deletingId === r.id} locked={lockedState(r,idx)}
-              onEdit={() => setUploadTarget(r)} onDelete={() => deleteReport(r.id)} onDownload={() => downloadFile(r.id, r.file_name || "fayl")}/>
+              onEdit={() => setUploadTarget(r)} onDelete={() => deleteReport(r.id)}/>
           ))}
         </div>
       )}
@@ -164,7 +152,7 @@ export default function WeeklyReportCard() {
           year={year} month={month} week={uploadTarget.week}
           weekLabel={uploadTarget.week_label || `${uploadTarget.week}-hafta`}
           initialDescription={uploadTarget.description}
-          initialFileName={uploadTarget.file_name}
+          initialReportId={uploadTarget.id > 0 ? uploadTarget.id : null}
           onClose={() => setUploadTarget(null)}
           onSaved={() => load(year, month)}
         />
@@ -173,11 +161,11 @@ export default function WeeklyReportCard() {
   );
 }
 
-function WeekCell({ row, deleting, locked, onEdit, onDelete, onDownload }: {
+function WeekCell({ row, deleting, locked, onEdit, onDelete }: {
   row: WeeklyReportRow; deleting: boolean; locked: "past" | "future" | null;
-  onEdit: () => void; onDelete: () => void; onDownload: () => void;
+  onEdit: () => void; onDelete: () => void;
 }) {
-  const hasFile = !!row.file_name;
+  const started = row.id > 0;
   const isConfirmed = !!row.confirmed_at;
 
   return (
@@ -186,7 +174,7 @@ function WeekCell({ row, deleting, locked, onEdit, onDelete, onDownload }: {
         <span className="flex items-center gap-2 text-xs font-bold" style={{ color: "#91929E" }}>
           <Calendar size={14}/> {row.week_label || `${row.week}-hafta`}
         </span>
-        {row.is_current && !hasFile && (
+        {row.is_current && !started && (
           <span className="text-[10px] font-bold px-1.5 py-0.5" style={{ background:"rgba(63,140,255,0.1)", color:"#3F8CFF", borderRadius:6 }}>
             Joriy
           </span>
@@ -199,7 +187,7 @@ function WeekCell({ row, deleting, locked, onEdit, onDelete, onDownload }: {
         )}
       </div>
 
-      {!hasFile && locked ? (
+      {!started && locked ? (
         <div className="w-full flex flex-col items-center justify-center gap-1.5 py-5"
           style={{ background: "#F4F9FD", borderRadius: 12, border: "1.5px dashed #E0E6F0" }}>
           <Lock size={16} style={{ color: "#C4CBD6" }}/>
@@ -207,20 +195,22 @@ function WeekCell({ row, deleting, locked, onEdit, onDelete, onDownload }: {
             {locked === "past" ? "Muddati o'tgan" : "Hali boshlanmagan"}
           </span>
         </div>
-      ) : !hasFile ? (
+      ) : !started ? (
         <button onClick={onEdit}
           className="w-full flex flex-col items-center justify-center gap-1.5 py-5"
           style={{ background: "rgba(63,140,255,0.06)", borderRadius: 12, border: "1.5px dashed rgba(63,140,255,0.3)" }}>
           <Upload size={18} style={{ color: "#3F8CFF" }}/>
-          <span className="text-xs font-bold" style={{ color: "#3F8CFF" }}>Fayl yuklash</span>
+          <span className="text-xs font-bold" style={{ color: "#3F8CFF" }}>Hisobot yozish</span>
         </button>
       ) : (
         <div className="flex flex-col gap-2">
-          <button onClick={onDownload}
+          <button onClick={onEdit}
             className="w-full flex items-center gap-2 px-3 py-2.5 hover:opacity-80 transition-opacity"
             style={{ background: "#FFFFFF", borderRadius: 10, border: "1px solid #EEF2FF" }}>
             <FileText size={14} style={{ color: "#6D5DD3", flexShrink: 0 }}/>
-            <span className="text-xs font-bold truncate flex-1 text-left" style={{ color: "#0A1629" }}>{row.file_name}</span>
+            <span className="text-xs font-bold truncate flex-1 text-left" style={{ color: "#0A1629" }}>
+              {row.files_count > 0 ? `${row.files_count} ta fayl` : "Fayl yo'q"}{row.description ? " · Tavsif bor" : ""}
+            </span>
             <Download size={13} style={{ color: "#91929E", flexShrink: 0 }}/>
           </button>
 

@@ -136,7 +136,8 @@ def list_weeks(
     ]
 
 
-MAX_WEEKLY_FILE_BYTES = 10 * 1024 * 1024   # 10MB
+MAX_WEEKLY_FILE_BYTES = 10 * 1024 * 1024   # 10MB, har bir fayl uchun
+MAX_WEEKLY_FILES = 10                       # bitta hisobotga ko'pi bilan 10 ta fayl
 
 
 def _b64_payload_size_bytes(data_uri: str) -> int:
@@ -145,14 +146,34 @@ def _b64_payload_size_bytes(data_uri: str) -> int:
     return (len(b64) * 3) // 4 - b64.count("=")
 
 
+def _files_count(db: Session, rep: models.WeeklyReport) -> int:
+    n = db.query(models.WeeklyReportFile).filter(models.WeeklyReportFile.weekly_report_id == rep.id).count()
+    if n == 0 and rep.file_name:   # eski (yagona fayl) yozuvlar uchun orqaga moslik
+        return 1
+    return n
+
+
+def _get_own_open_report(db: Session, report_id: int, current: models.Employee) -> models.WeeklyReport:
+    """Fayl qo'shish/o'chirish uchun: hisobot joriy foydalanuvchiniki va hali tasdiqlanmagan bo'lishi kerak."""
+    rep = db.query(models.WeeklyReport).filter(models.WeeklyReport.id == report_id).first()
+    if not rep:
+        raise HTTPException(status_code=404, detail="Hisobot topilmadi")
+    if rep.employee_id != current.id:
+        raise HTTPException(status_code=403, detail="Ruxsat yo'q")
+    if rep.confirmed_at is not None:
+        raise HTTPException(status_code=400, detail="Tasdiqlangan hisobotga o'zgartirish kiritib bo'lmaydi")
+    return rep
+
+
 @router.post("/weekly", response_model=schemas.WeeklyReportOut)
 def upload_weekly_report(
     payload: schemas.WeeklyReportUploadIn,
     db: Session = Depends(get_db),
     current: models.Employee = Depends(get_current_employee),
 ):
-    """Joriy foydalanuvchi o'zining haftalik hisobot faylini (va ish tavsifini)
-    yuklaydi/yangilaydi — faqat joriy hafta uchun."""
+    """Joriy foydalanuvchi o'zining haftalik hisobot yozuvini (ish tavsifini)
+    yaratadi/yangilaydi — faqat joriy hafta uchun. Fayllar alohida
+    /weekly/{report_id}/files endpointlari orqali biriktiriladi."""
     weeks = _week_info_map(payload.year, payload.month)
     if payload.week not in weeks:
         raise HTTPException(status_code=422, detail="Noto'g'ri hafta raqami")
@@ -163,9 +184,6 @@ def upload_weekly_report(
         override = _active_override(db, payload.year, payload.month, payload.week)
         if not override:
             raise HTTPException(status_code=400, detail="Faqat joriy hafta uchun hisobot yuklash mumkin")
-
-    if payload.file_b64 and _b64_payload_size_bytes(payload.file_b64) > MAX_WEEKLY_FILE_BYTES:
-        raise HTTPException(status_code=413, detail="Fayl hajmi 10MB dan oshmasligi kerak")
 
     rep = db.query(models.WeeklyReport).filter(
         models.WeeklyReport.employee_id == current.id,
@@ -184,9 +202,6 @@ def upload_weekly_report(
         db.add(rep)
 
     rep.description = payload.description
-    if payload.file_b64:
-        rep.file_name = payload.file_name
-        rep.file_b64 = payload.file_b64
     rep.uploaded_at = datetime.utcnow()
     db.commit()
     db.refresh(rep)
@@ -198,7 +213,105 @@ def upload_weekly_report(
     out.upload_open = True
     out.open_until = override.open_until if override else None
     out.employee_name = current.full_name
+    out.files_count = _files_count(db, rep)
     return out
+
+
+@router.get("/weekly/{report_id}/files", response_model=List[schemas.WeeklyReportFileOut])
+def list_weekly_report_files(
+    report_id: int,
+    db: Session = Depends(get_db),
+    current: models.Employee = Depends(get_current_employee),
+):
+    """Hisobotga biriktirilgan fayllar ro'yxati — egasi yoki tasdiqlovchisi uchun."""
+    rep = db.query(models.WeeklyReport).filter(models.WeeklyReport.id == report_id).first()
+    if not rep:
+        raise HTTPException(status_code=404, detail="Hisobot topilmadi")
+    if rep.employee_id != current.id:
+        target = rep.employee
+        if not target or (current.role not in _ADMIN_ROLES and not _can_review(current, target)):
+            raise HTTPException(status_code=403, detail="Ruxsat yo'q")
+
+    files = (
+        db.query(models.WeeklyReportFile)
+        .filter(models.WeeklyReportFile.weekly_report_id == report_id)
+        .order_by(models.WeeklyReportFile.uploaded_at)
+        .all()
+    )
+    if not files and rep.file_name:   # eski (yagona fayl) yozuvlar uchun orqaga moslik
+        return [schemas.WeeklyReportFileOut(id=0, file_name=rep.file_name, uploaded_at=rep.uploaded_at)]
+    return files
+
+
+@router.post("/weekly/{report_id}/files", response_model=schemas.WeeklyReportFileOut, status_code=201)
+def upload_weekly_report_file(
+    report_id: int,
+    data: schemas.WeeklyReportFileIn,
+    db: Session = Depends(get_db),
+    current: models.Employee = Depends(get_current_employee),
+):
+    """Hisobotga bitta fayl biriktiradi (ko'pi bilan 10 ta, har biri 10MB dan oshmasin)."""
+    rep = _get_own_open_report(db, report_id, current)
+
+    if _b64_payload_size_bytes(data.file_b64) > MAX_WEEKLY_FILE_BYTES:
+        raise HTTPException(status_code=413, detail="Fayl hajmi 10MB dan oshmasligi kerak")
+
+    existing = db.query(models.WeeklyReportFile).filter(models.WeeklyReportFile.weekly_report_id == report_id).count()
+    if existing >= MAX_WEEKLY_FILES:
+        raise HTTPException(status_code=400, detail=f"Ko'pi bilan {MAX_WEEKLY_FILES} ta fayl biriktirish mumkin")
+
+    f = models.WeeklyReportFile(weekly_report_id=report_id, file_name=data.file_name, file_b64=data.file_b64)
+    db.add(f)
+    rep.uploaded_at = datetime.utcnow()
+    db.commit()
+    db.refresh(f)
+    return f
+
+
+@router.delete("/weekly/{report_id}/files/{file_id}", status_code=204)
+def delete_weekly_report_file(
+    report_id: int,
+    file_id: int,
+    db: Session = Depends(get_db),
+    current: models.Employee = Depends(get_current_employee),
+):
+    """Biriktirilgan bitta faylni o'chiradi."""
+    _get_own_open_report(db, report_id, current)
+    f = db.query(models.WeeklyReportFile).filter(
+        models.WeeklyReportFile.id == file_id,
+        models.WeeklyReportFile.weekly_report_id == report_id,
+    ).first()
+    if f:
+        db.delete(f)
+        db.commit()
+
+
+@router.get("/weekly/{report_id}/files/{file_id}/download")
+def download_weekly_report_file(
+    report_id: int,
+    file_id: int,
+    db: Session = Depends(get_db),
+    current: models.Employee = Depends(get_current_employee),
+):
+    """Bitta faylni (base64) qaytaradi — egasi yoki tasdiqlovchisi uchun."""
+    rep = db.query(models.WeeklyReport).filter(models.WeeklyReport.id == report_id).first()
+    if not rep:
+        raise HTTPException(status_code=404, detail="Hisobot topilmadi")
+    if rep.employee_id != current.id:
+        target = rep.employee
+        if not target or (current.role not in _ADMIN_ROLES and not _can_review(current, target)):
+            raise HTTPException(status_code=403, detail="Ruxsat yo'q")
+
+    if file_id == 0 and rep.file_b64:   # eski (yagona fayl) yozuv
+        return {"file_name": rep.file_name, "file_b64": rep.file_b64}
+
+    f = db.query(models.WeeklyReportFile).filter(
+        models.WeeklyReportFile.id == file_id,
+        models.WeeklyReportFile.weekly_report_id == report_id,
+    ).first()
+    if not f:
+        raise HTTPException(status_code=404, detail="Fayl topilmadi")
+    return {"file_name": f.file_name, "file_b64": f.file_b64}
 
 
 @router.delete("/weekly/{report_id}", status_code=204)
@@ -321,6 +434,7 @@ def my_weekly_reports(
         out.upload_open = out.is_current or override is not None
         out.open_until = override.open_until if override else None
         out.employee_name = current.full_name
+        out.files_count = _files_count(db, rep) if rep else 0
         result.append(out)
     return result
 
@@ -369,6 +483,7 @@ def _build_team_rows(targets: List[models.Employee], year: int, month: int, db: 
             override = overrides.get(w["week"])
             out.upload_open = out.is_current or override is not None
             out.open_until = override.open_until if override else None
+            out.files_count = _files_count(db, rep) if rep else 0
             week_outs.append(out)
         dept = dept_map.get(emp.department_id) if emp.department_id else None
         rows.append(schemas.WeeklyTeamRowOut(
@@ -704,7 +819,7 @@ def monthly_report(
             week=w["week"],
             label=f"{w['week']}-hafta ({w['label']})",
             description=r.description if r else None,
-            file_name=r.file_name if r else None,
+            files_count=_files_count(db, r) if r else 0,
             uploaded_at=r.uploaded_at if r else None,
             ball=r.ball if r else None,
             report_id=r.id if r else None,

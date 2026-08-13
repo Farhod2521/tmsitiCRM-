@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   X, FileText, Download, CheckCircle2, Clock, Save, Loader2, Calendar,
 } from "lucide-react";
@@ -12,11 +12,14 @@ export interface WeekRow {
   week_label: string | null;
   max_ball: number | null;
   is_current: boolean;
-  file_name: string | null;
+  description: string | null;
+  files_count: number;
   uploaded_at: string | null;
   ball: number | null;
   confirmed_at: string | null;
 }
+
+interface WeeklyFile { id: number; file_name: string; uploaded_at: string | null; }
 
 interface Props {
   employeeName: string;
@@ -30,6 +33,16 @@ interface Props {
 export default function WeeklyReportReviewModal({ employeeName, position, weeks, readOnly, onClose, onScored }: Props) {
   const [inputs, setInputs] = useState<Record<number, string>>({});
   const [savingId, setSavingId] = useState<number | null>(null);
+  const [filesByReport, setFilesByReport] = useState<Record<number, WeeklyFile[]>>({});
+  const [downloadingId, setDownloadingId] = useState<number | null>(null);
+
+  useEffect(() => {
+    weeks.filter(w => w.id > 0 && w.files_count > 0).forEach(w => {
+      apiFetch<WeeklyFile[]>(`/reports/weekly/${w.id}/files`)
+        .then(files => setFilesByReport(prev => ({ ...prev, [w.id]: files })))
+        .catch(() => {});
+    });
+  }, [weeks]);
 
   async function confirmWeek(w: WeekRow) {
     const raw = inputs[w.id];
@@ -49,15 +62,18 @@ export default function WeeklyReportReviewModal({ employeeName, position, weeks,
     }
   }
 
-  async function downloadFile(reportId: number, fileName: string) {
+  async function downloadFile(reportId: number, fileId: number, fileName: string) {
+    setDownloadingId(fileId);
     try {
-      const d = await apiFetch<{ file_name: string; file_b64: string }>(`/reports/weekly/file/${reportId}`);
+      const d = await apiFetch<{ file_name: string; file_b64: string }>(`/reports/weekly/${reportId}/files/${fileId}/download`);
       const a = document.createElement("a");
       a.href = d.file_b64;
       a.download = d.file_name || fileName;
       a.click();
     } catch {
       alert("Fayl topilmadi");
+    } finally {
+      setDownloadingId(null);
     }
   }
 
@@ -91,8 +107,9 @@ export default function WeeklyReportReviewModal({ employeeName, position, weeks,
         {/* Weeks */}
         <div className="p-6 flex flex-col gap-3">
           {weeks.map(w => {
-            const hasFile = !!w.file_name;
+            const hasContent = w.id > 0;
             const isConfirmed = !!w.confirmed_at;
+            const files = filesByReport[w.id] || [];
             return (
               <div key={w.week} className="p-4" style={{ background: "#FAFCFF", borderRadius: 16, border: "1.5px solid #EEF2FF" }}>
                 <div className="flex items-center justify-between mb-3">
@@ -107,20 +124,35 @@ export default function WeeklyReportReviewModal({ employeeName, position, weeks,
                   )}
                 </div>
 
-                {!hasFile ? (
+                {!hasContent ? (
                   <div className="flex items-center gap-2 px-3 py-2.5" style={{ background: "#F4F9FD", borderRadius: 10 }}>
                     <FileText size={14} style={{ color: "#C4CBD6" }}/>
-                    <span className="text-xs" style={{ color: "#C4CBD6" }}>Hali fayl yuklanmagan</span>
+                    <span className="text-xs" style={{ color: "#C4CBD6" }}>Hali hisobot yuklanmagan</span>
                   </div>
                 ) : (
                   <>
-                    <button onClick={() => downloadFile(w.id, w.file_name!)}
-                      className="w-full flex items-center gap-2 px-3 py-2.5 mb-2 hover:opacity-80 transition-opacity"
-                      style={{ background: "#FFFFFF", borderRadius: 10, border: "1px solid #EEF2FF" }}>
-                      <FileText size={14} style={{ color: "#6D5DD3", flexShrink: 0 }}/>
-                      <span className="text-xs font-bold truncate flex-1 text-left" style={{ color: "#0A1629" }}>{w.file_name}</span>
-                      <Download size={13} style={{ color: "#91929E", flexShrink: 0 }}/>
-                    </button>
+                    {w.description && (
+                      <div className="text-xs rte-content mb-2 px-3 py-2.5" style={{ background: "#FFFFFF", borderRadius: 10, border: "1px solid #EEF2FF", color: "#3D4557" }}
+                        dangerouslySetInnerHTML={{ __html: w.description }} />
+                    )}
+                    {files.length > 0 ? (
+                      <div className="flex flex-col gap-1.5 mb-2">
+                        {files.map(f => (
+                          <button key={f.id} onClick={() => downloadFile(w.id, f.id, f.file_name)} disabled={downloadingId === f.id}
+                            className="w-full flex items-center gap-2 px-3 py-2.5 hover:opacity-80 transition-opacity disabled:opacity-60"
+                            style={{ background: "#FFFFFF", borderRadius: 10, border: "1px solid #EEF2FF" }}>
+                            <FileText size={14} style={{ color: "#6D5DD3", flexShrink: 0 }}/>
+                            <span className="text-xs font-bold truncate flex-1 text-left" style={{ color: "#0A1629" }}>{f.file_name}</span>
+                            {downloadingId === f.id ? <Loader2 size={13} className="animate-spin" style={{ color: "#91929E" }}/> : <Download size={13} style={{ color: "#91929E", flexShrink: 0 }}/>}
+                          </button>
+                        ))}
+                      </div>
+                    ) : !w.description && (
+                      <div className="flex items-center gap-2 px-3 py-2.5 mb-2" style={{ background: "#F4F9FD", borderRadius: 10 }}>
+                        <FileText size={14} style={{ color: "#C4CBD6" }}/>
+                        <span className="text-xs" style={{ color: "#C4CBD6" }}>Fayl yuklanmagan</span>
+                      </div>
+                    )}
 
                     {!isConfirmed && !readOnly && (
                       <div className="flex items-center gap-2">

@@ -371,11 +371,19 @@ class WeeklyReportUploadIn(BaseModel):
     month: int
     week: int
     description: Optional[str] = None   # bajarilgan ish tavsifi (CKEditor HTML)
-    file_name: Optional[str] = None
-    file_b64: Optional[str] = None   # "data:application/pdf;base64,..." — berilmasa, mavjud fayl saqlanib qoladi (faqat tavsifni yangilash)
 
 class WeeklyReportScoreIn(BaseModel):
     ball: float
+
+class WeeklyReportFileIn(BaseModel):
+    file_name: str
+    file_b64: str   # "data:application/pdf;base64,..."
+
+class WeeklyReportFileOut(BaseModel):
+    id: int
+    file_name: str
+    uploaded_at: Optional[datetime] = None
+    model_config = {"from_attributes": True}
 
 class WeeklyReportOut(BaseModel):
     id: int
@@ -390,7 +398,8 @@ class WeeklyReportOut(BaseModel):
     upload_open: bool = False    # is_current YOKI vaqtincha uzaytirilgan muddat ichida
     open_until: Optional[datetime] = None   # uzaytirilgan bo'lsa, muddat vaqti
     description: Optional[str] = None
-    file_name: Optional[str] = None
+    file_name: Optional[str] = None   # legacy — yangi tizimda `files_count`/`GET .../files` ishlatiladi
+    files_count: int = 0
     uploaded_at: Optional[datetime] = None
     ball: Optional[float] = None
     confirmed_at: Optional[datetime] = None
@@ -456,10 +465,10 @@ class MonthlyReportWeekRow(BaseModel):
     week: int
     label: str
     description: Optional[str] = None   # bajarilgan ish tavsifi (CKEditor HTML)
-    file_name: Optional[str] = None
+    files_count: int = 0
     uploaded_at: Optional[datetime] = None
     ball: Optional[float] = None
-    report_id: Optional[int] = None   # WeeklyReport.id — faylni yuklab olish uchun
+    report_id: Optional[int] = None   # WeeklyReport.id — fayllar ro'yxatini olish uchun
 
 class MonthlyReportTimeAnalysis(BaseModel):
     samarali_min: int

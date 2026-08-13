@@ -164,7 +164,7 @@ export default function BolimKpiPage() {
   const selfRow        = rows.find(r=>r.isSelf);
   const empRows        = rows.filter(r=>!r.isSelf);
   const empRowsRated   = empRows.filter(r=>getStatus(r)==="Baholangan").length;
-  const withReport     = rows.filter(r=>r.weeks.some(w=>w.file_name)).length;
+  const withReport     = rows.filter(r=>r.weeks.some(w=>w.id>0)).length;
 
   /* ════════════════════════════════════════════════ RENDER ══ */
   return (
@@ -358,7 +358,7 @@ export default function BolimKpiPage() {
                       const pct=Math.round((tot/MAX_TOTAL)*100);
                       const st=getStatus(r);
                       const kpi=getKpiLabel(tot>0?tot:null);
-                      const pendingCount = r.weeks.filter(w=>w.file_name && !w.confirmed_at).length;
+                      const pendingCount = r.weeks.filter(w=>w.id>0 && !w.confirmed_at).length;
                       return (
                         <div key={r.id}
                           className="grid items-center px-5 py-3.5 hover:bg-[#FAFCFF] transition-colors"

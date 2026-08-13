@@ -108,7 +108,7 @@ export default function HisobotlarPage() {
 
   const total      = rows.length;
   const rated      = rows.filter(r => getStatus(r.weeks)==="Baholangan").length;
-  const withReport = rows.filter(r => r.weeks.some(w=>w.file_name)).length;
+  const withReport = rows.filter(r => r.weeks.some(w=>w.id>0)).length;
   const pending    = total - rated;
 
   const statCards = [
@@ -184,7 +184,7 @@ export default function HisobotlarPage() {
               <div className="flex flex-col">
                 {rows.map((r,i) => {
                   const st = getStatus(r.weeks);
-                  const pendingCount = r.weeks.filter(w=>w.file_name && !w.confirmed_at).length;
+                  const pendingCount = r.weeks.filter(w=>w.id>0 && !w.confirmed_at).length;
                   const color = AVATAR_COLORS[i % AVATAR_COLORS.length];
                   return (
                     <div key={r.employee_id} className="grid items-center px-4 py-3.5 hover:bg-[#FAFCFF] transition-colors"

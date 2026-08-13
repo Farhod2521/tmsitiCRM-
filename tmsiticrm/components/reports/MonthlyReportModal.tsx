@@ -31,7 +31,7 @@ interface NoteDetail {
 interface WeekRow {
   week: number; label: string;
   description: string | null;
-  file_name: string | null; uploaded_at: string | null;
+  files_count: number; uploaded_at: string | null;
   ball: number | null; report_id: number | null;
 }
 interface TimeAnalysis {
@@ -236,23 +236,36 @@ function NoteDetailModal({ note, onClose }: { note: NoteDetail; onClose: () => v
   );
 }
 
-/* ── Haftalik hisobot: ish tavsifi + fayl modali ── */
-function WeekReportModal({ week, onClose }: { week: WeekRow; onClose: () => void }) {
-  const [downloading, setDownloading] = useState(false);
+/* ── Haftalik hisobot: ish tavsifi + fayllar modali ── */
+interface WeeklyFile { id: number; file_name: string; uploaded_at: string | null; }
 
-  async function handleDownload() {
+function WeekReportModal({ week, onClose }: { week: WeekRow; onClose: () => void }) {
+  const [files, setFiles] = useState<WeeklyFile[]>([]);
+  const [filesLoading, setFilesLoading] = useState(false);
+  const [downloadingId, setDownloadingId] = useState<number | null>(null);
+
+  useEffect(() => {
     if (!week.report_id) return;
-    setDownloading(true);
+    setFilesLoading(true);
+    apiFetch<WeeklyFile[]>(`/reports/weekly/${week.report_id}/files`)
+      .then(setFiles)
+      .catch(() => {})
+      .finally(() => setFilesLoading(false));
+  }, [week.report_id]);
+
+  async function handleDownload(fileId: number, fileName: string) {
+    if (!week.report_id) return;
+    setDownloadingId(fileId);
     try {
-      const d = await apiFetch<{ file_name: string; file_b64: string }>(`/reports/weekly/file/${week.report_id}`);
+      const d = await apiFetch<{ file_name: string; file_b64: string }>(`/reports/weekly/${week.report_id}/files/${fileId}/download`);
       const a = document.createElement("a");
       a.href = d.file_b64;
-      a.download = d.file_name || week.file_name || "fayl";
+      a.download = d.file_name || fileName;
       a.click();
     } catch (e) {
       alert(e instanceof Error ? e.message : "Fayl topilmadi");
     } finally {
-      setDownloading(false);
+      setDownloadingId(null);
     }
   }
 
@@ -283,15 +296,23 @@ function WeekReportModal({ week, onClose }: { week: WeekRow; onClose: () => void
             <p className="text-sm" style={{ color: "#C4CBD6" }}>Ish tavsifi yozilmagan</p>
           )}
 
-          <p className="text-xs font-bold mb-2 mt-5" style={{ color: "#91929E", letterSpacing: "0.04em" }}>FAYL</p>
-          {week.file_name && week.report_id ? (
-            <button onClick={handleDownload} disabled={downloading}
-              className="w-full flex items-center gap-2 px-3 py-2.5 hover:opacity-80 transition-opacity disabled:opacity-60"
-              style={{ background: "#FAFCFF", borderRadius: 10, border: "1px solid #F0F3F8" }}>
-              <FileText size={14} style={{ color: "#6D5DD3", flexShrink: 0 }} />
-              <span className="text-xs font-bold truncate flex-1 text-left" style={{ color: "#0A1629" }}>{week.file_name}</span>
-              {downloading ? <Loader2 size={13} className="animate-spin" style={{ color: "#91929E" }} /> : <Download size={13} style={{ color: "#91929E", flexShrink: 0 }} />}
-            </button>
+          <p className="text-xs font-bold mb-2 mt-5" style={{ color: "#91929E", letterSpacing: "0.04em" }}>FAYLLAR {files.length > 0 && `(${files.length})`}</p>
+          {filesLoading ? (
+            <div className="flex justify-center py-4">
+              <Loader2 size={18} className="animate-spin" style={{ color: "#3F8CFF" }} />
+            </div>
+          ) : files.length > 0 ? (
+            <div className="flex flex-col gap-2">
+              {files.map(f => (
+                <button key={f.id} onClick={() => handleDownload(f.id, f.file_name)} disabled={downloadingId === f.id}
+                  className="w-full flex items-center gap-2 px-3 py-2.5 hover:opacity-80 transition-opacity disabled:opacity-60"
+                  style={{ background: "#FAFCFF", borderRadius: 10, border: "1px solid #F0F3F8" }}>
+                  <FileText size={14} style={{ color: "#6D5DD3", flexShrink: 0 }} />
+                  <span className="text-xs font-bold truncate flex-1 text-left" style={{ color: "#0A1629" }}>{f.file_name}</span>
+                  {downloadingId === f.id ? <Loader2 size={13} className="animate-spin" style={{ color: "#91929E" }} /> : <Download size={13} style={{ color: "#91929E", flexShrink: 0 }} />}
+                </button>
+              ))}
+            </div>
           ) : (
             <p className="text-sm" style={{ color: "#C4CBD6" }}>Fayl yuklanmagan</p>
           )}
@@ -515,7 +536,7 @@ export default function MonthlyReportModal({
                       <div className="flex-1 min-w-0">
                         <p className="text-xs font-bold" style={{ color: "#0A1629" }}>{w.label}</p>
                         <p className="text-[11px] mt-0.5 truncate" style={{ color: "#91929E" }}>
-                          {w.file_name ? w.file_name : "Fayl yuklanmagan"}
+                          {w.files_count > 0 ? `${w.files_count} ta fayl` : "Fayl yo'q"}
                           {w.uploaded_at && <> · {new Date(w.uploaded_at).toLocaleDateString("uz-UZ")}</>}
                           {w.description && <> · Ish tavsifi bor</>}
                         </p>
@@ -525,8 +546,8 @@ export default function MonthlyReportModal({
                           {w.ball} ball
                         </span>
                       )}
-                      <div className="w-8 h-8 flex items-center justify-center flex-shrink-0" style={{ background: w.file_name || w.description ? "rgba(63,140,255,0.1)" : "#F4F9FD", borderRadius: 8 }}>
-                        <FileText size={13} style={{ color: w.file_name || w.description ? "#3F8CFF" : "#D9E3F0" }} />
+                      <div className="w-8 h-8 flex items-center justify-center flex-shrink-0" style={{ background: w.files_count > 0 || w.description ? "rgba(63,140,255,0.1)" : "#F4F9FD", borderRadius: 8 }}>
+                        <FileText size={13} style={{ color: w.files_count > 0 || w.description ? "#3F8CFF" : "#D9E3F0" }} />
                       </div>
                     </button>
                   ))}
