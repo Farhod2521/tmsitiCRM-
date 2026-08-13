@@ -114,6 +114,15 @@ export default function XodimKpiPage() {
   const currentMonthScore = scores.find(s => s.year === now.getFullYear() && s.month === now.getMonth()+1);
   const currentTotal = currentMonthScore ? total(currentMonthScore) : 0;
 
+  // Joriy oy hali baholanmagan bo'lsa ham ro'yxatdan tushib qolmasin —
+  // bo'sh (0) halqalar bilan ko'rsatiladi.
+  const currentMonthNum = now.getMonth() + 1;
+  const isCurrentYearSelected = year === now.getFullYear();
+  const hasCurrentMonthInRated = ratedMonths.some(s => s.month === currentMonthNum);
+  const displayMonths: ApiScore[] = isCurrentYearSelected && !hasCurrentMonthInRated
+    ? [...ratedMonths, { id: -1, employee_id: 0, year, month: currentMonthNum, bolim_ball: null, kadr_ball: null, ijro_edo_ball: null, ijro_ichki_ball: null }]
+    : ratedMonths;
+
   const statCards = [
     { label: "O'rtacha jami ball", value: avgKpiPct != null ? `${avgKpiPct}` : "—", icon: Target,        color: "#3F8CFF", bg: "rgba(63,140,255,0.1)" },
     { label: "Baholangan oylar",   value: ratedMonths.length,                       icon: FileText,      color: "#6D5DD3", bg: "rgba(109,93,211,0.1)" },
@@ -169,7 +178,7 @@ export default function XodimKpiPage() {
           <div className="flex items-center justify-center py-14">
             <Loader2 size={26} className="animate-spin" style={{ color:"#3F8CFF" }}/>
           </div>
-        ) : ratedMonths.length === 0 ? (
+        ) : displayMonths.length === 0 ? (
           <div className="py-16 text-center">
             <div className="w-16 h-16 flex items-center justify-center mx-auto mb-4"
               style={{ background:"rgba(63,140,255,0.08)", borderRadius:20 }}>
@@ -180,7 +189,7 @@ export default function XodimKpiPage() {
           </div>
         ) : (
           <div className="px-6 py-4 flex flex-col gap-3">
-            {[...ratedMonths].sort((a,b)=>b.month-a.month).map(s => {
+            {[...displayMonths].sort((a,b)=>b.month-a.month).map(s => {
               const monName = MON_NAMES[s.month-1];
               const mc = MON_COLORS[monName] ?? { bg:"rgba(63,140,255,0.1)", color:"#3F8CFF" };
               const tot = total(s);
@@ -204,10 +213,10 @@ export default function XodimKpiPage() {
                   <div style={{ width:1, alignSelf:"stretch", background:"#EEF2FF" }} className="hidden sm:block"/>
 
                   <div className="flex items-start gap-4 sm:gap-6 flex-1 flex-wrap justify-center sm:justify-start">
-                    <ScoreRing label="Bo'lim" val={s.bolim_ball}      max={MAX_BOLIM}      color="#3F8CFF"/>
-                    <ScoreRing label="Kadr"   val={s.kadr_ball}       max={MAX_KADR}       color="#FF8C42"/>
-                    <ScoreRing label="EDO"    val={s.ijro_edo_ball}   max={MAX_IJRO_EDO}   color="#00C48C"/>
-                    <ScoreRing label="Ichki"  val={s.ijro_ichki_ball} max={MAX_IJRO_ICHKI} color="#15C0E6"/>
+                    <ScoreRing label="Bo'lim" val={s.bolim_ball ?? 0}      max={MAX_BOLIM}      color="#3F8CFF"/>
+                    <ScoreRing label="Kadr"   val={s.kadr_ball ?? 0}       max={MAX_KADR}       color="#FF8C42"/>
+                    <ScoreRing label="EDO"    val={s.ijro_edo_ball ?? 0}   max={MAX_IJRO_EDO}   color="#00C48C"/>
+                    <ScoreRing label="Ichki"  val={s.ijro_ichki_ball ?? 0} max={MAX_IJRO_ICHKI} color="#15C0E6"/>
                   </div>
 
                   <div style={{ width:1, alignSelf:"stretch", background:"#EEF2FF" }} className="hidden sm:block"/>
