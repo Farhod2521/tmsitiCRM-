@@ -1,8 +1,13 @@
+import io
 from calendar import monthrange
 from datetime import date, datetime
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 from typing import List
+from openpyxl import Workbook
+from openpyxl.styles import Font, PatternFill, Alignment
+from openpyxl.utils import get_column_letter
 from .. import models, schemas
 from ..database import get_db
 from ..deps import get_current_employee
@@ -109,23 +114,12 @@ _STATUS_RANGE_CODE = {
 }
 
 
-@router.get("/auto", response_model=schemas.AutoTabelOut)
-def get_auto_tabel(
-    year: int,
-    month: int,
-    db: Session = Depends(get_db),
-    current: models.Employee = Depends(get_current_employee),
-):
-    """Attendance (GPS) va Employee.status asosida avtomatik hisoblangan oylik
-    davomat jadvali — kadr/superadmin/direktor/zamdirektor uchun. Kod: "8" (kelgan),
-    "X" (dam olish kuni), "MT" (mehnat ta'tili), "O'" (o'quv ta'tili), "K" (xizmat
-    safari), "B" (bolnichniy), "Д" (dekret), "" (belgilanmagan/kelmagan)."""
-    if current.role not in (
-        models.RoleEnum.kadr, models.RoleEnum.superadmin,
-        models.RoleEnum.direktor, models.RoleEnum.zamdirektor,
-    ):
-        raise HTTPException(status_code=403, detail="Ruxsat yo'q")
+_AUTO_TABEL_EXCLUDED_ROLES = {
+    models.RoleEnum.superadmin, models.RoleEnum.direktor, models.RoleEnum.zamdirektor,
+}
 
+
+def _build_auto_tabel(db: Session, year: int, month: int) -> schemas.AutoTabelOut:
     days_in_month = monthrange(year, month)[1]
     today = datetime.now(TZ_UZ).date()
     last_day_to_count = today.day if (year, month) == (today.year, today.month) else days_in_month
@@ -136,7 +130,10 @@ def get_auto_tabel(
 
     employees = (
         db.query(models.Employee)
-        .filter(models.Employee.role != models.RoleEnum.superadmin)
+        .filter(
+            models.Employee.role.notin_(_AUTO_TABEL_EXCLUDED_ROLES),
+            models.Employee.status != models.EmployeeStatusEnum.shafyor_farrosh,
+        )
         .all()
     )
     employees.sort(key=lambda e: (dept_order.get(e.department_id, 9999), e.full_name))
@@ -187,6 +184,91 @@ def get_auto_tabel(
         ))
 
     return schemas.AutoTabelOut(days_in_month=days_in_month, rows=rows)
+
+
+_AUTO_TABEL_VIEW_ROLES = {
+    models.RoleEnum.kadr, models.RoleEnum.superadmin,
+    models.RoleEnum.direktor, models.RoleEnum.zamdirektor,
+}
+
+
+@router.get("/auto", response_model=schemas.AutoTabelOut)
+def get_auto_tabel(
+    year: int,
+    month: int,
+    db: Session = Depends(get_db),
+    current: models.Employee = Depends(get_current_employee),
+):
+    """Attendance (GPS) va Employee.status asosida avtomatik hisoblangan oylik
+    davomat jadvali — kadr/superadmin/direktor/zamdirektor uchun. Direktor,
+    zamdirektor va texnik xodimlar (shafyor/farrosh) ro'yxatga kirmaydi.
+    Kod: "8" (kelgan), "X" (dam olish kuni), "MT" (mehnat ta'tili), "O'" (o'quv
+    ta'tili), "K" (xizmat safari), "B" (bolnichniy), "Д" (dekret), "" (bo'sh)."""
+    if current.role not in _AUTO_TABEL_VIEW_ROLES:
+        raise HTTPException(status_code=403, detail="Ruxsat yo'q")
+    return _build_auto_tabel(db, year, month)
+
+
+@router.get("/auto-xlsx")
+def auto_tabel_xlsx(
+    year: int,
+    month: int,
+    db: Session = Depends(get_db),
+    current: models.Employee = Depends(get_current_employee),
+):
+    """Xodimlar davomati jadvalini .xlsx fayl sifatida yuklab beradi."""
+    if current.role not in _AUTO_TABEL_VIEW_ROLES:
+        raise HTTPException(status_code=403, detail="Ruxsat yo'q")
+    data = _build_auto_tabel(db, year, month)
+
+    wb = Workbook()
+    ws = wb.active
+    ws.title = f"{month:02d}.{year}"[:31]
+
+    header = ["Ism familiyasi"] + [str(d) for d in range(1, data.days_in_month + 1)]
+    ws.append(header)
+    for c in ws[1]:
+        c.font = Font(bold=True)
+        c.alignment = Alignment(horizontal="center")
+
+    fills = {
+        "8":  PatternFill("solid", fgColor="FFE3F7EC"),
+        "X":  PatternFill("solid", fgColor="FFF4F9FD"),
+        "MT": PatternFill("solid", fgColor="FFFFF3CD"),
+        "O'": PatternFill("solid", fgColor="FFEDE9FB"),
+        "K":  PatternFill("solid", fgColor="FFE3EEFF"),
+        "B":  PatternFill("solid", fgColor="FFFDE2E2"),
+        "Д":  PatternFill("solid", fgColor="FFF0F0F0"),
+    }
+
+    for row in data.rows:
+        ws.append([row.full_name] + [row.cells.get(str(d), "") for d in range(1, data.days_in_month + 1)])
+
+    for ri, row in enumerate(data.rows, start=2):
+        for d in range(1, data.days_in_month + 1):
+            code = row.cells.get(str(d), "")
+            if not code:
+                continue
+            cell = ws.cell(row=ri, column=1 + d)
+            cell.alignment = Alignment(horizontal="center")
+            fill = fills.get(code)
+            if fill:
+                cell.fill = fill
+
+    ws.column_dimensions["A"].width = 26
+    for i in range(data.days_in_month):
+        ws.column_dimensions[get_column_letter(2 + i)].width = 6
+    ws.freeze_panes = "B2"
+
+    buf = io.BytesIO()
+    wb.save(buf)
+    buf.seek(0)
+    filename = f"xodimlar_davomati_{year}_{month:02d}.xlsx"
+    return StreamingResponse(
+        buf,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
 
 
 @router.delete("/clear")

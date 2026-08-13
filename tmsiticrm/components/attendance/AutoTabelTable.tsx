@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { ChevronLeft, ChevronRight, Loader2, Users } from "lucide-react";
+import { ChevronLeft, ChevronRight, Loader2, Users, Download } from "lucide-react";
 import { apiFetch } from "@/lib/api";
 
 const MON_NAMES = [
@@ -44,6 +44,7 @@ export default function AutoTabelTable() {
   const [month, setMonth] = useState(now.getMonth() + 1);
   const [data, setData] = useState<AutoTabelData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [downloading, setDownloading] = useState(false);
 
   const load = useCallback(async (y: number, m: number) => {
     setLoading(true);
@@ -66,6 +67,31 @@ export default function AutoTabelTable() {
     setYear(y); setMonth(m); load(y, m);
   }
 
+  async function handleDownload() {
+    setDownloading(true);
+    try {
+      const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+      const token = typeof window !== "undefined" ? localStorage.getItem("crm_token") : null;
+      const res = await fetch(`${API_URL}/tabel/auto-xlsx?year=${year}&month=${month}`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      if (!res.ok) throw new Error("Faylni yuklab bo'lmadi");
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `xodimlar_davomati_${year}_${String(month).padStart(2, "0")}.xlsx`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      alert(e instanceof Error ? e.message : "Xatolik");
+    } finally {
+      setDownloading(false);
+    }
+  }
+
   const days = data ? Array.from({ length: data.days_in_month }, (_, i) => i + 1) : [];
 
   return (
@@ -75,16 +101,24 @@ export default function AutoTabelTable() {
           <h3 className="font-bold text-base" style={{ color: "#0A1629" }}>Xodimlar davomati</h3>
           <p className="text-xs mt-0.5" style={{ color: "#91929E" }}>Attendance asosida avtomatik hisoblangan oylik jadval</p>
         </div>
-        <div className="flex items-center gap-1 p-1" style={{ background: "#F4F9FD", borderRadius: 12 }}>
-          <button onClick={() => chMonth(-1)} className="w-8 h-8 flex items-center justify-center rounded hover:bg-white transition-colors">
-            <ChevronLeft size={15} style={{ color: "#3F8CFF" }} />
+        <div className="flex items-center gap-3 flex-wrap">
+          <button onClick={handleDownload} disabled={downloading || loading}
+            className="flex items-center gap-2 px-4 py-2.5 text-sm font-bold text-white disabled:opacity-60 hover:opacity-90 transition-opacity"
+            style={{ background: "#00C48C", borderRadius: 12, boxShadow: "0px 6px 12px rgba(0,196,140,0.3)" }}>
+            {downloading ? <Loader2 size={15} className="animate-spin" /> : <Download size={15} />}
+            Yuklab olish (.xlsx)
           </button>
-          <span className="px-3 font-bold text-sm" style={{ color: "#0A1629", minWidth: 110, textAlign: "center" }}>
-            {MON_NAMES[month - 1]} {year}
-          </span>
-          <button onClick={() => chMonth(1)} className="w-8 h-8 flex items-center justify-center rounded hover:bg-white transition-colors">
-            <ChevronRight size={15} style={{ color: "#3F8CFF" }} />
-          </button>
+          <div className="flex items-center gap-1 p-1" style={{ background: "#F4F9FD", borderRadius: 12 }}>
+            <button onClick={() => chMonth(-1)} className="w-8 h-8 flex items-center justify-center rounded hover:bg-white transition-colors">
+              <ChevronLeft size={15} style={{ color: "#3F8CFF" }} />
+            </button>
+            <span className="px-3 font-bold text-sm" style={{ color: "#0A1629", minWidth: 110, textAlign: "center" }}>
+              {MON_NAMES[month - 1]} {year}
+            </span>
+            <button onClick={() => chMonth(1)} className="w-8 h-8 flex items-center justify-center rounded hover:bg-white transition-colors">
+              <ChevronRight size={15} style={{ color: "#3F8CFF" }} />
+            </button>
+          </div>
         </div>
       </div>
 
