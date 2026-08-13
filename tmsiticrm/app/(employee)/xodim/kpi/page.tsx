@@ -10,10 +10,11 @@ import { apiFetch } from "@/lib/api";
 import WeeklyReportCard from "@/components/reports/WeeklyReportCard";
 
 /* ── Constants ── */
-const MAX_BOLIM = 65;
-const MAX_KADR  = 25;
-const MAX_IJRO  = 10;
-const MAX_TOTAL = MAX_BOLIM + MAX_KADR + MAX_IJRO;
+const MAX_BOLIM      = 23;
+const MAX_KADR       = 25;
+const MAX_IJRO_EDO   = 32;
+const MAX_IJRO_ICHKI = 20;
+const MAX_TOTAL = MAX_BOLIM + MAX_KADR + MAX_IJRO_EDO + MAX_IJRO_ICHKI;
 
 const MON_NAMES = [
   "Yanvar","Fevral","Mart","Aprel","May","Iyun",
@@ -50,7 +51,8 @@ function getKpiLabel(total: number | null): { text: string; color: string; bg: s
 
 interface ApiScore {
   id: number; employee_id: number; year: number; month: number;
-  bolim_ball: number | null; kadr_ball: number | null; ijro_ball: number | null;
+  bolim_ball: number | null; kadr_ball: number | null;
+  ijro_edo_ball: number | null; ijro_ichki_ball: number | null;
 }
 
 export default function XodimKpiPage() {
@@ -76,9 +78,9 @@ export default function XodimKpiPage() {
     setYear(y); load(y);
   }
 
-  function total(s: ApiScore) { return (s.bolim_ball ?? 0) + (s.kadr_ball ?? 0) + (s.ijro_ball ?? 0); }
+  function total(s: ApiScore) { return (s.bolim_ball ?? 0) + (s.kadr_ball ?? 0) + (s.ijro_edo_ball ?? 0) + (s.ijro_ichki_ball ?? 0); }
 
-  const ratedMonths = scores.filter(s => s.bolim_ball != null || s.kadr_ball != null || s.ijro_ball != null);
+  const ratedMonths = scores.filter(s => s.bolim_ball != null || s.kadr_ball != null || s.ijro_edo_ball != null || s.ijro_ichki_ball != null);
   const avgKpiPct = (() => {
     const vals = ratedMonths.map(s => total(s)).filter(t => t > 0);
     if (!vals.length) return null;
@@ -176,9 +178,10 @@ export default function XodimKpiPage() {
 
                   <div className="flex items-center gap-3 flex-1 flex-wrap">
                     {[
-                      { label:"Bo'lim", val:s.bolim_ball, max:MAX_BOLIM, color:"#3F8CFF" },
-                      { label:"Kadr",   val:s.kadr_ball,  max:MAX_KADR,  color:"#FF8C42" },
-                      { label:"Ijro",   val:s.ijro_ball,  max:MAX_IJRO,  color:"#00C48C" },
+                      { label:"Bo'lim",  val:s.bolim_ball,      max:MAX_BOLIM,      color:"#3F8CFF" },
+                      { label:"Kadr",    val:s.kadr_ball,       max:MAX_KADR,       color:"#FF8C42" },
+                      { label:"EDO",     val:s.ijro_edo_ball,   max:MAX_IJRO_EDO,   color:"#00C48C" },
+                      { label:"Ichki",   val:s.ijro_ichki_ball, max:MAX_IJRO_ICHKI, color:"#15C0E6" },
                     ].map(b => (
                       <div key={b.label} className="text-center px-2">
                         <p className="text-xs mb-0.5" style={{ color:"#91929E" }}>{b.label}</p>

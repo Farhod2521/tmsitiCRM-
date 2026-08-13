@@ -13,7 +13,7 @@ _FULL_BALL_ROLES = {
 
 router = APIRouter(prefix="/ball", tags=["Ball"])
 
-MAX_BOLIM = 65
+MAX_BOLIM = 23
 
 
 def _is_admin(emp: models.Employee) -> bool:
@@ -70,8 +70,10 @@ def save_score(
             existing.kadr_ball = payload.kadr_ball
         if payload.direktor_ball is not None:
             existing.direktor_ball = payload.direktor_ball
-        if payload.ijro_ball is not None:
-            existing.ijro_ball = payload.ijro_ball
+        if payload.ijro_edo_ball is not None:
+            existing.ijro_edo_ball = payload.ijro_edo_ball
+        if payload.ijro_ichki_ball is not None:
+            existing.ijro_ichki_ball = payload.ijro_ichki_ball
         if payload.comment is not None:
             existing.comment = payload.comment
         existing.created_by = current.id
@@ -86,7 +88,8 @@ def save_score(
             bolim_ball=payload.bolim_ball,
             kadr_ball=payload.kadr_ball,
             direktor_ball=payload.direktor_ball,
-            ijro_ball=payload.ijro_ball,
+            ijro_edo_ball=payload.ijro_edo_ball,
+            ijro_ichki_ball=payload.ijro_ichki_ball,
             comment=payload.comment,
             created_by=current.id,
         )
@@ -213,7 +216,8 @@ def all_month_scores(
             bolim_ball=sc.bolim_ball if sc else None,
             kadr_ball=sc.kadr_ball if sc else None,
             direktor_ball=sc.direktor_ball if sc else None,
-            ijro_ball=sc.ijro_ball if sc else None,
+            ijro_edo_ball=sc.ijro_edo_ball if sc else None,
+            ijro_ichki_ball=sc.ijro_ichki_ball if sc else None,
             report_file_name=sc.report_file_name if sc else None,
         ))
     return rows
@@ -227,7 +231,7 @@ def bulk_save_balls(
 ):
     """Bir oyda barcha xodimlar uchun toplu ball saqlash.
     - kadr roli: faqat kadr_ball
-    - ijro roli: faqat ijro_ball
+    - ijro roli: ijro_edo_ball (edo.ijro.uz) va ijro_ichki_ball (ichki xatlar)
     - direktor/superadmin/zamdirektor: barcha ball turlarini
     """
     allowed = _FULL_BALL_ROLES | {models.RoleEnum.kadr, models.RoleEnum.ijro}
@@ -245,8 +249,10 @@ def bulk_save_balls(
             if item.kadr_ball is not None and 0 <= item.kadr_ball <= 25:
                 sc.kadr_ball = item.kadr_ball
         if is_full or is_ijro:
-            if item.ijro_ball is not None and 0 <= item.ijro_ball <= 10:
-                sc.ijro_ball = item.ijro_ball
+            if item.ijro_edo_ball is not None and 0 <= item.ijro_edo_ball <= 32:
+                sc.ijro_edo_ball = item.ijro_edo_ball
+            if item.ijro_ichki_ball is not None and 0 <= item.ijro_ichki_ball <= 20:
+                sc.ijro_ichki_ball = item.ijro_ichki_ball
         if is_full:
             # bolim_ball endi bu yerda qo'lda o'rnatilmaydi — faqat /reports/weekly orqali
             # tasdiqlangan haftalik hisobotlar yig'indisidan avtomatik hisoblanadi.

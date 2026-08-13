@@ -831,12 +831,13 @@ def monthly_report(
         models.Score.year == year,
         models.Score.month == month,
     ).first()
-    ijro_ball  = sc.ijro_ball if sc else None
+    ijro_edo_ball   = sc.ijro_edo_ball if sc else None
+    ijro_ichki_ball = sc.ijro_ichki_ball if sc else None
     kadr_ball  = sc.kadr_ball if sc else None
     bolim_ball = sc.bolim_ball if sc else None
     umumiy = None
-    if ijro_ball is not None or kadr_ball is not None or bolim_ball is not None:
-        umumiy = (ijro_ball or 0) + (kadr_ball or 0) + (bolim_ball or 0)
+    if ijro_edo_ball is not None or ijro_ichki_ball is not None or kadr_ball is not None or bolim_ball is not None:
+        umumiy = (ijro_edo_ball or 0) + (ijro_ichki_ball or 0) + (kadr_ball or 0) + (bolim_ball or 0)
 
     dept = emp.department
     hr = db.query(models.Employee).filter(models.Employee.role == models.RoleEnum.kadr).first()
@@ -869,9 +870,10 @@ def monthly_report(
             kechikish_pct=pct(kechikish_min),
         ),
         scores=schemas.MonthlyReportScores(
-            ijro=schemas.MonthlyReportScoreItem(label="Ijro bo'limi bahosi", ball=ijro_ball, max_ball=10),
+            ijro_edo=schemas.MonthlyReportScoreItem(label="Ijro — edo.ijro.uz", ball=ijro_edo_ball, max_ball=32),
+            ijro_ichki=schemas.MonthlyReportScoreItem(label="Ijro — ichki xatlar", ball=ijro_ichki_ball, max_ball=20),
             kadr=schemas.MonthlyReportScoreItem(label="Kadrlar bo'limi bahosi", ball=kadr_ball, max_ball=25),
-            bolim=schemas.MonthlyReportScoreItem(label="Bo'lim boshlig'i bahosi", ball=bolim_ball, max_ball=65),
+            bolim=schemas.MonthlyReportScoreItem(label="Bo'lim boshlig'i bahosi", ball=bolim_ball, max_ball=23),
             umumiy=schemas.MonthlyReportScoreItem(label="Umumiy natija", ball=umumiy, max_ball=100),
             comment=sc.comment if sc else None,
         ),

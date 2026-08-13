@@ -14,10 +14,11 @@ import WeeklyReportReviewModal, { WeekRow } from "@/components/reports/WeeklyRep
 import WeeklyReportCard from "@/components/reports/WeeklyReportCard";
 
 /* ── Constants ── */
-const MAX_BOLIM    = 65;
-const MAX_KADR     = 25;
-const MAX_IJRO     = 10;
-const MAX_TOTAL    = MAX_BOLIM + MAX_KADR + MAX_IJRO;
+const MAX_BOLIM      = 23;
+const MAX_KADR       = 25;
+const MAX_IJRO_EDO   = 32;
+const MAX_IJRO_ICHKI = 20;
+const MAX_TOTAL      = MAX_BOLIM + MAX_KADR + MAX_IJRO_EDO + MAX_IJRO_ICHKI;
 
 const KPI_RANGES = [
   { from: 70, to: 75,  foiz: "50%",  color: "#FF5C5C", bg: "rgba(255,92,92,0.10)"  },
@@ -50,7 +51,8 @@ const AVATAR_COLORS = ["#3F8CFF","#6D5DD3","#00C48C","#FFBD21","#FF5C5C","#15C0E
 interface ApiEmp   { id:number; full_name:string; position:string; role:string; is_active:boolean; }
 interface ApiScore {
   id:number; employee_id:number; year:number; month:number;
-  bolim_ball:number|null; kadr_ball:number|null; direktor_ball:number|null; ijro_ball:number|null;
+  bolim_ball:number|null; kadr_ball:number|null; direktor_ball:number|null;
+  ijro_edo_ball:number|null; ijro_ichki_ball:number|null;
 }
 interface ApiTeamRow {
   employee_id: number; full_name: string; position: string;
@@ -59,15 +61,16 @@ interface ApiTeamRow {
 interface Row {
   id:number; name:string; position:string; role:string; avatar:string; color:string;
   isSelf:boolean;
-  bolimBall:number|null; kadrBall:number|null; direktorBall:number|null; ijroBall:number|null;
+  bolimBall:number|null; kadrBall:number|null; direktorBall:number|null;
+  ijroEdoBall:number|null; ijroIchkiBall:number|null;
   weeks: WeekRow[];
 }
 
 function mkAvatar(n:string){ return n.split(" ").filter(Boolean).map(w=>w[0]).join("").toUpperCase().slice(0,2); }
-function rowTotal(r:Row){ return (r.bolimBall??0)+(r.kadrBall??0)+(r.ijroBall??0); }
+function rowTotal(r:Row){ return (r.bolimBall??0)+(r.kadrBall??0)+(r.ijroEdoBall??0)+(r.ijroIchkiBall??0); }
 function getStatus(r:Row):"Baholangan"|"Qisman"|"Kutilmoqda"{
-  const cnt=[r.bolimBall,r.kadrBall,r.ijroBall].filter(v=>v!=null).length;
-  return cnt===3?"Baholangan":cnt>0?"Qisman":"Kutilmoqda";
+  const cnt=[r.bolimBall,r.kadrBall,r.ijroEdoBall,r.ijroIchkiBall].filter(v=>v!=null).length;
+  return cnt===4?"Baholangan":cnt>0?"Qisman":"Kutilmoqda";
 }
 const statusVariant: Record<string,"success"|"warning"|"danger"> = {
   Baholangan:"success", Qisman:"warning", Kutilmoqda:"danger",
@@ -134,10 +137,11 @@ export default function BolimKpiPage() {
         id:e.id, name:e.full_name, position:e.position, role:e.role,
         avatar:mkAvatar(e.full_name), color:AVATAR_COLORS[i%AVATAR_COLORS.length],
         isSelf:e.id===me?.id,
-        bolimBall:   sm.get(e.id)?.bolim_ball    ??null,
-        kadrBall:    sm.get(e.id)?.kadr_ball     ??null,
-        direktorBall:sm.get(e.id)?.direktor_ball ??null,
-        ijroBall:    sm.get(e.id)?.ijro_ball     ??null,
+        bolimBall:    sm.get(e.id)?.bolim_ball      ??null,
+        kadrBall:     sm.get(e.id)?.kadr_ball       ??null,
+        direktorBall: sm.get(e.id)?.direktor_ball   ??null,
+        ijroEdoBall:  sm.get(e.id)?.ijro_edo_ball   ??null,
+        ijroIchkiBall:sm.get(e.id)?.ijro_ichki_ball ??null,
         weeks: e.id===me?.id ? mine : (wm.get(e.id) ?? []),
       }));
       setRows(next);
@@ -277,19 +281,20 @@ export default function BolimKpiPage() {
                 </div>
               ) : (
                 <div className="px-6 py-5 overflow-x-auto">
-                <div style={{ minWidth: 900 }}>
+                <div style={{ minWidth: 990 }}>
 
                   {/* Column headers */}
                   <div className="grid px-5 py-2.5 mb-1 text-xs font-bold uppercase tracking-wide items-center"
                     style={{
-                      gridTemplateColumns:"2fr 90px 90px 90px 80px 110px 1fr 130px",
+                      gridTemplateColumns:"2fr 90px 90px 90px 90px 80px 110px 1fr 130px",
                       color:"#91929E",letterSpacing:"0.05em",
                       background:"#F4F9FD",borderRadius:12,
                     }}>
                     <span>Xodim</span>
                     <span className="text-center">Bo'lim</span>
                     <span className="text-center">Kadr</span>
-                    <span className="text-center">Ijro</span>
+                    <span className="text-center">EDO</span>
+                    <span className="text-center">Ichki</span>
                     <span className="text-center">Jami</span>
                     <span className="flex items-center justify-center gap-1">
                       KPI Foiz
@@ -305,7 +310,7 @@ export default function BolimKpiPage() {
                   {selfRow && (
                     <div className="grid items-center px-5 py-4 mb-3"
                       style={{
-                        gridTemplateColumns:"2fr 90px 90px 90px 80px 110px 1fr 130px",
+                        gridTemplateColumns:"2fr 90px 90px 90px 90px 80px 110px 1fr 130px",
                         background:"rgba(63,140,255,0.04)",borderRadius:14,
                         border:"1.5px solid rgba(63,140,255,0.12)",
                       }}>
@@ -319,9 +324,10 @@ export default function BolimKpiPage() {
                           <p className="text-[10px]" style={{color:"#3F8CFF",fontWeight:700}}>O'ZINGIZ</p>
                         </div>
                       </div>
-                      <ScoreCircle val={selfRow.bolimBall} max={MAX_BOLIM} color="#3F8CFF"/>
-                      <ScoreCircle val={selfRow.kadrBall}  max={MAX_KADR}  color="#FF8C42"/>
-                      <ScoreCircle val={selfRow.ijroBall}  max={MAX_IJRO}  color="#00C48C"/>
+                      <ScoreCircle val={selfRow.bolimBall}     max={MAX_BOLIM}      color="#3F8CFF"/>
+                      <ScoreCircle val={selfRow.kadrBall}      max={MAX_KADR}       color="#FF8C42"/>
+                      <ScoreCircle val={selfRow.ijroEdoBall}   max={MAX_IJRO_EDO}   color="#00C48C"/>
+                      <ScoreCircle val={selfRow.ijroIchkiBall} max={MAX_IJRO_ICHKI} color="#15C0E6"/>
                       <div className="text-center">
                         {rowTotal(selfRow)>0
                           ?<><span className="text-lg font-bold" style={{color:"#0A1629"}}>{rowTotal(selfRow)}</span><span className="text-xs block" style={{color:"#91929E"}}>/{MAX_TOTAL}</span></>
@@ -363,7 +369,7 @@ export default function BolimKpiPage() {
                         <div key={r.id}
                           className="grid items-center px-5 py-3.5 hover:bg-[#FAFCFF] transition-colors"
                           style={{
-                            gridTemplateColumns:"2fr 90px 90px 90px 80px 110px 1fr 130px",
+                            gridTemplateColumns:"2fr 90px 90px 90px 90px 80px 110px 1fr 130px",
                             borderBottom:idx<arr.length-1?"1px solid #F4F9FD":"none",
                           }}>
                           <div className="flex items-center gap-3">
@@ -376,9 +382,10 @@ export default function BolimKpiPage() {
                               <p className="text-xs truncate" style={{color:"#91929E"}}>{r.position}</p>
                             </div>
                           </div>
-                          <ScoreCircle val={r.bolimBall} max={MAX_BOLIM} color="#3F8CFF"/>
-                          <ScoreCircle val={r.kadrBall}  max={MAX_KADR}  color="#FF8C42"/>
-                          <ScoreCircle val={r.ijroBall}  max={MAX_IJRO}  color="#00C48C"/>
+                          <ScoreCircle val={r.bolimBall}     max={MAX_BOLIM}      color="#3F8CFF"/>
+                          <ScoreCircle val={r.kadrBall}      max={MAX_KADR}       color="#FF8C42"/>
+                          <ScoreCircle val={r.ijroEdoBall}   max={MAX_IJRO_EDO}   color="#00C48C"/>
+                          <ScoreCircle val={r.ijroIchkiBall} max={MAX_IJRO_ICHKI} color="#15C0E6"/>
                           <div className="text-center">
                             <span className="text-lg font-bold"
                               style={{color:pct>=70?"#00C48C":pct>=50?"#FFBD21":"#FF5C5C"}}>
@@ -419,11 +426,12 @@ export default function BolimKpiPage() {
           </div>
 
           {/* ── Info cards ── */}
-          <div className="mt-4 grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             {[
-              {label:"Bo'lim boshlig'i",max:MAX_BOLIM,color:"#3F8CFF",desc:"Haftalik hisobot tasdiqlanganda yig'iladi"},
-              {label:"Kadrlar bo'limi", max:MAX_KADR, color:"#FF8C42",desc:"Kadrlar bo'limi belgilaydi"},
-              {label:"Ijro nazorati",   max:MAX_IJRO, color:"#00C48C",desc:"Topshiriqlar asosida"},
+              {label:"Bo'lim boshlig'i",  max:MAX_BOLIM,      color:"#3F8CFF",desc:"Haftalik hisobot tasdiqlanganda yig'iladi"},
+              {label:"Kadrlar bo'limi",   max:MAX_KADR,       color:"#FF8C42",desc:"Kadrlar bo'limi belgilaydi"},
+              {label:"Ijro — edo.ijro.uz",max:MAX_IJRO_EDO,   color:"#00C48C",desc:"Edo.ijro.uz platformasi asosida"},
+              {label:"Ijro — ichki xat",  max:MAX_IJRO_ICHKI, color:"#15C0E6",desc:"Ichki xatlar asosida"},
             ].map(item=>(
               <div key={item.label} className="flex items-center gap-4 px-5 py-4"
                 style={{background:"#FFFFFF",borderRadius:18,boxShadow:"0px 6px 58px rgba(196,203,214,0.103611)"}}>

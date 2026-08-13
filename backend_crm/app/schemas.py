@@ -297,10 +297,11 @@ class ScoreIn(BaseModel):
     employee_id: int
     year: int
     month: int
-    bolim_ball: Optional[float] = None  # 0-65 (haftalik hisobotlar yig'indisi, avtomatik)
+    bolim_ball: Optional[float] = None  # 0-23 (haftalik hisobotlar yig'indisi, avtomatik)
     kadr_ball: Optional[int] = None     # 0-25
     direktor_ball: Optional[int] = None # 0-100
-    ijro_ball: Optional[int] = None     # 0-10
+    ijro_edo_ball: Optional[int] = None   # 0-32 (edo.ijro.uz)
+    ijro_ichki_ball: Optional[int] = None # 0-20 (ichki xatlar)
     comment: Optional[str] = None
 
 class ScoreOut(BaseModel):
@@ -311,7 +312,8 @@ class ScoreOut(BaseModel):
     bolim_ball: Optional[float] = None
     kadr_ball: Optional[int] = None
     direktor_ball: Optional[int] = None
-    ijro_ball: Optional[int] = None
+    ijro_edo_ball: Optional[int] = None
+    ijro_ichki_ball: Optional[int] = None
     comment: Optional[str] = None
     report_file_name: Optional[str] = None   # fayl nomi (ko'rsatish uchun)
     updated_at: datetime
@@ -341,7 +343,8 @@ class EmpScoreRowOut(BaseModel):
     bolim_ball:     Optional[float] = None
     kadr_ball:      Optional[int] = None
     direktor_ball:  Optional[int] = None
-    ijro_ball:      Optional[int] = None
+    ijro_edo_ball:  Optional[int] = None
+    ijro_ichki_ball: Optional[int] = None
     report_file_name: Optional[str] = None
 
 class BulkScoreItemIn(BaseModel):
@@ -349,7 +352,8 @@ class BulkScoreItemIn(BaseModel):
     bolim_ball:     Optional[float] = None
     kadr_ball:      Optional[int] = None
     direktor_ball:  Optional[int] = None
-    ijro_ball:      Optional[int] = None
+    ijro_edo_ball:  Optional[int] = None
+    ijro_ichki_ball: Optional[int] = None
 
 class BulkScoreIn(BaseModel):
     year:       int
@@ -483,7 +487,8 @@ class MonthlyReportScoreItem(BaseModel):
     max_ball: float
 
 class MonthlyReportScores(BaseModel):
-    ijro: MonthlyReportScoreItem
+    ijro_edo: MonthlyReportScoreItem
+    ijro_ichki: MonthlyReportScoreItem
     kadr: MonthlyReportScoreItem
     bolim: MonthlyReportScoreItem
     umumiy: MonthlyReportScoreItem

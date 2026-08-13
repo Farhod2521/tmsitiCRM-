@@ -21,15 +21,17 @@ interface EmpScoreRow {
   bolim_ball:       number | null;
   kadr_ball:        number | null;
   direktor_ball:    number | null;
-  ijro_ball:        number | null;
+  ijro_edo_ball:    number | null;
+  ijro_ichki_ball:  number | null;
   report_file_name: string | null;
 }
 
 interface BallState {
-  bolim_ball?:    number | null;
-  kadr_ball?:     number | null;
-  direktor_ball?: number | null;
-  ijro_ball?:     number | null;
+  bolim_ball?:       number | null;
+  kadr_ball?:        number | null;
+  direktor_ball?:    number | null;
+  ijro_edo_ball?:    number | null;
+  ijro_ichki_ball?:  number | null;
 }
 
 const MON_NAMES = [
@@ -40,25 +42,30 @@ const DEPT_COLORS = ["#3F8CFF","#00C48C","#FFBD21","#6D5DD3","#15C0E6","#FF5C5C"
 
 const FIELD_CONFIG: Record<BallMode, {key: keyof BallState; max: number; label: string; color: string}[]> = {
   kadr:     [{ key:"kadr_ball",  max:25, label:"KADR",   color:"#FF8C42" }],
-  ijro:     [{ key:"ijro_ball",  max:10, label:"IJRO",   color:"#00C48C" }],
+  ijro:     [
+    { key:"ijro_edo_ball",   max:32, label:"EDO.IJRO.UZ",  color:"#00C48C" },
+    { key:"ijro_ichki_ball", max:20, label:"ICHKI XATLAR", color:"#15C0E6" },
+  ],
   direktor: [
-    { key:"kadr_ball",  max:25, label:"KADR",   color:"#FF8C42" },
-    { key:"ijro_ball",  max:10, label:"IJRO",   color:"#00C48C" },
+    { key:"kadr_ball",       max:25, label:"KADR",          color:"#FF8C42" },
+    { key:"ijro_edo_ball",   max:32, label:"EDO.IJRO.UZ",   color:"#00C48C" },
+    { key:"ijro_ichki_ball", max:20, label:"ICHKI XATLAR",  color:"#15C0E6" },
   ],
 };
 // direktor rejimida BO'LIM endi tahrirlanmaydi — haftalik hisobot tasdiqlanganda avtomatik hisoblanadi
-const BOLIM_MAX = 65;
+const BOLIM_MAX = 23;
 
-function getVal(r: EmpScoreRow, b: BallState, key: "bolim_ball" | "kadr_ball" | "ijro_ball"): number | null {
+function getVal(r: EmpScoreRow, b: BallState, key: "bolim_ball" | "kadr_ball" | "ijro_edo_ball" | "ijro_ichki_ball"): number | null {
   return b[key] !== undefined ? (b[key] as number | null) : r[key];
 }
 
 function calcJami(r: EmpScoreRow, b: BallState): number | null {
   const bolim = getVal(r, b, "bolim_ball");
   const kadr  = getVal(r, b, "kadr_ball");
-  const ijro  = getVal(r, b, "ijro_ball");
-  if (bolim == null && kadr == null && ijro == null) return null;
-  return (bolim ?? 0) + (kadr ?? 0) + (ijro ?? 0);
+  const edo   = getVal(r, b, "ijro_edo_ball");
+  const ichki = getVal(r, b, "ijro_ichki_ball");
+  if (bolim == null && kadr == null && edo == null && ichki == null) return null;
+  return (bolim ?? 0) + (kadr ?? 0) + (edo ?? 0) + (ichki ?? 0);
 }
 
 /* ── Filterlar ── */
@@ -77,7 +84,7 @@ function matchFilter(r: EmpScoreRow, b: BallState, key: FilterKey): boolean {
     case "barchasi":    return true;
     case "bolim_yoq":   return getVal(r, b, "bolim_ball") == null;
     case "kadr_yoq":    return getVal(r, b, "kadr_ball")  == null;
-    case "ijro_yoq":    return getVal(r, b, "ijro_ball")  == null;
+    case "ijro_yoq":    return getVal(r, b, "ijro_edo_ball") == null || getVal(r, b, "ijro_ichki_ball") == null;
     case "hisobot_yoq": return !r.report_file_name;
   }
 }
@@ -359,7 +366,7 @@ export default function XodimlarBallBerish({ mode }: Props) {
         }),
       ];
 
-      const headerCells = ["#", "F.I.Sh", "Lavozim", "BO'LIM /65", "KADR /25", "IJRO /10", "JAMI /100", "KPI FOIZ", "HISOBOT"];
+      const headerCells = ["#", "F.I.Sh", "Lavozim", "BO'LIM /23", "KADR /25", "EDO.IJRO.UZ /32", "ICHKI XATLAR /20", "JAMI /100", "KPI FOIZ", "HISOBOT"];
 
       for (const [deptName, deptRows] of deptList) {
         children.push(new Paragraph({
@@ -384,14 +391,16 @@ export default function XodimlarBallBerish({ mode }: Props) {
           const b = balls[r.employee_id] ?? {};
           const bolim = getVal(r, b, "bolim_ball");
           const kadr  = getVal(r, b, "kadr_ball");
-          const ijro  = getVal(r, b, "ijro_ball");
+          const edo   = getVal(r, b, "ijro_edo_ball");
+          const ichki = getVal(r, b, "ijro_ichki_ball");
           const jami  = calcJami(r, b);
           const kpi   = getKpiLabel(jami);
           const cells = [
             String(i + 1), r.full_name, r.position,
             bolim != null ? String(bolim) : "—",
             kadr  != null ? String(kadr)  : "—",
-            ijro  != null ? String(ijro)  : "—",
+            edo   != null ? String(edo)   : "—",
+            ichki != null ? String(ichki) : "—",
             jami  != null ? String(jami)  : "—",
             kpi.text,
             r.report_file_name ? "Bor" : "Yo'q",
@@ -641,7 +650,7 @@ export default function XodimlarBallBerish({ mode }: Props) {
                   {/* Employee rows */}
                   {isOpen && (
                     <div className="overflow-x-auto">
-                    <div style={{ minWidth: mode==="direktor" ? 920 : 700 }}>
+                    <div style={{ minWidth: (mode==="direktor" ? 720 : 600) + fields.length * 100 }}>
                       {/* Table header */}
                       <div className="grid px-6 py-2 text-xs font-bold uppercase tracking-wide"
                         style={{

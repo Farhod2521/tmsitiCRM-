@@ -11,11 +11,12 @@ import { apiFetch } from "@/lib/api";
 import { getUser } from "@/lib/auth";
 
 /* ── Constants ── */
-const MAX_BOLIM    = 65;
-const MAX_KADR     = 25;
-const MAX_DIREKTOR = 100;
-const MAX_IJRO     = 10;
-const MAX_TOTAL    = MAX_BOLIM + MAX_KADR + MAX_DIREKTOR + MAX_IJRO;
+const MAX_BOLIM      = 23;
+const MAX_KADR       = 25;
+const MAX_DIREKTOR   = 100;
+const MAX_IJRO_EDO   = 32;
+const MAX_IJRO_ICHKI = 20;
+const MAX_TOTAL      = MAX_BOLIM + MAX_KADR + MAX_DIREKTOR + MAX_IJRO_EDO + MAX_IJRO_ICHKI;
 
 const MON_NAMES = ["Yanvar","Fevral","Mart","Aprel","May","Iyun","Iyul","Avgust","Sentabr","Oktabr","Noyabr","Dekabr"];
 const AVATAR_COLORS = ["#3F8CFF","#6D5DD3","#00C48C","#FFBD21","#FF5C5C","#15C0E6","#FF8C42"];
@@ -24,7 +25,8 @@ const AVATAR_COLORS = ["#3F8CFF","#6D5DD3","#00C48C","#FFBD21","#FF5C5C","#15C0E
 interface ApiEmp  { id:number; full_name:string; position:string; work_rate:number; role:string; is_active:boolean; }
 interface ApiScore{
   id:number; employee_id:number; year:number; month:number;
-  bolim_ball:number|null; kadr_ball:number|null; direktor_ball:number|null; ijro_ball:number|null; comment:string|null;
+  bolim_ball:number|null; kadr_ball:number|null; direktor_ball:number|null;
+  ijro_edo_ball:number|null; ijro_ichki_ball:number|null; comment:string|null;
 }
 
 interface Row {
@@ -33,17 +35,18 @@ interface Row {
   position: string;
   avatar:   string;
   color:    string;
-  bolimBall:    number|null;
-  kadrBall:     number|null;
-  direktorBall: number|null;
-  ijroBall:     number|null;
+  bolimBall:     number|null;
+  kadrBall:      number|null;
+  direktorBall:  number|null;
+  ijroEdoBall:   number|null;
+  ijroIchkiBall: number|null;
 }
 
 function mkAvatar(name:string){ return name.split(" ").filter(Boolean).map(w=>w[0]).join("").toUpperCase().slice(0,2); }
-function rowTotal(r:Row){ return (r.bolimBall??0)+(r.kadrBall??0)+(r.direktorBall??0)+(r.ijroBall??0); }
+function rowTotal(r:Row){ return (r.bolimBall??0)+(r.kadrBall??0)+(r.direktorBall??0)+(r.ijroEdoBall??0)+(r.ijroIchkiBall??0); }
 function getStatus(r:Row): "Baholangan"|"Qisman"|"Kutilmoqda" {
-  const set = [r.bolimBall,r.kadrBall,r.direktorBall,r.ijroBall].filter(v=>v!=null).length;
-  return set===4?"Baholangan":set>0?"Qisman":"Kutilmoqda";
+  const set = [r.bolimBall,r.kadrBall,r.direktorBall,r.ijroEdoBall,r.ijroIchkiBall].filter(v=>v!=null).length;
+  return set===5?"Baholangan":set>0?"Qisman":"Kutilmoqda";
 }
 
 /* ── Doira ko'rinishidagi ball ── */
@@ -114,10 +117,11 @@ export default function BallBerishPage() {
           position: e.position,
           avatar:   mkAvatar(e.full_name),
           color:    AVATAR_COLORS[i % AVATAR_COLORS.length],
-          bolimBall:    sc?.bolim_ball    ?? null,
-          kadrBall:     sc?.kadr_ball     ?? null,
-          direktorBall: sc?.direktor_ball ?? null,
-          ijroBall:     sc?.ijro_ball     ?? null,
+          bolimBall:     sc?.bolim_ball      ?? null,
+          kadrBall:      sc?.kadr_ball       ?? null,
+          direktorBall:  sc?.direktor_ball   ?? null,
+          ijroEdoBall:   sc?.ijro_edo_ball   ?? null,
+          ijroIchkiBall: sc?.ijro_ichki_ball ?? null,
         };
       }));
     } catch(err){
@@ -244,16 +248,17 @@ export default function BallBerishPage() {
 
         {/* ── Scroll wrapper ── */}
         <div className="overflow-x-auto">
-        <div style={{ minWidth: 880 }}>
+        <div style={{ minWidth: 970 }}>
 
         {/* Column headers */}
         <div className="grid px-6 py-3 text-xs font-bold uppercase tracking-wide items-center"
-          style={{gridTemplateColumns:"2fr 90px 90px 90px 90px 80px 1fr 100px",color:"#91929E",borderBottom:"1px solid #F4F9FD"}}>
+          style={{gridTemplateColumns:"2fr 90px 90px 90px 90px 90px 80px 1fr 100px",color:"#91929E",borderBottom:"1px solid #F4F9FD"}}>
           <span>Xodim</span>
           <span className="text-center">Bo'lim</span>
           <span className="text-center">Kadr</span>
           <span className="text-center">Direktor</span>
-          <span className="text-center">Ijro</span>
+          <span className="text-center">EDO</span>
+          <span className="text-center">Ichki</span>
           <span className="text-center">Jami</span>
           <span>Holat</span>
           <span className="text-right">Amal</span>
@@ -275,7 +280,7 @@ export default function BallBerishPage() {
                 <div key={r.id}
                   className="grid items-center px-6 py-4 hover:bg-[#FAFCFF] transition-colors"
                   style={{
-                    gridTemplateColumns:"2fr 90px 90px 90px 90px 80px 1fr 100px",
+                    gridTemplateColumns:"2fr 90px 90px 90px 90px 90px 80px 1fr 100px",
                     borderBottom: idx<filtered.length-1 ? "1px solid #F4F9FD" : "none",
                   }}>
                   {/* Xodim */}
@@ -289,10 +294,11 @@ export default function BallBerishPage() {
                       <p className="text-xs truncate" style={{color:"#91929E"}}>{r.position}</p>
                     </div>
                   </div>
-                  <ScoreCircle val={r.bolimBall}    max={MAX_BOLIM}    color="#3F8CFF"/>
-                  <ScoreCircle val={r.kadrBall}     max={MAX_KADR}     color="#FF8C42"/>
-                  <ScoreCircle val={r.direktorBall} max={MAX_DIREKTOR} color="#6D5DD3"/>
-                  <ScoreCircle val={r.ijroBall}     max={MAX_IJRO}     color="#00C48C"/>
+                  <ScoreCircle val={r.bolimBall}     max={MAX_BOLIM}      color="#3F8CFF"/>
+                  <ScoreCircle val={r.kadrBall}      max={MAX_KADR}       color="#FF8C42"/>
+                  <ScoreCircle val={r.direktorBall}  max={MAX_DIREKTOR}   color="#6D5DD3"/>
+                  <ScoreCircle val={r.ijroEdoBall}   max={MAX_IJRO_EDO}   color="#00C48C"/>
+                  <ScoreCircle val={r.ijroIchkiBall} max={MAX_IJRO_ICHKI} color="#15C0E6"/>
                   <div className="text-center">
                     <span className="text-lg font-bold"
                       style={{color: pct>=70?"#00C48C":pct>=50?"#FFBD21":"#FF5C5C"}}>
@@ -329,12 +335,13 @@ export default function BallBerishPage() {
       </div>
 
       {/* ── Info cards ── */}
-      <div className="mt-4 grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="mt-4 grid grid-cols-2 lg:grid-cols-5 gap-4">
         {[
-          {label:"Bo'lim boshlig'i", max:MAX_BOLIM,    color:"#3F8CFF", desc:"Bevosita rahbar qo'yadi"},
-          {label:"Kadrlar bo'limi",  max:MAX_KADR,     color:"#FF8C42", desc:"Kadrlar bo'limi belgilaydi"},
-          {label:"Direktordan",       max:MAX_DIREKTOR, color:"#6D5DD3", desc:"Direktor belgilaydi"},
-          {label:"Ijro nazorati",     max:MAX_IJRO,     color:"#00C48C", desc:"Topshiriqlar asosida"},
+          {label:"Bo'lim boshlig'i",  max:MAX_BOLIM,      color:"#3F8CFF", desc:"Bevosita rahbar qo'yadi"},
+          {label:"Kadrlar bo'limi",   max:MAX_KADR,       color:"#FF8C42", desc:"Kadrlar bo'limi belgilaydi"},
+          {label:"Direktordan",       max:MAX_DIREKTOR,   color:"#6D5DD3", desc:"Direktor belgilaydi"},
+          {label:"Ijro — edo.ijro.uz",max:MAX_IJRO_EDO,   color:"#00C48C", desc:"Edo.ijro.uz platformasi asosida"},
+          {label:"Ijro — ichki xat",  max:MAX_IJRO_ICHKI, color:"#15C0E6", desc:"Ichki xatlar asosida"},
         ].map(item=>(
           <div key={item.label} className="flex items-center gap-4 px-5 py-4"
             style={{background:"#FFFFFF",borderRadius:18,boxShadow:"0px 6px 58px rgba(196,203,214,0.103611)"}}>
@@ -405,11 +412,12 @@ export default function BallBerishPage() {
             </div>
 
             {/* ── Boshqa ballar — FAQAT KO'RSATISH (read-only) ── */}
-            <div className="grid grid-cols-3 gap-3 mb-5">
+            <div className="grid grid-cols-2 gap-3 mb-5">
               {[
-                {label:"Kadrlar",  val:activeRow.kadrBall,     max:MAX_KADR,     color:"#FF8C42"},
-                {label:"Direktor", val:activeRow.direktorBall, max:MAX_DIREKTOR, color:"#6D5DD3"},
-                {label:"Ijro",     val:activeRow.ijroBall,     max:MAX_IJRO,     color:"#00C48C"},
+                {label:"Kadrlar",       val:activeRow.kadrBall,      max:MAX_KADR,       color:"#FF8C42"},
+                {label:"Direktor",      val:activeRow.direktorBall,  max:MAX_DIREKTOR,   color:"#6D5DD3"},
+                {label:"Ijro (EDO)",    val:activeRow.ijroEdoBall,   max:MAX_IJRO_EDO,   color:"#00C48C"},
+                {label:"Ijro (Ichki)",  val:activeRow.ijroIchkiBall, max:MAX_IJRO_ICHKI, color:"#15C0E6"},
               ].map(b=>(
                 <div key={b.label} className="px-3 py-3 text-center" style={{background:"#F4F9FD",borderRadius:14}}>
                   <p className="text-xs mb-1" style={{color:"#91929E"}}>{b.label}</p>
@@ -433,7 +441,7 @@ export default function BallBerishPage() {
                 <TrendingUp size={14} className="inline mr-1"/>Umumiy jami
               </span>
               <span className="font-bold text-lg" style={{color:"#0A1629"}}>
-                {(Number(inputBolim)||0)+(activeRow.kadrBall||0)+(activeRow.direktorBall||0)+(activeRow.ijroBall||0)}
+                {(Number(inputBolim)||0)+(activeRow.kadrBall||0)+(activeRow.direktorBall||0)+(activeRow.ijroEdoBall||0)+(activeRow.ijroIchkiBall||0)}
                 <span className="text-sm font-normal ml-1" style={{color:"#91929E"}}>/{MAX_TOTAL}</span>
               </span>
             </div>

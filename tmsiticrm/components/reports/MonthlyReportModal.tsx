@@ -39,7 +39,7 @@ interface TimeAnalysis {
   samarali_pct: number; kechikish_pct: number;
 }
 interface ScoreItem { label: string; ball: number | null; max_ball: number; }
-interface Scores { ijro: ScoreItem; kadr: ScoreItem; bolim: ScoreItem; umumiy: ScoreItem; comment: string | null; }
+interface Scores { ijro_edo: ScoreItem; ijro_ichki: ScoreItem; kadr: ScoreItem; bolim: ScoreItem; umumiy: ScoreItem; comment: string | null; }
 interface Summary {
   kelgan_kunlar: number; kechikkan_kunlar: number; kelmagan_kunlar: number;
   ish_kunlari_jami: number; jami_ish_soati_min: number;
@@ -434,11 +434,12 @@ export default function MonthlyReportModal({
 
                 <div className="flex-1 p-4" style={{ background: "#FFFFFF", borderRadius: 16, border: "1px solid #F0F3F8" }}>
                   <p className="text-[11px] font-bold mb-2" style={{ color: "#91929E", letterSpacing: "0.04em" }}>BAHOLASH NATIJALARI</p>
-                  <div className="flex items-start justify-around gap-2">
-                    <ScoreGauge item={data.scores.ijro} size={64} compact />
-                    <ScoreGauge item={data.scores.kadr} size={64} compact />
-                    <ScoreGauge item={data.scores.bolim} size={64} compact />
-                    <ScoreGauge item={data.scores.umumiy} size={64} compact />
+                  <div className="flex items-start justify-around gap-2 flex-wrap">
+                    <ScoreGauge item={data.scores.bolim} size={56} compact />
+                    <ScoreGauge item={data.scores.kadr} size={56} compact />
+                    <ScoreGauge item={data.scores.ijro_edo} size={56} compact />
+                    <ScoreGauge item={data.scores.ijro_ichki} size={56} compact />
+                    <ScoreGauge item={data.scores.umumiy} size={56} compact />
                   </div>
                 </div>
               </div>

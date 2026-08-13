@@ -13,7 +13,7 @@ class RoleEnum(str, enum.Enum):
     boshqarma_boshligi  = "boshqarma_boshligi"
     xodim               = "xodim"
     kadr                = "kadr"    # kadrlar bo'limi vakili — kadr_ball beradi
-    ijro                = "ijro"    # ijro nazorati vakili  — ijro_ball beradi
+    ijro                = "ijro"    # ijro nazorati vakili  — ijro_edo_ball va ijro_ichki_ball beradi
 
     # superadmin-like roles (can see everything)
     @classmethod
@@ -182,10 +182,11 @@ class Score(Base):
     employee_id     = Column(Integer, ForeignKey("employees.id"), nullable=False)
     year            = Column(Integer, nullable=False)
     month           = Column(Integer, nullable=False)  # 1-12
-    bolim_ball      = Column(Float, nullable=True)      # 0-65,  haftalik tasdiqlangan hisobotlar yig'indisi (avtomatik)
+    bolim_ball      = Column(Float, nullable=True)      # 0-23,  haftalik tasdiqlangan hisobotlar yig'indisi (avtomatik)
     kadr_ball       = Column(Integer, nullable=True)   # 0-25,  kadrlar bo'limi beradi
     direktor_ball   = Column(Integer, nullable=True)   # 0-100, direktor beradi
-    ijro_ball       = Column(Integer, nullable=True)   # 0-10,  ijro nazoratidan
+    ijro_edo_ball   = Column(Integer, nullable=True)   # 0-32,  ijro nazorati — edo.ijro.uz
+    ijro_ichki_ball = Column(Integer, nullable=True)   # 0-20,  ijro nazorati — ichki xatlar
     comment         = Column(String(500), nullable=True)
     report_file_name = Column(String(255), nullable=True)  # yuklangan fayl nomi
     report_file_b64  = Column(Text, nullable=True)          # fayl base64 (PDF/doc)

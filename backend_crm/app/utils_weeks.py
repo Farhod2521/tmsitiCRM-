@@ -4,7 +4,7 @@ from calendar import monthrange
 
 TZ_UZ = timezone(timedelta(hours=5))
 
-WEEKLY_MAX_TOTAL = 65  # bo'lim_ball oylik maksimumi — haftalar orasida taqsimlanadi
+WEEKLY_MAX_TOTAL = 23  # bo'lim_ball oylik maksimumi — haftalar orasida taqsimlanadi
 
 MON_NAMES_SHORT = [
     "Yan", "Fev", "Mar", "Apr", "May", "Iyun",
