@@ -13,7 +13,7 @@ from ..database import get_db
 from ..deps import get_current_employee
 from ..utils_weeks import get_month_weeks, weekly_max, is_current_week, today_uz
 from ..telegram import send_telegram_message
-from .attendance import WORK_START_HOUR, WORK_START_MIN, TZ_UZ as TZ_UZ_ATTENDANCE
+from .attendance import WORK_START_HOUR, WORK_START_MIN, TZ_UZ as TZ_UZ_ATTENDANCE, _note_out
 
 router = APIRouter(prefix="/reports", tags=["Haftalik hisobot"])
 
@@ -633,6 +633,15 @@ def monthly_report(
     ).all()
     att_by_day = {int(a.date[-2:]): a for a in attendances}
 
+    month_start = f"{month_prefix}01"
+    month_end = f"{month_prefix}{days_in_month:02d}"
+    notes = db.query(models.AttendanceNote).filter(
+        models.AttendanceNote.employee_id == employee_id,
+        models.AttendanceNote.date_from <= month_end,
+        models.AttendanceNote.date_to >= month_start,
+    ).order_by(models.AttendanceNote.date_from).all()
+    notes_out = [_note_out(n) for n in notes]
+
     calendar_days: list[schemas.MonthlyReportCalendarDay] = []
     kelgan = kechikkan = kelmagan = ish_kunlari_jami = 0
     late_minutes_total = 0
@@ -734,6 +743,7 @@ def monthly_report(
             jami_ish_soati_min=jami_ish_soati_min,
         ),
         calendar=calendar_days,
+        notes=notes_out,
         weekly_reports=weekly_rows,
         time_analysis=schemas.MonthlyReportTimeAnalysis(
             samarali_min=samarali_min,

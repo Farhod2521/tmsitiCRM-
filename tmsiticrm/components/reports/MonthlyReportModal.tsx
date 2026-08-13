@@ -3,15 +3,31 @@
 import { useState, useEffect } from "react";
 import {
   X, Loader2, Clock, CheckCircle2, XCircle, FileText, Download,
-  Building2, Phone, IdCard,
+  Building2, Phone, IdCard, MessageSquareWarning, Check,
 } from "lucide-react";
 import { apiFetch } from "@/lib/api";
 
 const WEEK_DAYS = ["Du", "Se", "Ch", "Pa", "Ju", "Sh", "Ya"];
 
 type DayStatus = "kelgan" | "kechikkan" | "kelmagan" | "dam_olish" | "kelajak";
+type ReviewStatus = "kutilmoqda" | "kadr_tasdiqladi" | "sababli" | "sababsiz";
+type NoteType = "kechikish" | "kelmaslik" | "obyektda" | "ruxsat";
 
 interface CalendarDay { day: number; weekday: number; status: DayStatus; time: string | null; }
+interface NoteDetail {
+  id: number;
+  note_type: NoteType;
+  text: string | null;
+  date_from: string;
+  date_to: string;
+  expected_time: string | null;
+  created_at: string;
+  review_status: ReviewStatus;
+  reviewed_by_nomi: string | null;
+  reviewed_at: string | null;
+  zamdirektor_by_nomi: string | null;
+  zamdirektor_at: string | null;
+}
 interface WeekRow {
   week: number; label: string;
   file_name: string | null; uploaded_at: string | null;
@@ -33,6 +49,7 @@ interface MonthlyReport {
   department_name: string | null; phone: string; has_photo: boolean;
   summary: Summary;
   calendar: CalendarDay[];
+  notes: NoteDetail[];
   weekly_reports: WeekRow[];
   time_analysis: TimeAnalysis;
   scores: Scores;
@@ -45,6 +62,21 @@ function fmtHM(totalMin: number): string {
   const m = totalMin % 60;
   return `${h}:${String(m).padStart(2, "0")}`;
 }
+
+function fmtDt(d: string) {
+  return new Date(d).toLocaleString("uz-UZ", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" });
+}
+
+const NOTE_TYPE_LABEL: Record<NoteType, string> = {
+  kechikish: "Kechikish", kelmaslik: "Kelmaslik", obyektda: "Obyektda", ruxsat: "Ruxsat so'ragan",
+};
+
+const REVIEW_CFG: Record<ReviewStatus, { label: string; color: string; bg: string }> = {
+  kutilmoqda:      { label: "Kadr ko'rib chiqmoqda",              color: "#91929E", bg: "rgba(145,146,158,0.12)" },
+  kadr_tasdiqladi: { label: "Zamdirektor tasdiqlashi kutilmoqda", color: "#3F8CFF", bg: "rgba(63,140,255,0.12)" },
+  sababli:         { label: "Sababli",                            color: "#00A578", bg: "rgba(0,165,120,0.12)" },
+  sababsiz:        { label: "Sababsiz",                           color: "#FF5C5C", bg: "rgba(255,92,92,0.12)" },
+};
 
 function mkAvatar(n: string) {
   return n.split(" ").filter(Boolean).map(w => w[0]).join("").toUpperCase().slice(0, 2);
@@ -117,6 +149,92 @@ function ScoreGauge({ item, size = 110, compact = false }: { item: ScoreItem; si
   );
 }
 
+/* ── Kunlik izoh + tasdiqlash zanjiri modali ── */
+function NoteDetailModal({ note, onClose }: { note: NoteDetail; onClose: () => void }) {
+  const rc = REVIEW_CFG[note.review_status];
+  const steps: { label: string; done: boolean; by: string | null; at: string | null; state: "done" | "waiting" | "rejected" | "pending" }[] = [
+    {
+      label: "Kadr tasdiqladi",
+      done: note.review_status !== "kutilmoqda",
+      by: note.reviewed_by_nomi, at: note.reviewed_at,
+      state: note.review_status === "kutilmoqda" ? "pending" : note.review_status === "sababsiz" && !note.zamdirektor_by_nomi ? "rejected" : "done",
+    },
+    {
+      label: "Zamdirektor tasdiqladi",
+      done: note.review_status === "sababli" || (note.review_status === "sababsiz" && !!note.zamdirektor_by_nomi),
+      by: note.zamdirektor_by_nomi, at: note.zamdirektor_at,
+      state: note.review_status === "sababli" ? "done"
+        : note.review_status === "sababsiz" && note.zamdirektor_by_nomi ? "rejected"
+        : note.review_status === "kadr_tasdiqladi" ? "waiting" : "pending",
+    },
+  ];
+
+  return (
+    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4"
+      style={{ background: "rgba(10,22,41,0.55)", backdropFilter: "blur(3px)" }}
+      onClick={onClose}>
+      <div className="w-full max-w-md p-6" style={{ background: "#FFFFFF", borderRadius: 20, boxShadow: "0 20px 60px rgba(10,22,41,0.3)" }}
+        onClick={e => e.stopPropagation()}>
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2.5">
+            <div className="w-9 h-9 flex items-center justify-center rounded-full flex-shrink-0" style={{ background: "rgba(224,164,0,0.12)" }}>
+              <MessageSquareWarning size={16} style={{ color: "#E0A400" }} />
+            </div>
+            <div>
+              <p className="font-bold text-sm" style={{ color: "#0A1629" }}>{NOTE_TYPE_LABEL[note.note_type]}</p>
+              <p className="text-xs" style={{ color: "#91929E" }}>
+                {note.date_from === note.date_to ? note.date_from : `${note.date_from} — ${note.date_to}`}
+              </p>
+            </div>
+          </div>
+          <button onClick={onClose} className="w-8 h-8 flex items-center justify-center hover:opacity-70" style={{ background: "#F4F9FD", borderRadius: 9 }}>
+            <X size={14} style={{ color: "#7D8592" }} />
+          </button>
+        </div>
+
+        {note.text && (
+          <p className="text-sm mb-1" style={{ color: "#3D4557", whiteSpace: "pre-wrap" }}>{note.text}</p>
+        )}
+        {note.expected_time && (
+          <p className="text-xs mb-2" style={{ color: "#91929E" }}>~{note.expected_time} da keladi</p>
+        )}
+        <p className="text-[11px] mb-4" style={{ color: "#B8C2D6" }}>Yozilgan: {fmtDt(note.created_at)}</p>
+
+        <span className="inline-block text-xs font-bold px-2.5 py-1 rounded-lg mb-4" style={{ background: rc.bg, color: rc.color }}>
+          {rc.label}
+        </span>
+
+        <div className="flex flex-col gap-3">
+          {steps.map((s, i) => (
+            <div key={i} className="flex items-start gap-3">
+              <div className="w-6 h-6 flex-shrink-0 flex items-center justify-center rounded-full mt-0.5"
+                style={{
+                  background: s.state === "done" ? "rgba(0,165,120,0.12)" : s.state === "rejected" ? "rgba(255,92,92,0.12)" : s.state === "waiting" ? "rgba(63,140,255,0.12)" : "#F4F9FD",
+                }}>
+                {s.state === "done" ? <Check size={12} style={{ color: "#00A578" }} /> :
+                 s.state === "rejected" ? <X size={12} style={{ color: "#FF5C5C" }} /> :
+                 <Clock size={12} style={{ color: s.state === "waiting" ? "#3F8CFF" : "#C4CBD6" }} />}
+              </div>
+              <div>
+                <p className="text-xs font-bold" style={{ color: s.state === "pending" ? "#C4CBD6" : "#0A1629" }}>
+                  {s.state === "rejected" ? `${s.label.split(" ")[0]} rad etdi` : s.label}
+                </p>
+                {s.by ? (
+                  <p className="text-[11px]" style={{ color: "#91929E" }}>{s.by}{s.at ? `, ${fmtDt(s.at)}` : ""}</p>
+                ) : (
+                  <p className="text-[11px]" style={{ color: "#C4CBD6" }}>
+                    {s.state === "waiting" ? "Hozircha kutilmoqda" : s.state === "pending" ? "Hali navbat kelmagan" : ""}
+                  </p>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function MonthlyReportModal({
   employeeId, year, month, onClose,
 }: { employeeId: number; year: number; month: number; onClose: () => void }) {
@@ -124,6 +242,13 @@ export default function MonthlyReportModal({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [photo, setPhoto] = useState<string | null>(null);
+  const [selectedNote, setSelectedNote] = useState<NoteDetail | null>(null);
+
+  function noteForDay(day: number): NoteDetail | undefined {
+    if (!data) return undefined;
+    const ds = `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+    return data.notes.find(n => n.date_from <= ds && n.date_to >= ds);
+  }
 
   useEffect(() => {
     setLoading(true);
@@ -241,12 +366,23 @@ export default function MonthlyReportModal({
                         if (!cd) return <div key={di} />;
                         const cfg = DAY_CFG[cd.status];
                         const Icon = cfg.icon;
+                        const note = cd.status === "kechikkan" ? noteForDay(cd.day) : undefined;
+                        const Tag = note ? "button" : "div";
                         return (
-                          <div key={di} className="min-h-[52px] flex flex-col items-center justify-center gap-0.5 py-1" style={{ background: cfg.bg, borderRadius: 8 }}>
+                          <Tag key={di} onClick={note ? () => setSelectedNote(note) : undefined}
+                            className="relative min-h-[52px] w-full flex flex-col items-center justify-center gap-0.5 py-1"
+                            style={{ background: cfg.bg, borderRadius: 8, cursor: note ? "pointer" : "default" }}>
+                            {note && (
+                              <span className="absolute top-0 right-0" style={{
+                                width: 0, height: 0,
+                                borderTop: "10px solid #FF8C42", borderLeft: "10px solid transparent",
+                                borderTopRightRadius: 8,
+                              }} title="Izoh yozilgan" />
+                            )}
                             <span className="text-[10px] font-bold" style={{ color: cd.status === "kelajak" ? "#C4CBD6" : "#0A1629" }}>{cd.day}</span>
                             {Icon && <Icon size={10} style={{ color: cfg.color }} />}
                             {cd.time && <span className="text-[8px] font-bold leading-none" style={{ color: cfg.color }}>{cd.time}</span>}
-                          </div>
+                          </Tag>
                         );
                       })}
                     </div>
@@ -355,6 +491,8 @@ export default function MonthlyReportModal({
           </>
         )}
       </div>
+
+      {selectedNote && <NoteDetailModal note={selectedNote} onClose={() => setSelectedNote(null)} />}
     </div>
   );
 }

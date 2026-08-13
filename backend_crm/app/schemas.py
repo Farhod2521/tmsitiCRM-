@@ -491,6 +491,7 @@ class MonthlyReportOut(BaseModel):
     has_photo: bool
     summary: MonthlyReportSummary
     calendar: List[MonthlyReportCalendarDay]
+    notes: List["AttendanceNoteOut"] = []   # shu oyni qamrab oladigan izohlar/arizalar — kalendarda belgi+modal uchun
     weekly_reports: List[MonthlyReportWeekRow]
     time_analysis: MonthlyReportTimeAnalysis
     scores: MonthlyReportScores
