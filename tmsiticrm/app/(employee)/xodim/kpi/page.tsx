@@ -38,6 +38,31 @@ const KPI_RANGES = [
   { from: 96, to: 100, foiz: "200%", color: "#6D5DD3", bg: "rgba(109,93,211,0.12)" },
 ];
 
+/* ── Aylana diagramma (donut) — bitta ball turi uchun ── */
+function ScoreRing({ label, val, max, color }: { label: string; val: number | null; max: number; color: string }) {
+  const size = 56, stroke = 5, r = (size - stroke) / 2, circ = 2 * Math.PI * r;
+  const pct = val != null ? Math.min(val / max, 1) : 0;
+  return (
+    <div className="flex flex-col items-center gap-1.5 px-1">
+      <div className="relative" style={{ width: size, height: size }}>
+        <svg width={size} height={size} className="-rotate-90">
+          <circle cx={size/2} cy={size/2} r={r} fill="none" stroke="#EEF2FF" strokeWidth={stroke}/>
+          {val != null && (
+            <circle cx={size/2} cy={size/2} r={r} fill="none" stroke={color} strokeWidth={stroke}
+              strokeDasharray={`${circ*pct} ${circ}`} strokeLinecap="round"
+              style={{ transition:"stroke-dasharray 0.5s ease" }}/>
+          )}
+        </svg>
+        <div className="absolute inset-0 flex flex-col items-center justify-center leading-none">
+          <span className="font-bold text-sm" style={{ color: val!=null?"#0A1629":"#C4CBD6" }}>{val!=null?val:"—"}</span>
+          <span className="text-[9px] mt-0.5" style={{ color:"#A8B0BD" }}>/{max}</span>
+        </div>
+      </div>
+      <p className="text-[10px] font-bold uppercase tracking-wide" style={{ color:"#91929E" }}>{label}</p>
+    </div>
+  );
+}
+
 function getKpiLabel(total: number | null): { text: string; color: string; bg: string } {
   if (total == null) return { text: "—", color: "#C4CBD6", bg: "#F4F9FD" };
   if (total >= 96)   return { text: "200%", color: "#6D5DD3", bg: "rgba(109,93,211,0.12)" };
@@ -162,8 +187,8 @@ export default function XodimKpiPage() {
               const kpi = getKpiLabel(tot>0?tot:null);
               return (
                 <div key={s.id}
-                  className="flex items-center flex-wrap gap-3 sm:gap-5 px-4 sm:px-5 py-4"
-                  style={{ background:"#FAFCFF", borderRadius:18, border:"1.5px solid #EEF2FF" }}>
+                  className="flex items-center flex-wrap gap-4 sm:gap-6 px-4 sm:px-6 py-5"
+                  style={{ background:"#FAFCFF", borderRadius:20, border:"1.5px solid #EEF2FF" }}>
 
                   <div className="flex flex-col items-center justify-center w-14 h-14 flex-shrink-0"
                     style={{ background:mc.bg, borderRadius:16 }}>
@@ -176,34 +201,28 @@ export default function XodimKpiPage() {
                     <p className="text-xs mt-0.5" style={{ color:"#91929E" }}>{year} yil</p>
                   </div>
 
-                  <div className="flex items-center gap-3 flex-1 flex-wrap">
-                    {[
-                      { label:"Bo'lim",  val:s.bolim_ball,      max:MAX_BOLIM,      color:"#3F8CFF" },
-                      { label:"Kadr",    val:s.kadr_ball,       max:MAX_KADR,       color:"#FF8C42" },
-                      { label:"EDO",     val:s.ijro_edo_ball,   max:MAX_IJRO_EDO,   color:"#00C48C" },
-                      { label:"Ichki",   val:s.ijro_ichki_ball, max:MAX_IJRO_ICHKI, color:"#15C0E6" },
-                    ].map(b => (
-                      <div key={b.label} className="text-center px-2">
-                        <p className="text-xs mb-0.5" style={{ color:"#91929E" }}>{b.label}</p>
-                        <p className="font-bold text-sm" style={{ color: b.val!=null?b.color:"#C4CBD6" }}>
-                          {b.val!=null?b.val:"—"}
-                          <span className="text-xs font-normal" style={{ color:"#D0D5DD" }}>/{b.max}</span>
-                        </p>
-                      </div>
-                    ))}
+                  <div style={{ width:1, alignSelf:"stretch", background:"#EEF2FF" }} className="hidden sm:block"/>
+
+                  <div className="flex items-start gap-4 sm:gap-6 flex-1 flex-wrap justify-center sm:justify-start">
+                    <ScoreRing label="Bo'lim" val={s.bolim_ball}      max={MAX_BOLIM}      color="#3F8CFF"/>
+                    <ScoreRing label="Kadr"   val={s.kadr_ball}       max={MAX_KADR}       color="#FF8C42"/>
+                    <ScoreRing label="EDO"    val={s.ijro_edo_ball}   max={MAX_IJRO_EDO}   color="#00C48C"/>
+                    <ScoreRing label="Ichki"  val={s.ijro_ichki_ball} max={MAX_IJRO_ICHKI} color="#15C0E6"/>
                   </div>
 
-                  <div className="text-center w-20 flex-shrink-0">
-                    <p className="text-xs mb-0.5" style={{ color:"#91929E" }}>Jami</p>
-                    <p className="font-bold text-xl" style={{ color: tot>=70?"#00C48C":tot>=50?"#FFBD21":"#91929E" }}>
+                  <div style={{ width:1, alignSelf:"stretch", background:"#EEF2FF" }} className="hidden sm:block"/>
+
+                  <div className="text-center w-24 flex-shrink-0">
+                    <p className="text-xs mb-1 font-bold" style={{ color:"#91929E" }}>Jami</p>
+                    <p className="font-bold text-2xl leading-none" style={{ color: tot>=70?"#00C48C":tot>=50?"#FFBD21":"#91929E" }}>
                       {tot>0?tot:"—"}
                     </p>
-                    {tot>0 && <p className="text-xs" style={{ color:"#91929E" }}>/{MAX_TOTAL}</p>}
+                    {tot>0 && <p className="text-xs mt-0.5" style={{ color:"#91929E" }}>/{MAX_TOTAL}</p>}
                   </div>
 
-                  <div className="text-center w-20 flex-shrink-0">
-                    <p className="text-xs mb-0.5" style={{ color:"#91929E" }}>KPI Foiz</p>
-                    <span className="px-2.5 py-1 text-xs font-bold inline-block" style={{ background:kpi.bg, color:kpi.color, borderRadius:8 }}>{kpi.text}</span>
+                  <div className="text-center w-24 flex-shrink-0">
+                    <p className="text-xs mb-1 font-bold" style={{ color:"#91929E" }}>KPI Foiz</p>
+                    <span className="px-3 py-1.5 text-sm font-bold inline-block" style={{ background:kpi.bg, color:kpi.color, borderRadius:10 }}>{kpi.text}</span>
                   </div>
                 </div>
               );
