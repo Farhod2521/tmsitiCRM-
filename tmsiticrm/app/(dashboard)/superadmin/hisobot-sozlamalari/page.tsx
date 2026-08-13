@@ -122,7 +122,6 @@ export default function HisobotSozlamalariPage() {
             const override = overrides.find(o => o.week === w.week);
             const isPast = w.end < today && !w.is_current;
             const isFuture = w.start > today && !w.is_current;
-            const isOpen = w.is_current || !!override;
 
             return (
               <div key={w.week} className="p-4" style={{ background: "#FFFFFF", borderRadius: 18, boxShadow: "0px 6px 58px rgba(196,203,214,0.103611)" }}>
@@ -166,13 +165,11 @@ export default function HisobotSozlamalariPage() {
                       </button>
                     )
                   )}
-                  {!isOpen && (
-                    <button onClick={() => setNotifyTarget(w)}
-                      className="w-full flex items-center justify-center gap-1.5 py-2 text-xs font-bold text-white"
-                      style={{ background: "#0088CC", borderRadius: 10 }}>
-                      <Send size={12} /> Telegram orqali eslatish
-                    </button>
-                  )}
+                  <button onClick={() => setNotifyTarget(w)}
+                    className="w-full flex items-center justify-center gap-1.5 py-2 text-xs font-bold text-white"
+                    style={{ background: "#0088CC", borderRadius: 10 }}>
+                    <Send size={12} /> Telegram orqali eslatish
+                  </button>
                 </div>
               </div>
             );

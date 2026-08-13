@@ -668,9 +668,18 @@ def missing_weekly_reports(
         raise HTTPException(status_code=422, detail="Noto'g'ri hafta raqami")
     week_label = weeks[week]["label"]
 
+    _EXCLUDED_ROLES = {models.RoleEnum.direktor, models.RoleEnum.zamdirektor}
+    _EXCLUDED_STATUSES = {
+        models.EmployeeStatusEnum.otpuska, models.EmployeeStatusEnum.dekret,
+        models.EmployeeStatusEnum.shafyor_farrosh,
+    }
     emps = (
         db.query(models.Employee)
-        .filter(models.Employee.is_active == True)
+        .filter(
+            models.Employee.is_active == True,
+            models.Employee.role.notin_(_EXCLUDED_ROLES),
+            models.Employee.status.notin_(_EXCLUDED_STATUSES),
+        )
         .order_by(models.Employee.department_id, models.Employee.id)
         .all()
     )
@@ -684,10 +693,16 @@ def missing_weekly_reports(
     }
     missing = [e for e in emps if e.id not in uploaded_ids]
 
+    override = _active_override(db, year, month, week)
     if missing:
         lines = [f"\U0001F4CC {week}-hafta ({week_label}) uchun hisobot topshirmaganlar:", ""]
         lines += [f"{i}) {e.full_name}" for i, e in enumerate(missing, 1)]
-        lines += ["", "Iltimos, hisobotingizni tezroq yuklang."]
+        lines.append("")
+        if override:
+            until_str = f"{override.open_until.day}-{_MONTH_NAMES_UZ[override.open_until.month - 1].lower()} {override.open_until.strftime('%H:%M')}"
+            lines.append(f"Hisobot yuklash muddati {until_str} gacha ochib qo'yildi. Tizimga yuklashingiz so'raladi.")
+        else:
+            lines.append("Hisobotingizni tezroq yuklang.")
         text = "\n".join(lines)
     else:
         text = ""
