@@ -334,9 +334,9 @@ def set_employee_status(
     _: models.Employee = Depends(_require_status_editor),
 ):
     """Xodim holatini belgilash (superadmin yoki kadr). Ba'zi statuslar (mehnat ta'tili, xizmat
-    safari, o'quv ta'tili, bolnichniy) muddatli bo'ladi — sanadan/sanagacha talab qilinadi
-    va shu sana o'tgach xodim avtomatik "faol"ga qaytadi. Faol bo'lmagan statuslarda
-    is_active=False bo'ladi — ball berishda chiqmaydi, lekin Bo'limlar sahifasida
+    safari, o'quv ta'tili, bolnichniy, online) muddatli bo'ladi — sanadan/sanagacha talab qilinadi
+    va shu sana o'tgach xodim avtomatik "faol"ga qaytadi. "faol" va "online" dan boshqa
+    statuslarda is_active=False bo'ladi — ball berishda chiqmaydi, lekin Bo'limlar sahifasida
     xodim sifatida (status bilan) ko'rinishda qoladi."""
     emp = db.query(models.Employee).filter(models.Employee.id == emp_id).first()
     if not emp:
@@ -355,10 +355,12 @@ def set_employee_status(
 
     emp.status = data.status
     # Superadmin hech qachon avtomatik bloklanmasin — tizimni boshqarish huquqi doim saqlanadi.
+    # "online" — xodim hali ham ishlamoqda (faqat masofada), shuning uchun "faol" bilan bir xil
+    # faol hisoblanadi va ball berish/davomat kabi barcha ro'yxatlarda ko'rinishda qoladi.
     if emp.role == models.RoleEnum.superadmin:
         emp.is_active = True
     else:
-        emp.is_active = (data.status == models.EmployeeStatusEnum.faol)
+        emp.is_active = data.status in {models.EmployeeStatusEnum.faol, models.EmployeeStatusEnum.online}
     db.commit()
     db.refresh(emp)
     return emp
