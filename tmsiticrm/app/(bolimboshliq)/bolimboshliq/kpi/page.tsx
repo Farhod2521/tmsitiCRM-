@@ -201,18 +201,18 @@ export default function BolimKpiPage() {
           {/* Stats */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-5">
             {[
-              {label:"Jami xodimlar",    value:empRows.length,    img:"/ball.png",         bg:"linear-gradient(135deg, rgba(63,140,255,0.16), rgba(63,140,255,0.05))"},
-              {label:"Baholangan",        value:empRowsRated,      img:"/baholanganoy.png", bg:"linear-gradient(135deg, rgba(255,140,66,0.18), rgba(255,140,66,0.05))"},
-              {label:"Hisobot yuklangan", value:withReport,        img:"/joriyoy.png",      bg:"linear-gradient(135deg, rgba(0,196,140,0.16), rgba(0,196,140,0.05))"},
-              {label:"Kutilmoqda",        value:empRows.length-empRowsRated, img:"/kpi.png", bg:"linear-gradient(135deg, rgba(109,93,211,0.16), rgba(109,93,211,0.05))"},
+              {label:"Jami xodimlar",    value:empRows.length,    img:"/ball.png",         bg:"#E4EFFF"},
+              {label:"Baholangan",        value:empRowsRated,      img:"/baholanganoy.png", bg:"#FFEEDC"},
+              {label:"Hisobot yuklangan", value:withReport,        img:"/joriyoy.png",      bg:"#DCF7EC"},
+              {label:"Kutilmoqda",        value:empRows.length-empRowsRated, img:"/kpi.png", bg:"#EAE6FB"},
             ].map(s=>(
-              <div key={s.label} className="p-5 flex items-center gap-4"
+              <div key={s.label} className="flex items-stretch overflow-hidden"
                 style={{background:"#FFFFFF",boxShadow:"0px 6px 58px rgba(196,203,214,0.103611)",borderRadius:20}}>
-                <div className="w-16 h-16 flex items-center justify-center flex-shrink-0"
-                  style={{background:s.bg,borderRadius:18}}>
-                  <img src={s.img} alt="" className="w-11 h-11 object-contain"/>
+                <div className="flex items-center justify-center flex-shrink-0"
+                  style={{width:96,background:s.bg}}>
+                  <img src={s.img} alt="" className="w-16 h-16 object-contain"/>
                 </div>
-                <div>
+                <div className="flex flex-col justify-center px-4 py-4">
                   <p className="text-2xl font-bold leading-tight" style={{color:"#0A1629"}}>{s.value}</p>
                   <p className="text-xs mt-0.5" style={{color:"#91929E"}}>{s.label}</p>
                 </div>
