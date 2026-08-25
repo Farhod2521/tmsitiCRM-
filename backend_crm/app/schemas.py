@@ -627,6 +627,14 @@ class IjroDocBolimAssignLogOut(BaseModel):
     assigned_at:      Optional[datetime] = None
     model_config = {"from_attributes": True}
 
+class IjroDocBolimReviewLogOut(BaseModel):
+    id:               int
+    qaror:            str
+    izoh:             Optional[str] = None
+    reviewed_by_nomi: Optional[str] = None
+    reviewed_at:      Optional[datetime] = None
+    model_config = {"from_attributes": True}
+
 class IjroDocBolimOut(BaseModel):
     id:            int
     doc_id:        Optional[int]   = None
@@ -641,6 +649,7 @@ class IjroDocBolimOut(BaseModel):
     xodim_nomi:       Optional[str] = None
     xodim_assigned_at: Optional[datetime] = None
     assign_log:    List[IjroDocBolimAssignLogOut] = []
+    review_log:    List[IjroDocBolimReviewLogOut] = []
     # Topshiriqni yakunlash (bajarildi deb belgilash) — izoh + fayllar
     yakunlash_izohi:    Optional[str] = None
     yakunlash_fayllar:  List["YakunlashFayl"] = []

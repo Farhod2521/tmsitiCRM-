@@ -13,6 +13,14 @@ interface AssignLogEntry {
   assigned_at: string | null;
 }
 
+interface ReviewLogEntry {
+  id: number;
+  qaror: string;
+  izoh: string | null;
+  reviewed_by_nomi: string | null;
+  reviewed_at: string | null;
+}
+
 export interface YakunlashFayl { name: string; b64: string; }
 
 export interface MyTask {
@@ -21,6 +29,7 @@ export interface MyTask {
   holati: BolimHolati;
   xodim_assigned_at: string | null;
   assign_log: AssignLogEntry[];
+  review_log: ReviewLogEntry[];
   yakunlash_izohi: string | null;
   yakunlash_fayllar: YakunlashFayl[];
   yakunlangan_at: string | null;
@@ -164,6 +173,27 @@ export function TaskRow({ task, onChanged }: { task: MyTask; onChanged: () => vo
               {log.assigned_by_nomi && ` — ${log.assigned_by_nomi} tomonidan`}
               {log.assigned_at && `, ${fmt(log.assigned_at)}`}
             </p>
+          ))}
+        </div>
+      )}
+
+      {/* Ijro nazoratining o'tgan qarorlari — tasdiqlash/rad etish tarixi, har biri o'z izohi bilan */}
+      {task.review_log && task.review_log.length > 0 && (
+        <div className="mt-3 pt-3 flex flex-col gap-2" style={{ borderTop: "1px solid #E8EDF5" }}>
+          {task.review_log.slice().reverse().map(log => (
+            <div key={log.id} className="px-3 py-2"
+              style={{
+                background: log.qaror === "rad_etish" ? "rgba(255,92,92,0.07)" : "rgba(0,196,140,0.07)",
+                borderRadius: 8,
+              }}>
+              <p className="text-xs font-bold mb-0.5" style={{ color: log.qaror === "rad_etish" ? "#FF5C5C" : "#00A578" }}>
+                {log.qaror === "rad_etish" ? "Rad etildi — qayta yuklash kerak" : "Tasdiqlandi"}
+              </p>
+              {log.izoh && <p className="text-sm" style={{ color: "#0A1629" }}>{log.izoh}</p>}
+              <p className="text-xs mt-1" style={{ color: "#91929E" }}>
+                {log.reviewed_by_nomi}{log.reviewed_at && ` — ${fmt(log.reviewed_at)}`}
+              </p>
+            </div>
           ))}
         </div>
       )}

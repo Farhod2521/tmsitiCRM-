@@ -60,6 +60,14 @@ interface AssignLogEntry {
   assigned_at: string | null;
 }
 
+interface ReviewLogEntry {
+  id: number;
+  qaror: string;
+  izoh: string | null;
+  reviewed_by_nomi: string | null;
+  reviewed_at: string | null;
+}
+
 interface DocBolimRow {
   id: number;
   bolim_id: number;
@@ -72,6 +80,7 @@ interface DocBolimRow {
   xodim_nomi: string | null;
   xodim_assigned_at: string | null;
   assign_log: AssignLogEntry[];
+  review_log: ReviewLogEntry[];
   yakunlash_izohi: string | null;
   yakunlash_fayllar: YakunlashFayl[];
   yakunlangan_at: string | null;
@@ -840,6 +849,7 @@ function IjroTrackingModal({ docId, depts, onClose }: {
   const [selBolim, setSelBolim] = useState<number | "">("");
   const [adding,   setAdding]   = useState(false);
   const [reviewingId, setReviewingId] = useState<number | null>(null);
+  const [reviewIzoh, setReviewIzoh] = useState<Record<number, string>>({});
 
   const load = () => {
     setLoading(true);
@@ -852,13 +862,16 @@ function IjroTrackingModal({ docId, depts, onClose }: {
   useEffect(() => { load(); }, []); // eslint-disable-line
 
   async function handleIjroQaror(bolimId: number, qaror: "yechish" | "rad_etish") {
+    const izoh = (reviewIzoh[bolimId] || "").trim();
+    if (qaror === "rad_etish" && !izoh) { alert("Rad etish sababini yozing"); return; }
     if (qaror === "rad_etish" && !confirm("Bo'lim hisobotini rad etishni tasdiqlaysizmi?")) return;
     setReviewingId(bolimId);
     try {
       await apiFetch(`/ijro-docs/bolim-inbox/${bolimId}/ijro-qaror`, {
         method: "POST",
-        body: JSON.stringify({ qaror }),
+        body: JSON.stringify({ qaror, izoh: izoh || null }),
       });
+      setReviewIzoh(p => ({ ...p, [bolimId]: "" }));
       load();
     } catch (err) {
       alert(err instanceof Error ? err.message : "Xatolik");
@@ -1060,21 +1073,50 @@ function IjroTrackingModal({ docId, depts, onClose }: {
                             </div>
                           )}
 
+                          {/* Ijro nazoratining o'tgan qarorlari — tasdiqlash/rad etish tarixi, har biri o'z izohi bilan */}
+                          {b.review_log && b.review_log.length > 0 && (
+                            <div className="mt-2.5 pt-2.5 flex flex-col gap-2" style={{ borderTop: "1px solid #F0F4FB" }}>
+                              <p className="text-xs font-bold" style={{ color: "#91929E" }}>Ijro nazorati qarorlari:</p>
+                              {b.review_log.slice().reverse().map(log => (
+                                <div key={log.id} className="px-3 py-2"
+                                  style={{
+                                    background: log.qaror === "rad_etish" ? "rgba(255,92,92,0.07)" : "rgba(0,196,140,0.07)",
+                                    borderRadius: 8,
+                                  }}>
+                                  <p className="text-xs font-bold mb-0.5"
+                                    style={{ color: log.qaror === "rad_etish" ? "#FF5C5C" : "#00A578" }}>
+                                    {log.qaror === "rad_etish" ? "Rad etildi" : "Tasdiqlandi"}
+                                  </p>
+                                  {log.izoh && <p className="text-sm" style={{ color: "#0A1629" }}>&ldquo;{log.izoh}&rdquo;</p>}
+                                  <p className="text-xs mt-1" style={{ color: "#91929E" }}>
+                                    {log.reviewed_by_nomi}{log.reviewed_at && ` — ${fmtDt(log.reviewed_at)}`}
+                                  </p>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+
                           {/* Ijro nazorati ko'rib chiqishi — yakunlangan hisobotni tasdiqlash yoki rad etish */}
                           {b.holati === "tasdiq_kutilmoqda" && (
-                            <div className="flex gap-2 mt-3 pt-3" style={{ borderTop: "1px solid #F0F4FB" }}>
-                              <button onClick={() => handleIjroQaror(b.id, "yechish")} disabled={reviewingId === b.id}
-                                className="flex-1 flex items-center justify-center gap-1.5 py-2 text-xs font-bold text-white disabled:opacity-50"
-                                style={{ background: "#00C48C", borderRadius: 10 }}>
-                                {reviewingId === b.id ? <Loader2 size={12} className="animate-spin" /> : <CheckCircle2 size={12} />}
-                                Ijro nazoratdan yechish
-                              </button>
-                              <button onClick={() => handleIjroQaror(b.id, "rad_etish")} disabled={reviewingId === b.id}
-                                className="flex-1 flex items-center justify-center gap-1.5 py-2 text-xs font-bold disabled:opacity-50"
-                                style={{ background: "#FFFFFF", border: "1.5px solid #FF5C5C", color: "#FF5C5C", borderRadius: 10 }}>
-                                <XCircle size={12} />
-                                Rad etish
-                              </button>
+                            <div className="mt-3 pt-3" style={{ borderTop: "1px solid #F0F4FB" }}>
+                              <textarea value={reviewIzoh[b.id] || ""} onChange={e => setReviewIzoh(p => ({ ...p, [b.id]: e.target.value }))}
+                                placeholder="Izoh (rad etganda majburiy, tasdiqlaganda ixtiyoriy)..."
+                                rows={2} className="w-full px-3 py-2 text-sm outline-none resize-none mb-2"
+                                style={{ background: "#F4F9FD", borderRadius: 10, border: "1.5px solid #EEF2FF", color: "#0A1629" }} />
+                              <div className="flex gap-2">
+                                <button onClick={() => handleIjroQaror(b.id, "yechish")} disabled={reviewingId === b.id}
+                                  className="flex-1 flex items-center justify-center gap-1.5 py-2 text-xs font-bold text-white disabled:opacity-50"
+                                  style={{ background: "#00C48C", borderRadius: 10 }}>
+                                  {reviewingId === b.id ? <Loader2 size={12} className="animate-spin" /> : <CheckCircle2 size={12} />}
+                                  Ijro nazoratdan yechish
+                                </button>
+                                <button onClick={() => handleIjroQaror(b.id, "rad_etish")} disabled={reviewingId === b.id}
+                                  className="flex-1 flex items-center justify-center gap-1.5 py-2 text-xs font-bold disabled:opacity-50"
+                                  style={{ background: "#FFFFFF", border: "1.5px solid #FF5C5C", color: "#FF5C5C", borderRadius: 10 }}>
+                                  <XCircle size={12} />
+                                  Rad etish
+                                </button>
+                              </div>
                             </div>
                           )}
                         </div>

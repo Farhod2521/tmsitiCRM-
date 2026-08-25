@@ -315,6 +315,24 @@ class IjroDocBolimAssignLog(Base):
     assigned_by_emp = relationship("Employee", foreign_keys=[assigned_by])
 
 
+class IjroDocBolimReviewLog(Base):
+    """IJRO nazorati bo'lim yakunlab yuborgan hisobotga bergan har bir qarori
+    (tasdiqlash/rad etish) tarixi — bir necha marta rad etilsa ham barcha
+    izohlar saqlanib boradi, bo'lim boshlig'iga va nazorat rollariga to'liq
+    shaffoflik uchun."""
+    __tablename__ = "ijro_doc_bolim_review_log"
+
+    id           = Column(Integer, primary_key=True, index=True)
+    doc_bolim_id = Column(Integer, ForeignKey("ijro_doc_bolimlar.id", ondelete="CASCADE"), nullable=False)
+    qaror        = Column(String(20), nullable=False)   # "yechish" | "rad_etish"
+    izoh         = Column(Text, nullable=True)
+    reviewed_by  = Column(Integer, ForeignKey("employees.id"), nullable=True)
+    reviewed_at  = Column(DateTime, default=datetime.utcnow)
+
+    doc_bolim = relationship("IjroDocBolim")
+    reviewer  = relationship("Employee", foreign_keys=[reviewed_by])
+
+
 class WeeklyReport(Base):
     """Haftalik hisobot — xodim/bo'lim boshlig'i o'zi yuklaydi, rahbari tasdiqlab ball qo'yadi."""
     __tablename__ = "weekly_reports"

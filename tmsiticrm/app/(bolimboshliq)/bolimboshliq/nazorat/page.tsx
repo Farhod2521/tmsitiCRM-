@@ -21,6 +21,14 @@ interface AssignLogEntry {
   assigned_at: string | null;
 }
 
+interface ReviewLogEntry {
+  id: number;
+  qaror: string;
+  izoh: string | null;
+  reviewed_by_nomi: string | null;
+  reviewed_at: string | null;
+}
+
 interface DocBolimRow {
   id: number;
   doc_id: number | null;
@@ -35,6 +43,7 @@ interface DocBolimRow {
   xodim_nomi: string | null;
   xodim_assigned_at: string | null;
   assign_log: AssignLogEntry[];
+  review_log: ReviewLogEntry[];
   yakunlash_izohi: string | null;
   yakunlash_fayllar: YakunlashFayl[];
   yakunlangan_at: string | null;
@@ -405,6 +414,32 @@ function DetailPanel({
                 </div>
               </div>
             )}
+          </div>
+        )}
+
+        {/* Ijro nazoratining o'tgan qarorlari — tasdiqlash/rad etish tarixi, har biri o'z izohi bilan */}
+        {myRow.review_log && myRow.review_log.length > 0 && (
+          <div className="p-4" style={{ background: "#F4F9FD", borderRadius: 14 }}>
+            <p className="text-xs font-bold mb-2 uppercase tracking-wide flex items-center gap-1.5" style={{ color: "#91929E" }}>
+              <History size={13} /> Ijro nazorati qarorlari
+            </p>
+            <div className="flex flex-col gap-2">
+              {myRow.review_log.slice().reverse().map(log => (
+                <div key={log.id} className="p-3"
+                  style={{
+                    background: log.qaror === "rad_etish" ? "rgba(255,92,92,0.07)" : "rgba(0,196,140,0.07)",
+                    borderRadius: 10,
+                  }}>
+                  <p className="text-xs font-bold mb-1" style={{ color: log.qaror === "rad_etish" ? "#FF5C5C" : "#00A578" }}>
+                    {log.qaror === "rad_etish" ? "Rad etildi — qayta yuklash kerak" : "Tasdiqlandi"}
+                  </p>
+                  {log.izoh && <p className="text-sm" style={{ color: "#0A1629" }}>{log.izoh}</p>}
+                  <p className="text-xs mt-1" style={{ color: "#91929E" }}>
+                    {log.reviewed_by_nomi}{log.reviewed_at && ` — ${fmt(log.reviewed_at)}`}
+                  </p>
+                </div>
+              ))}
+            </div>
           </div>
         )}
 

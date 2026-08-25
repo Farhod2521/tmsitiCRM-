@@ -110,6 +110,22 @@ def _make_bolim_out(ab: models.IjroDocBolim, db: Optional[Session] = None, inclu
             )
             for log in logs
         ]
+        review_logs = (
+            db.query(models.IjroDocBolimReviewLog)
+            .filter(models.IjroDocBolimReviewLog.doc_bolim_id == ab.id)
+            .order_by(models.IjroDocBolimReviewLog.reviewed_at.asc())
+            .all()
+        )
+        out.review_log = [
+            schemas.IjroDocBolimReviewLogOut(
+                id=log.id,
+                qaror=log.qaror,
+                izoh=log.izoh,
+                reviewed_by_nomi=log.reviewer.full_name if log.reviewer else None,
+                reviewed_at=log.reviewed_at,
+            )
+            for log in review_logs
+        ]
     return out
 
 
@@ -360,8 +376,13 @@ def ijro_qaror(
     """Bo'lim yakunlab (tasdiq kutilmoqda holatiga) yuborgan hisobotni ijro nazorati
     (direktor/ijro) ko'rib chiqadi: 'yechish' — tasdiqlaydi, bo'lim 'bajarildi'
     deb belgilanadi (barcha bo'limlar bajarilsa/rad etilsa, hujjat ham 'bajarildi'
-    deb yopiladi); 'rad_etish' — hisobotni rad etadi, bo'lim qayta 'rad etildi'
-    holatiga o'tadi."""
+    deb yopiladi); 'rad_etish' — hisobotni izoh bilan rad etadi va bo'lim qayta
+    'qabul qilindi' holatiga qaytariladi (bo'lim boshlig'i qayta fayl/izoh yuklab,
+    yakunlashni qaytadan yuborishi mumkin bo'lishi uchun — 'rad_etildi' bu yerda
+    ishlatilmaydi, chunki u boshqa holat: bo'limning boshlang'ich topshiriqni
+    butunlay rad etishi). Har bir qaror (tasdiqlash yoki rad etish) izohi bilan
+    birga tarixga (review_log) yoziladi — bir necha marta rad etilsa ham barcha
+    izohlar saqlanib qoladi."""
     if current.role not in (_ADMIN_ROLES | _ALLOWED):
         raise HTTPException(status_code=403, detail="Ruxsat yo'q")
     ab = db.query(models.IjroDocBolim).filter(models.IjroDocBolim.id == doc_bolim_id).first()
@@ -370,9 +391,12 @@ def ijro_qaror(
     if ab.holati != models.IjroDocBolimHolati.tasdiq_kutilmoqda:
         raise HTTPException(status_code=400, detail="Bo'lim hali topshiriqni yakunlab yubormagan")
 
+    db.add(models.IjroDocBolimReviewLog(
+        doc_bolim_id=ab.id, qaror=data.qaror, izoh=data.izoh, reviewed_by=current.id,
+    ))
+
     if data.qaror == "rad_etish":
-        ab.holati   = models.IjroDocBolimHolati.rad_etildi
-        ab.izoh     = data.izoh
+        ab.holati   = models.IjroDocBolimHolati.qabul_qilindi
         ab.qaror_at = datetime.utcnow()
         ab.qaror_by = current.id
     else:
@@ -411,9 +435,11 @@ def my_tasks(
         .order_by(models.IjroDocBolim.xodim_assigned_at.desc())
         .all()
     )
-    # assign_log va fayllar bu yerda kerak emas — tanlangan topshiriq bosilganda
-    # /bolim-inbox/{id}/detail orqali to'liq holda alohida yuklanadi.
-    return [_make_bolim_out(r, include_files=False) for r in rows]
+    # Fayllar (og'ir base64) bu yerda kerak emas — tanlangan topshiriq bosilganda
+    # /bolim-inbox/{id}/detail orqali to'liq holda alohida yuklanadi. assign_log/
+    # review_log esa yengil va shu yerda ham (masalan, rad etish sababini ko'rish
+    # uchun) kerak bo'lgani uchun db beriladi.
+    return [_make_bolim_out(r, db, include_files=False) for r in rows]
 
 
 # ─── Parameterized routes (after specific ones) ───────────────────────────────
