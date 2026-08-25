@@ -1250,6 +1250,21 @@ function Topshiriqlar({ docs, depts, onRefresh }:
     }
   }
 
+  const [sendingTg, setSendingTg] = useState(false);
+
+  async function handleSendTelegram() {
+    if (!confirm("Muddati eng kam qolgan (yoki o'tib ketgan) 10 ta topshiriqni rasm qilib Telegram guruhiga yuborishni tasdiqlaysizmi?")) return;
+    setSendingTg(true);
+    try {
+      const res = await apiFetch<{ ok: boolean; count: number }>("/ijro-docs/send-telegram-reminder", { method: "POST" });
+      alert(`Yuborildi! (${res.count} ta topshiriq)`);
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Yuborishda xato");
+    } finally {
+      setSendingTg(false);
+    }
+  }
+
   const filtered = docs.filter(d => {
     if (activeManba !== "all" && d.manba !== activeManba) return false;
 
@@ -1303,11 +1318,19 @@ function Topshiriqlar({ docs, depts, onRefresh }:
             <h2 className="font-bold text-lg" style={{ color:"#0A1629" }}>Barcha topshiriqlar</h2>
             <p className="text-xs mt-0.5" style={{ color:"#91929E" }}>Tizimdagi barcha turdagi hujjatlar va topshiriqlar monitoringi</p>
           </div>
-          <button onClick={() => setShowModal(true)}
-            className="flex items-center gap-2 px-4 py-2.5 text-sm font-bold text-white"
-            style={{ background:"#3F8CFF", borderRadius:12, boxShadow:"0 4px 12px rgba(63,140,255,0.3)" }}>
-            <Plus size={16}/> Yangi hujjat ro'yxatga olish
-          </button>
+          <div className="flex items-center gap-2.5">
+            <button onClick={handleSendTelegram} disabled={sendingTg}
+              className="flex items-center gap-2 px-4 py-2.5 text-sm font-bold text-white disabled:opacity-60"
+              style={{ background:"#0088CC", borderRadius:12, boxShadow:"0 4px 12px rgba(0,136,204,0.3)" }}>
+              {sendingTg ? <Loader2 size={16} className="animate-spin"/> : <Send size={16}/>}
+              {sendingTg ? "Yuborilmoqda..." : "Telegram xabar yuborish"}
+            </button>
+            <button onClick={() => setShowModal(true)}
+              className="flex items-center gap-2 px-4 py-2.5 text-sm font-bold text-white"
+              style={{ background:"#3F8CFF", borderRadius:12, boxShadow:"0 4px 12px rgba(63,140,255,0.3)" }}>
+              <Plus size={16}/> Yangi hujjat ro'yxatga olish
+            </button>
+          </div>
         </div>
 
         {/* Manba tabs */}

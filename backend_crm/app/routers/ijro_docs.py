@@ -543,3 +543,63 @@ def add_bolim(
     _fill_doc_out(doc_out, doc, db)
     bolimlar = [_make_bolim_out(b, db) for b in doc.bolim_assignments]
     return schemas.IjroDocTracking(doc=doc_out, bolimlar=bolimlar)
+
+
+# ─── Telegram: muddati eng kam qolgan 10 ta topshiriqni rasm qilib yuborish ────
+
+_URGENT_EXCLUDED_HOLATI = {models.IjroDocBolimHolati.rad_etildi, models.IjroDocBolimHolati.bajarildi}
+
+
+def _urgent_task_rows(db: Session, limit: int = 10) -> list[dict]:
+    """Xodimga biriktirilgan, hali yakunlanmagan (rad etilmagan/bajarilmagan)
+    topshiriqlarni muddati eng yaqinlaridan (yoki o'tib ketganlaridan) boshlab qaytaradi."""
+    rows = (
+        db.query(models.IjroDocBolim, models.IjroDocument, models.Employee, models.Department)
+        .join(models.IjroDocument, models.IjroDocBolim.doc_id == models.IjroDocument.id)
+        .join(models.Employee, models.IjroDocBolim.xodim_id == models.Employee.id)
+        .join(models.Department, models.IjroDocBolim.bolim_id == models.Department.id)
+        .filter(
+            models.IjroDocBolim.xodim_id.isnot(None),
+            models.IjroDocBolim.holati.notin_(_URGENT_EXCLUDED_HOLATI),
+        )
+        .order_by(models.IjroDocument.ijro_muddati.is_(None), models.IjroDocument.ijro_muddati.asc())
+        .limit(limit)
+        .all()
+    )
+    return [
+        {
+            "full_name":     emp.full_name,
+            "position":      emp.position,
+            "dept_name":     dept.name,
+            "mazmun":        doc.mazmun or doc.sarlavha,
+            "hujjat_raqami": doc.hujjat_raqami,
+            "holati":        ab.holati.value if hasattr(ab.holati, "value") else ab.holati,
+            "ijro_muddati":  doc.ijro_muddati,
+            "doc_id":        doc.id,
+        }
+        for ab, doc, emp, dept in rows
+    ]
+
+
+@router.post("/send-telegram-reminder")
+def send_telegram_reminder(
+    db: Session = Depends(get_db),
+    current: models.Employee = Depends(_require_ijro),
+):
+    """Muddati eng kam qolgan (yoki o'tib ketgan) 10 ta topshiriqni ijro.png
+    shabloni ustiga chizib, Telegram guruhiga rasm sifatida yuboradi."""
+    from ..ijro_reminder_image import build_ijro_reminder_image
+    from ..telegram import send_telegram_photo
+
+    tasks = _urgent_task_rows(db, limit=10)
+    if not tasks:
+        raise HTTPException(status_code=400, detail="Hozircha xodimga biriktirilgan faol topshiriq yo'q")
+
+    image_bytes = build_ijro_reminder_image(tasks)
+    try:
+        ok = send_telegram_photo(image_bytes)
+    except RuntimeError as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    if not ok:
+        raise HTTPException(status_code=502, detail="Telegram rasmni yuborib bo'lmadi")
+    return {"ok": True, "count": len(tasks)}
