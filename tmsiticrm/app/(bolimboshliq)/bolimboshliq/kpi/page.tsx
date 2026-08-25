@@ -206,15 +206,12 @@ export default function BolimKpiPage() {
               {label:"Hisobot yuklangan", value:withReport,        img:"/joriyoy.png",      bg:"#DCF7EC"},
               {label:"Kutilmoqda",        value:empRows.length-empRowsRated, img:"/kpi.png", bg:"#EAE6FB"},
             ].map(s=>(
-              <div key={s.label} className="flex items-stretch overflow-hidden"
-                style={{background:"#FFFFFF",boxShadow:"0px 6px 58px rgba(196,203,214,0.103611)",borderRadius:20}}>
-                <div className="flex items-center justify-center flex-shrink-0"
-                  style={{width:96,background:s.bg}}>
-                  <img src={s.img} alt="" className="w-16 h-16 object-contain"/>
-                </div>
-                <div className="flex flex-col justify-center px-4 py-4">
+              <div key={s.label} className="flex items-center gap-4 px-5 py-6"
+                style={{background:s.bg,boxShadow:"0px 6px 58px rgba(196,203,214,0.103611)",borderRadius:20}}>
+                <img src={s.img} alt="" className="w-20 h-20 object-contain flex-shrink-0"/>
+                <div className="min-w-0">
                   <p className="text-2xl font-bold leading-tight" style={{color:"#0A1629"}}>{s.value}</p>
-                  <p className="text-xs mt-0.5" style={{color:"#91929E"}}>{s.label}</p>
+                  <p className="text-xs mt-0.5" style={{color:"#5B6472"}}>{s.label}</p>
                 </div>
               </div>
             ))}
