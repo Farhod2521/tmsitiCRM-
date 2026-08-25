@@ -899,7 +899,11 @@ function IjroTrackingModal({ docId, depts, onClose }: {
 
   const assignedIds = tracking?.bolimlar.map(b => b.bolim_id) ?? [];
   const availableDepts = depts.filter(d => !assignedIds.includes(d.id));
-  const rejectedDepts  = tracking?.bolimlar.filter(b => b.holati === "rad_etildi") ?? [];
+  // "rad_etildi" ikki xil holatni bildiradi: (1) bo'lim boshlang'ich topshiriqni
+  // butunlay rad etgan (yakunlangan_at bo'sh) — shu yerdan "qayta yuborish" kerak;
+  // (2) IJRO yakunlangan hisobotni rad etgan (yakunlangan_at bor) — bo'lim o'zi
+  // qayta fayl yuklab yuboradi, bu yerda alohida "qayta yuborish" kerak emas.
+  const rejectedDepts  = tracking?.bolimlar.filter(b => b.holati === "rad_etildi" && !b.yakunlangan_at) ?? [];
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4"

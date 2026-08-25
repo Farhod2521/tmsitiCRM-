@@ -94,7 +94,10 @@ export function TaskRow({ task, onChanged }: { task: MyTask; onChanged: () => vo
   const [error, setError] = useState<string | null>(null);
   const cfg = HOLATI_LABEL[task.holati];
   const dl  = daysLeft(task.doc_ijro_muddati);
-  const canFinish = task.holati === "qabul_qilindi" || task.holati === "bajarilmoqda";
+  // "rad_etildi" + yakunlangan_at borligi — IJRO yakunlangan hisobotni rad etgan,
+  // qayta yuklash kerak (boshlang'ich rad etishdan farqli, u yerda yakunlangan_at bo'sh).
+  const canFinish = task.holati === "qabul_qilindi" || task.holati === "bajarilmoqda"
+    || (task.holati === "rad_etildi" && !!task.yakunlangan_at);
 
   async function handleFilesPicked(e: React.ChangeEvent<HTMLInputElement>) {
     const files = Array.from(e.target.files || []);

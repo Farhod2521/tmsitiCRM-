@@ -344,7 +344,12 @@ def yakunlash(
     'tasdiqlanishi kutilmoqda' deb belgilash — hujjat haqiqatda 'bajarildi'ga
     faqat IJRO nazorati (yoki admin) uni ko'rib chiqib tasdiqlagandan keyin o'tadi
     (ijro-qaror endpoint). Bo'lim boshlig'i yoki topshiriq shaxsan biriktirilgan
-    xodimning o'zi yakunlashi mumkin. Direktor/ijro rollar tracking orqali ko'radi."""
+    xodimning o'zi yakunlashi mumkin. Direktor/ijro rollar tracking orqali ko'radi.
+
+    IJRO avval yakunlangan hisobotni rad etgan bo'lsa ham (holati='rad_etildi',
+    lekin yakunlangan_at to'ldirilgan — farqi: boshlang'ich topshiriqni butunlay
+    rad etish uchun yakunlangan_at hech qachon to'ldirilmaydi), bo'lim shu yerdan
+    qayta izoh/fayl yuklab, qaytadan yuborishi mumkin."""
     ab = db.query(models.IjroDocBolim).filter(models.IjroDocBolim.id == doc_bolim_id).first()
     if not ab:
         raise HTTPException(status_code=404, detail="Topilmadi")
@@ -353,7 +358,8 @@ def yakunlash(
         raise HTTPException(status_code=403, detail="Ruxsat yo'q")
     if current.role in _BOLIM_ROLES and ab.bolim_id != current.department_id and not is_assigned_xodim:
         raise HTTPException(status_code=403, detail="Bu sizning bo'limingiz emas")
-    if ab.holati not in (models.IjroDocBolimHolati.qabul_qilindi, models.IjroDocBolimHolati.bajarilmoqda):
+    was_rejected_after_completion = ab.holati == models.IjroDocBolimHolati.rad_etildi and ab.yakunlangan_at is not None
+    if ab.holati not in (models.IjroDocBolimHolati.qabul_qilindi, models.IjroDocBolimHolati.bajarilmoqda) and not was_rejected_after_completion:
         raise HTTPException(status_code=400, detail="Avval topshiriqni qabul qilish kerak")
 
     ab.holati = models.IjroDocBolimHolati.tasdiq_kutilmoqda
@@ -376,13 +382,14 @@ def ijro_qaror(
     """Bo'lim yakunlab (tasdiq kutilmoqda holatiga) yuborgan hisobotni ijro nazorati
     (direktor/ijro) ko'rib chiqadi: 'yechish' — tasdiqlaydi, bo'lim 'bajarildi'
     deb belgilanadi (barcha bo'limlar bajarilsa/rad etilsa, hujjat ham 'bajarildi'
-    deb yopiladi); 'rad_etish' — hisobotni izoh bilan rad etadi va bo'lim qayta
-    'qabul qilindi' holatiga qaytariladi (bo'lim boshlig'i qayta fayl/izoh yuklab,
-    yakunlashni qaytadan yuborishi mumkin bo'lishi uchun — 'rad_etildi' bu yerda
-    ishlatilmaydi, chunki u boshqa holat: bo'limning boshlang'ich topshiriqni
-    butunlay rad etishi). Har bir qaror (tasdiqlash yoki rad etish) izohi bilan
-    birga tarixga (review_log) yoziladi — bir necha marta rad etilsa ham barcha
-    izohlar saqlanib qoladi."""
+    deb yopiladi); 'rad_etish' — hisobotni izoh bilan rad etib, bo'lim 'rad etildi'
+    deb belgilanadi (bo'lim boshlig'iga aniq ko'rinib tursin uchun) — lekin
+    yakunlangan_at saqlanib qolgani sababli /yakunlash endpointi shu holatdan ham
+    qayta fayl/izoh yuklab, qaytadan yuborishga ruxsat beradi (frontendda ham shu
+    holat + yakunlangan_at borligiga qarab qayta yuklash formasi ko'rsatiladi).
+    Har bir qaror (tasdiqlash yoki rad etish) izohi bilan birga tarixga
+    (review_log) yoziladi — bir necha marta rad etilsa ham barcha izohlar
+    saqlanib qoladi."""
     if current.role not in (_ADMIN_ROLES | _ALLOWED):
         raise HTTPException(status_code=403, detail="Ruxsat yo'q")
     ab = db.query(models.IjroDocBolim).filter(models.IjroDocBolim.id == doc_bolim_id).first()
@@ -396,7 +403,7 @@ def ijro_qaror(
     ))
 
     if data.qaror == "rad_etish":
-        ab.holati   = models.IjroDocBolimHolati.qabul_qilindi
+        ab.holati   = models.IjroDocBolimHolati.rad_etildi
         ab.qaror_at = datetime.utcnow()
         ab.qaror_by = current.id
     else:
@@ -406,7 +413,14 @@ def ijro_qaror(
         ab.qaror_by = current.id
         doc = ab.document
         siblings = db.query(models.IjroDocBolim).filter(models.IjroDocBolim.doc_id == ab.doc_id).all()
-        if doc and all(s.holati in (models.IjroDocBolimHolati.bajarildi, models.IjroDocBolimHolati.rad_etildi) for s in siblings):
+        # rad_etildi faqat "boshlang'ich topshiriqni butunlay rad etish" (yakunlangan_at
+        # bo'sh) bo'lsa "yopilgan" hisoblanadi — yakunlagandan keyin rad etilgan (qayta
+        # yuklashni kutayotgan) bo'lim hujjatni avtomatik yopilishdan to'sib turishi kerak.
+        if doc and all(
+            s.holati == models.IjroDocBolimHolati.bajarildi
+            or (s.holati == models.IjroDocBolimHolati.rad_etildi and s.yakunlangan_at is None)
+            for s in siblings
+        ):
             doc.holati = models.IjroDocHolati.bajarildi
 
     db.commit()

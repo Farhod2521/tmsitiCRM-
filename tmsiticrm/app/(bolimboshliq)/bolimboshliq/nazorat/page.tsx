@@ -443,8 +443,11 @@ function DetailPanel({
           </div>
         )}
 
-        {/* Topshiriqni yakunlash — qabul qilingandan keyin, hali yakunlanmagan bo'lsa */}
-        {(myRow.holati === "qabul_qilindi" || myRow.holati === "bajarilmoqda") && (
+        {/* Topshiriqni yakunlash — qabul qilingandan keyin (yoki IJRO rad etgandan
+            keyin qayta yuklash uchun — bunda holati "rad_etildi" bo'ladi, lekin
+            yakunlangan_at borligi buni boshlang'ich rad etishdan farqlaydi) */}
+        {(myRow.holati === "qabul_qilindi" || myRow.holati === "bajarilmoqda"
+          || (myRow.holati === "rad_etildi" && myRow.yakunlangan_at)) && (
           <div className="p-4" style={{ background: "#F4F9FD", borderRadius: 14 }}>
             <p className="text-xs font-bold mb-2 uppercase tracking-wide flex items-center gap-1.5" style={{ color: "#91929E" }}>
               <CheckCircle2 size={13} /> Topshiriqni yakunlash
