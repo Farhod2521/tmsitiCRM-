@@ -573,6 +573,7 @@ def _urgent_task_rows(db: Session, limit: int = 10) -> list[dict]:
             "dept_name":     dept.name,
             "mazmun":        doc.mazmun or doc.sarlavha,
             "hujjat_raqami": doc.hujjat_raqami,
+            "sarlavha":      doc.sarlavha,
             "holati":        ab.holati.value if hasattr(ab.holati, "value") else ab.holati,
             "ijro_muddati":  doc.ijro_muddati,
             "doc_id":        doc.id,

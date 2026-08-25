@@ -2,7 +2,6 @@
 ijro.png shabloni ustiga chizib, tayyor rasm (PNG bayt) sifatida qaytaradi.
 IJRO roli "Telegram xabar yuborish" tugmasini bosganda shu rasm guruhga yuboriladi."""
 import os
-import re
 from datetime import date, datetime
 from io import BytesIO
 from PIL import Image, ImageDraw, ImageFont
@@ -34,12 +33,12 @@ MAX_ROWS = 10
 # Har bir qatorning vertikal markazi — shablon jadvalidan piksel bo'yicha o'lchangan.
 ROW_Y = [259.5, 317.25, 374.0, 431.0, 487.5, 544.0, 601.0, 657.5, 714.0, 770.5]
 
-NAME_X,    NAME_MAXW    = 215,  195
-LAVOZIM_X, LAVOZIM_MAXW = 427,  278
-MAZMUN_X,  MAZMUN_MAXW  = 722,  272
-HUJJAT_X,  HUJJAT_MAXW  = 1045, 90
-HOLATI_CX               = 1308
-MUDDATI_X                = 1464
+NAME_X,    NAME_MAXW    = 210,  133
+LAVOZIM_X, LAVOZIM_MAXW = 373,  224
+MAZMUN_X,  MAZMUN_MAXW  = 627,  337
+HUJJAT_X,  HUJJAT_MAXW  = 1045, 145
+HOLATI_CX               = 1306
+MUDDATI_X                = 1422
 
 HOLATI_LABELS = {
     "yuborildi":         "Yuborildi",
@@ -107,17 +106,6 @@ def _wrap_two_lines(draw: ImageDraw.ImageDraw, text: str, font: ImageFont.FreeTy
     return line1 or _truncate(draw, text, font, max_width), line2
 
 
-def _short_hujjat_code(raw: str | None) -> str | None:
-    """"№ Фармон ПФ-16" -> "ПФ-16" — faqat qisqa kod qoldiriladi."""
-    if not raw:
-        return None
-    s = raw.strip()
-    s = re.sub(r"^\u2116\s*", "", s)
-    s = re.sub(r"(?i)\u0444\u0430\u0440\u043c\u043e\u043d\s*", "", s)
-    s = re.sub(r"(?i)\bfarmon\b\s*", "", s)
-    return s.strip() or None
-
-
 def _days_left(dt: date | datetime | None) -> tuple[str, tuple[int, int, int]]:
     if not dt:
         return "\u2014", GRAY
@@ -133,9 +121,9 @@ def _days_left(dt: date | datetime | None) -> tuple[str, tuple[int, int, int]]:
 
 
 def build_ijro_reminder_image(tasks: list[dict]) -> bytes:
-    """tasks: har biri {full_name, position, dept_name, mazmun, hujjat_raqami, holati,
-    ijro_muddati, doc_id} — muddati eng yaqinlaridan boshlab, ko'pi bilan 10 ta element
-    (chaqiruvchi tomondan allaqachon saralangan va cheklangan bo'lishi kutiladi)."""
+    """tasks: har biri {full_name, position, dept_name, mazmun, hujjat_raqami, sarlavha,
+    holati, ijro_muddati, doc_id} — muddati eng yaqinlaridan boshlab, ko'pi bilan 10 ta
+    element (chaqiruvchi tomondan allaqachon saralangan va cheklangan bo'lishi kutiladi)."""
     im = Image.open(TEMPLATE_PATH).convert("RGB")
     draw = ImageDraw.Draw(im)
 
@@ -160,9 +148,17 @@ def build_ijro_reminder_image(tasks: list[dict]) -> bytes:
         else:
             draw.text((MAZMUN_X, y), l1, font=mazmun_f, fill=(70, 80, 95), anchor="lm")
 
-        code = _short_hujjat_code(t.get("hujjat_raqami")) or f"DOC-{t.get('doc_id', '')}"
-        code_f = _fit_font(draw, code, HUJJAT_MAXW, 14, min_size=10, bold=True)
-        draw.text((HUJJAT_X, y), code, font=code_f, fill=BLUE, anchor="lm")
+        raqam_txt = t.get("hujjat_raqami") or f"DOC-{t.get('doc_id', '')}"
+        raqam_f = _fit_font(draw, raqam_txt, HUJJAT_MAXW, 13, min_size=9, bold=True)
+        raqam_txt = _truncate(draw, raqam_txt, raqam_f, HUJJAT_MAXW)
+        bandi_txt = t.get("sarlavha")
+        if bandi_txt:
+            bandi_f = _font(11, False)
+            bandi_txt = _truncate(draw, bandi_txt, bandi_f, HUJJAT_MAXW)
+            draw.text((HUJJAT_X, y - 9), raqam_txt, font=raqam_f, fill=BLUE, anchor="lm")
+            draw.text((HUJJAT_X, y + 9), bandi_txt, font=bandi_f, fill=GRAY, anchor="lm")
+        else:
+            draw.text((HUJJAT_X, y), raqam_txt, font=raqam_f, fill=BLUE, anchor="lm")
 
         h_key = t.get("holati") or "yuborildi"
         h_label = HOLATI_LABELS.get(h_key, h_key)
