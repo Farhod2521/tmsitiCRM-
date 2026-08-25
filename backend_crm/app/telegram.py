@@ -38,6 +38,15 @@ def send_telegram_photo(image_bytes: bytes, caption: str = "") -> bool:
     chat_id = os.getenv("TELEGRAM_CHAT_ID")
     if not token or not chat_id:
         raise RuntimeError("TELEGRAM_BOT_TOKEN yoki TELEGRAM_CHAT_ID sozlanmagan")
+    return send_telegram_photo_to(chat_id, image_bytes, caption)
+
+
+def send_telegram_photo_to(chat_id, image_bytes: bytes, caption: str = "") -> bool:
+    """Berilgan chat_id (shaxsiy yoki guruh) ga rasm (PNG) yuboradi — masalan,
+    guruhga yuborishdan oldin shaxsiy chatda sinab ko'rish uchun."""
+    token = os.getenv("TELEGRAM_BOT_TOKEN")
+    if not token:
+        raise RuntimeError("TELEGRAM_BOT_TOKEN sozlanmagan")
 
     boundary = "----CRMBoundary" + os.urandom(16).hex()
     nl = "\r\n"
