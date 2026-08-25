@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import Header from "@/components/layout/Header";
 import {
-  Target, FileText, CheckCircle2, Clock,
+  FileText,
   ChevronLeft, ChevronRight, Calendar, Info, X, Loader2,
 } from "lucide-react";
 import { apiFetch } from "@/lib/api";
@@ -124,10 +124,10 @@ export default function XodimKpiPage() {
     : ratedMonths;
 
   const statCards = [
-    { label: "O'rtacha jami ball", value: avgKpiPct != null ? `${avgKpiPct}` : "—", icon: Target,        color: "#3F8CFF", bg: "rgba(63,140,255,0.1)" },
-    { label: "Baholangan oylar",   value: ratedMonths.length,                       icon: FileText,      color: "#6D5DD3", bg: "rgba(109,93,211,0.1)" },
-    { label: "Joriy oy jami",      value: currentTotal>0 ? `${currentTotal}/${MAX_TOTAL}` : "—", icon: CheckCircle2, color: "#00C48C", bg: "rgba(0,196,140,0.1)" },
-    { label: "Joriy oy KPI foiz",  value: getKpiLabel(currentTotal>0?currentTotal:null).text, icon: Clock, color: "#FFBD21", bg: "rgba(255,189,33,0.1)" },
+    { label: "O'rtacha jami ball", value: avgKpiPct != null ? `${avgKpiPct}` : "—", sub: `/${MAX_TOTAL} ball`, img: "/ball.png",          bg: "linear-gradient(135deg, rgba(63,140,255,0.16), rgba(63,140,255,0.05))" },
+    { label: "Baholangan oylar",   value: ratedMonths.length,                       sub: "oy",                 img: "/baholanganoy.png",     bg: "linear-gradient(135deg, rgba(255,140,66,0.18), rgba(255,140,66,0.05))" },
+    { label: "Joriy oy jami",      value: currentTotal>0 ? `${currentTotal}/${MAX_TOTAL}` : "—", sub: "ball",  img: "/joriyoy.png",          bg: "linear-gradient(135deg, rgba(0,196,140,0.16), rgba(0,196,140,0.05))" },
+    { label: "Joriy oy KPI foiz",  value: getKpiLabel(currentTotal>0?currentTotal:null).text, sub: "foiz",     img: "/kpi.png",              bg: "linear-gradient(135deg, rgba(109,93,211,0.16), rgba(109,93,211,0.05))" },
   ];
 
   return (
@@ -137,13 +137,16 @@ export default function XodimKpiPage() {
       {/* ── Stats ── */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-5">
         {statCards.map(s => (
-          <div key={s.label} className="p-5 flex items-center gap-4"
+          <div key={s.label} className="relative overflow-hidden p-5 flex items-center gap-4"
             style={{ background:"#FFFFFF", boxShadow:"0px 6px 58px rgba(196,203,214,0.103611)", borderRadius:20 }}>
-            <div className="w-11 h-11 flex items-center justify-center flex-shrink-0" style={{ background:s.bg, borderRadius:13 }}>
-              <s.icon size={20} style={{ color:s.color }}/>
+            <div className="w-16 h-16 flex items-center justify-center flex-shrink-0" style={{ background:s.bg, borderRadius:18 }}>
+              <img src={s.img} alt="" className="w-11 h-11 object-contain" />
             </div>
             <div className="min-w-0">
-              <p className="text-2xl font-bold leading-tight" style={{ color:"#0A1629" }}>{s.value}</p>
+              <p className="text-2xl font-bold leading-tight" style={{ color:"#0A1629" }}>
+                {s.value}
+                {s.value !== "—" && <span className="text-xs font-normal ml-1" style={{ color:"#A8B0BD" }}>{s.sub}</span>}
+              </p>
               <p className="text-xs mt-0.5 truncate" style={{ color:"#91929E" }}>{s.label}</p>
             </div>
           </div>

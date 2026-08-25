@@ -5,8 +5,8 @@ import Header from "@/components/layout/Header";
 import Badge from "@/components/ui/Badge";
 import {
   ChevronLeft, ChevronRight, ChevronDown, ChevronUp,
-  ClipboardCheck, Loader2, X, FileText,
-  Award, Users, CheckCircle2, Clock, Calendar, Info,
+  ClipboardCheck, Loader2, X,
+  Award, Calendar, Info,
 } from "lucide-react";
 import { apiFetch } from "@/lib/api";
 import { getUser } from "@/lib/auth";
@@ -201,16 +201,16 @@ export default function BolimKpiPage() {
           {/* Stats */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-5">
             {[
-              {label:"Jami xodimlar",    value:empRows.length,    icon:Users,        color:"#3F8CFF",bg:"rgba(63,140,255,0.1)"},
-              {label:"Baholangan",        value:empRowsRated,      icon:CheckCircle2, color:"#00C48C",bg:"rgba(0,196,140,0.1)"},
-              {label:"Hisobot yuklangan", value:withReport,        icon:FileText,     color:"#6D5DD3",bg:"rgba(109,93,211,0.1)"},
-              {label:"Kutilmoqda",        value:empRows.length-empRowsRated,icon:Clock,color:"#FF5C5C",bg:"rgba(255,92,92,0.1)"},
+              {label:"Jami xodimlar",    value:empRows.length,    img:"/ball.png",         bg:"linear-gradient(135deg, rgba(63,140,255,0.16), rgba(63,140,255,0.05))"},
+              {label:"Baholangan",        value:empRowsRated,      img:"/baholanganoy.png", bg:"linear-gradient(135deg, rgba(255,140,66,0.18), rgba(255,140,66,0.05))"},
+              {label:"Hisobot yuklangan", value:withReport,        img:"/joriyoy.png",      bg:"linear-gradient(135deg, rgba(0,196,140,0.16), rgba(0,196,140,0.05))"},
+              {label:"Kutilmoqda",        value:empRows.length-empRowsRated, img:"/kpi.png", bg:"linear-gradient(135deg, rgba(109,93,211,0.16), rgba(109,93,211,0.05))"},
             ].map(s=>(
               <div key={s.label} className="p-5 flex items-center gap-4"
                 style={{background:"#FFFFFF",boxShadow:"0px 6px 58px rgba(196,203,214,0.103611)",borderRadius:20}}>
-                <div className="w-11 h-11 flex items-center justify-center flex-shrink-0"
-                  style={{background:s.bg,borderRadius:13}}>
-                  <s.icon size={20} style={{color:s.color}}/>
+                <div className="w-16 h-16 flex items-center justify-center flex-shrink-0"
+                  style={{background:s.bg,borderRadius:18}}>
+                  <img src={s.img} alt="" className="w-11 h-11 object-contain"/>
                 </div>
                 <div>
                   <p className="text-2xl font-bold leading-tight" style={{color:"#0A1629"}}>{s.value}</p>

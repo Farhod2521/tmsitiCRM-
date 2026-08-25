@@ -11,8 +11,6 @@ import {
 import { getUser, saveAuth, getProfileExtra, saveProfileExtra } from "@/lib/auth";
 import { apiFetch } from "@/lib/api";
 import { openTelegramLink } from "@/lib/telegram";
-import MyIjroTasksCard from "@/components/profile/MyIjroTasksCard";
-import WeeklyReportCard from "@/components/reports/WeeklyReportCard";
 
 interface Department {
   id: number;
@@ -440,16 +438,6 @@ export default function ProfilePage() {
             </div>
           </div>
         </div>
-      </div>
-
-      {/* ── Ijro nazorati (menga biriktirilgan topshiriqlar) ── */}
-      <div className="mt-5">
-        <MyIjroTasksCard />
-      </div>
-
-      {/* ── Haftalik hisobotlar ── */}
-      <div className="mt-5">
-        <WeeklyReportCard />
       </div>
 
       {/* ── Edit Modal ── */}
