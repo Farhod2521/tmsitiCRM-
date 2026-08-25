@@ -11,10 +11,14 @@ _DIR = os.path.dirname(os.path.abspath(__file__))
 TEMPLATE_PATH = os.path.join(_DIR, "assets", "ijro.png")
 
 _BOLD_CANDIDATES = [
+    "/usr/share/fonts/truetype/dejavu/DejaVuSerif-Bold.ttf",
+    "C:/Windows/Fonts/timesbd.ttf",
     "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
     "C:/Windows/Fonts/arialbd.ttf",
 ]
 _REG_CANDIDATES = [
+    "/usr/share/fonts/truetype/dejavu/DejaVuSerif.ttf",
+    "C:/Windows/Fonts/times.ttf",
     "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
     "C:/Windows/Fonts/arial.ttf",
 ]
@@ -31,8 +35,8 @@ MAX_ROWS = 10
 ROW_Y = [259.5, 317.25, 374.0, 431.0, 487.5, 544.0, 601.0, 657.5, 714.0, 770.5]
 
 NAME_X,    NAME_MAXW    = 215,  195
-LAVOZIM_X, LAVOZIM_MAXW = 427,  275
-MAZMUN_X,  MAZMUN_MAXW  = 722,  270
+LAVOZIM_X, LAVOZIM_MAXW = 427,  235
+MAZMUN_X,  MAZMUN_MAXW  = 722,  265
 HUJJAT_X,  HUJJAT_MAXW  = 1045, 90
 HOLATI_CX               = 1308
 MUDDATI_X                = 1464
@@ -45,9 +49,9 @@ HOLATI_LABELS = {
 }
 HOLATI_COLORS = {
     "yuborildi":         (63, 140, 255),
-    "qabul_qilindi":     (109, 93, 211),
-    "bajarilmoqda":      (255, 148, 33),
-    "tasdiq_kutilmoqda": (63, 140, 255),
+    "qabul_qilindi":     (0, 165, 120),
+    "bajarilmoqda":      (255, 140, 0),
+    "tasdiq_kutilmoqda": (230, 168, 0),
 }
 
 
