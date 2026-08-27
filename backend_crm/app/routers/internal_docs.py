@@ -35,6 +35,23 @@ def _doc_summary(doc: models.InternalDocument) -> str:
     return f"\U0001F4CB Nomi: {doc.nomi}{mazmun}\n\U0001F516 № {doc.hujjat_raqami}"
 
 
+def _dept_heads(db: Session, department_id: Optional[int]) -> List[models.Employee]:
+    if not department_id:
+        return []
+    return (
+        db.query(models.Employee)
+        .filter(models.Employee.role.in_(_HEAD_ROLES),
+                models.Employee.department_id == department_id,
+                models.Employee.telegram_id.isnot(None))
+        .all()
+    )
+
+
+def _notify_all(employees, text: str) -> None:
+    for e in employees:
+        _notify(e, text)
+
+
 def _log(db: Session, doc_id: int, action: str, izoh: Optional[str], actor_id: Optional[int]) -> None:
     db.add(models.InternalDocumentLog(doc_id=doc_id, action=action, izoh=izoh, actor_id=actor_id))
 
@@ -137,15 +154,8 @@ def create_doc(
     if is_head:
         _notify(zam, f"\U0001F4E5 Yangi hujjat yaratildi\n\U0001F464 Yubordi: {current.full_name}\n{_doc_summary(doc)}")
     else:
-        heads = (
-            db.query(models.Employee)
-            .filter(models.Employee.role.in_(_HEAD_ROLES),
-                    models.Employee.department_id == current.department_id,
-                    models.Employee.telegram_id.isnot(None))
-            .all()
-        )
-        for head in heads:
-            _notify(head, f"\U0001F4E8 Yangi hujjat yuborildi\n\U0001F464 Xodim: {current.full_name}\n{_doc_summary(doc)}")
+        _notify_all(_dept_heads(db, current.department_id),
+                     f"\U0001F4E8 Yangi hujjat yuborildi\n\U0001F464 Xodim: {current.full_name}\n{_doc_summary(doc)}")
 
     return _make_out(doc, current, db)
 
@@ -287,6 +297,11 @@ def get_doc(
         db.commit()
         db.refresh(doc)
 
+        msg = f"\U0001F441 Ijrochi hujjatni ko'rdi\n{_doc_summary(doc)}"
+        _notify(doc.creator, msg)
+        _notify_all(_dept_heads(db, doc.department_id), msg)
+        _notify(doc.zamdirektor, msg)
+
     return _make_out(doc, current, db)
 
 
@@ -357,15 +372,8 @@ def edit_doc(
         if back_to_zamdirektor:
             _notify(doc.zamdirektor, f"\U0001F504 Hujjat qayta kiritildi\n\U0001F464 Yubordi: {current.full_name}\n{_doc_summary(doc)}")
         else:
-            heads = (
-                db.query(models.Employee)
-                .filter(models.Employee.role.in_(_HEAD_ROLES),
-                        models.Employee.department_id == doc.department_id,
-                        models.Employee.telegram_id.isnot(None))
-                .all()
-            )
-            for head in heads:
-                _notify(head, f"\U0001F504 Hujjat qayta kiritildi\n\U0001F464 Yubordi: {current.full_name}\n{_doc_summary(doc)}")
+            _notify_all(_dept_heads(db, doc.department_id),
+                         f"\U0001F504 Hujjat qayta kiritildi\n\U0001F464 Yubordi: {current.full_name}\n{_doc_summary(doc)}")
 
         return _make_out(doc, current, db)
 
@@ -473,6 +481,11 @@ def zamdirektor_approve(
     _log(db, doc.id, "zamdirektor_tasdiqladi", None, current.id)
     db.commit()
     db.refresh(doc)
+
+    msg = f"✅ Zamdirektor tasdiqladi\n{_doc_summary(doc)}"
+    _notify(doc.creator, msg)
+    _notify_all(_dept_heads(db, doc.department_id), msg)
+
     return _make_out(doc, current, db)
 
 
