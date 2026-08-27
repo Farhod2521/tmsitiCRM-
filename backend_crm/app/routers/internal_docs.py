@@ -11,11 +11,28 @@ from typing import List, Optional
 from .. import models, schemas
 from ..database import get_db
 from ..deps import get_current_employee
+from ..telegram import send_telegram_message_to
 
 router = APIRouter(prefix="/internal-docs", tags=["Ichki hujjatlar"])
 
 _HEAD_ROLES = {models.RoleEnum.bolim_boshligi, models.RoleEnum.boshqarma_boshligi}
 _ADMIN_ROLES = {models.RoleEnum.superadmin, models.RoleEnum.direktor, models.RoleEnum.zamdirektor}
+
+
+def _notify(employee: Optional[models.Employee], text: str) -> None:
+    """Xodimning shaxsiy Telegramiga xabar yuboradi — telegram ulanmagan bo'lsa
+    yoki yuborishda xato bo'lsa, asosiy amalni to'xtatmasdan sokin o'tkazib yuboriladi."""
+    if not employee or not employee.telegram_id:
+        return
+    try:
+        send_telegram_message_to(employee.telegram_id, text)
+    except Exception:
+        pass
+
+
+def _doc_summary(doc: models.InternalDocument) -> str:
+    mazmun = f"\n\U0001F4DD Mazmuni: {doc.mazmun}" if doc.mazmun else ""
+    return f"\U0001F4CB Nomi: {doc.nomi}{mazmun}\n\U0001F516 № {doc.hujjat_raqami}"
 
 
 def _log(db: Session, doc_id: int, action: str, izoh: Optional[str], actor_id: Optional[int]) -> None:
@@ -116,6 +133,20 @@ def create_doc(
 
     db.commit()
     db.refresh(doc)
+
+    if is_head:
+        _notify(zam, f"\U0001F4E5 Yangi hujjat yaratildi\n\U0001F464 Yubordi: {current.full_name}\n{_doc_summary(doc)}")
+    else:
+        heads = (
+            db.query(models.Employee)
+            .filter(models.Employee.role.in_(_HEAD_ROLES),
+                    models.Employee.department_id == current.department_id,
+                    models.Employee.telegram_id.isnot(None))
+            .all()
+        )
+        for head in heads:
+            _notify(head, f"\U0001F4E8 Yangi hujjat yuborildi\n\U0001F464 Xodim: {current.full_name}\n{_doc_summary(doc)}")
+
     return _make_out(doc, current, db)
 
 
@@ -367,6 +398,11 @@ def bolim_approve(
     _log(db, doc.id, "bolim_tasdiqladi", None, current.id)
     db.commit()
     db.refresh(doc)
+
+    _notify(zam, f"\U0001F4E5 Yangi hujjat yaratildi\n\U0001F464 Yubordi: {current.full_name}\n{_doc_summary(doc)}")
+    if doc.created_by != current.id:
+        _notify(doc.creator, f"✅ Hujjat tasdiqlandi, zamdirektorga yuborildi\n{_doc_summary(doc)}")
+
     return _make_out(doc, current, db)
 
 
