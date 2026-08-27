@@ -156,6 +156,41 @@ class AttendanceNote(Base):
     zamdirektor_reviewer = relationship("Employee", foreign_keys=[zamdirektor_by])
 
 
+class TurniketAttendance(Base):
+    """Turniket (badge-reader) eksport xlsx faylidan import qilingan kunlik
+    kirish/chiqish vaqtlari. Attendance (GPS/yuz orqali o'z-o'zini belgilash)
+    jadvalidan mustaqil — ikkalasini solishtirish uchun alohida saqlanadi."""
+    __tablename__ = "turniket_attendances"
+    __table_args__ = (
+        UniqueConstraint("employee_id", "date", name="uq_turniket_day"),
+    )
+
+    id             = Column(Integer, primary_key=True, index=True)
+    employee_id    = Column(Integer, ForeignKey("employees.id"), nullable=False)
+    date           = Column(String(10), nullable=False)   # "2026-06-09" (YYYY-MM-DD)
+    check_in       = Column(String(5), nullable=True)     # "HH:MM"
+    check_out      = Column(String(5), nullable=True)     # "HH:MM"
+    worked_minutes = Column(Integer, nullable=True)       # "Ish vaqti" ustunidan
+
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    employee = relationship("Employee", foreign_keys=[employee_id])
+
+
+class TurniketImportBatch(Base):
+    """Xlsx yuklab /turniket/preview chaqirilganda tahlil natijasi shu yerda
+    vaqtincha saqlanadi (kun-kun ma'lumoti bilan) — kadr tuzatishlarni tanlab
+    /turniket/commit chaqirganda qayta o'qiladi va o'chiriladi."""
+    __tablename__ = "turniket_import_batches"
+
+    id           = Column(String(36), primary_key=True)
+    year         = Column(Integer, nullable=False)
+    month        = Column(Integer, nullable=False)
+    payload_json = Column(Text, nullable=False)
+    uploaded_by  = Column(Integer, ForeignKey("employees.id"), nullable=False)
+    created_at   = Column(DateTime, default=datetime.utcnow)
+
+
 class PasswordResetCode(Base):
     """Profil sahifasidan parolni o'zgartirish uchun Telegram orqali
     yuboriladigan 5 xonali tasdiqlash kodi (3 daqiqa amal qiladi)."""

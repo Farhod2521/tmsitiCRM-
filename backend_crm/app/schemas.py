@@ -1,5 +1,5 @@
 from pydantic import BaseModel
-from typing import Optional, List, Literal
+from typing import Optional, List, Literal, Dict
 from datetime import datetime, date
 from .models import RoleEnum, DeptTypeEnum, EmployeeStatusEnum, WorkLocationEnum, IjroDocManba, IjroDocHolati, IjroDocTur, IjroDocDavriyligi, IjroDocBolimHolati, InternalDocumentStatus
 
@@ -203,6 +203,30 @@ class AutoTabelOut(BaseModel):
     days_in_month: int
     working_days: int      # shu oyning ish kunlari soni (dush-juma)
     rows: List[AutoTabelRow]
+
+
+# ── Turniket davomat (xlsx import) ─────────────────────────────────────────────
+class TurniketPreviewRow(BaseModel):
+    row_index: int
+    xlsx_name: str
+    days_with_data: int
+    matched_employee_id: Optional[int] = None
+    matched_employee_name: Optional[str] = None
+    confidence: str   # "exact" | "surname_only" | "none"
+
+class TurniketPreviewOut(BaseModel):
+    batch_id: str
+    days_in_month: int
+    rows: List[TurniketPreviewRow]
+
+class TurniketCommitIn(BaseModel):
+    batch_id: str
+    corrections: Dict[int, Optional[int]] = {}   # row_index -> employee_id (None = o'tkazib yuborish)
+
+class TurniketCommitOut(BaseModel):
+    imported_employees: int
+    imported_days: int
+    skipped_rows: int
 
 
 # ── Attendance / Davomat ──────────────────────────────────────────────────────
