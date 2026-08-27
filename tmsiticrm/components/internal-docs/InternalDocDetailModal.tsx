@@ -110,7 +110,7 @@ export default function InternalDocDetailModal({
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
       style={{ background: "rgba(10,22,41,0.5)", backdropFilter: "blur(3px)" }}
       onClick={onClose}>
-      <div className="w-full max-w-2xl max-h-[88vh] flex flex-col"
+      <div className="w-full max-w-4xl max-h-[90vh] flex flex-col"
         style={{ background: "#FFFFFF", borderRadius: 20, boxShadow: "0 20px 60px rgba(10,22,41,0.25)" }}
         onClick={e => e.stopPropagation()}>
 
