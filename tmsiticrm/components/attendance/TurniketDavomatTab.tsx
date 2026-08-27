@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { ChevronLeft, ChevronRight, Loader2, Users, Upload, X, CheckCircle2, AlertTriangle, HelpCircle, BookmarkCheck } from "lucide-react";
 import { apiFetch } from "@/lib/api";
+import TurniketEmployeeMonthModal from "./TurniketEmployeeMonthModal";
 
 const MON_NAMES = [
   "Yanvar", "Fevral", "Mart", "Aprel", "May", "Iyun",
@@ -49,6 +50,7 @@ const CONFIDENCE_CFG: Record<string, { label: string; color: string; bg: string;
 };
 
 const CODE_CFG: Record<string, { color: string; bg: string }> = {
+  "8":  { color: "#00A578", bg: "rgba(0,196,140,0.1)" },
   "X":  { color: "#B8C2D6", bg: "#F4F9FD" },
   "MT": { color: "#B4780C", bg: "rgba(255,189,33,0.15)" },
   "O'": { color: "#6D5DD3", bg: "rgba(109,93,211,0.12)" },
@@ -56,7 +58,6 @@ const CODE_CFG: Record<string, { color: string; bg: string }> = {
   "B":  { color: "#FF5C5C", bg: "rgba(255,92,92,0.12)" },
   "Д":  { color: "#91929E", bg: "rgba(145,146,158,0.12)" },
 };
-const TIME_CELL_CFG = { color: "#00A578", bg: "rgba(0,196,140,0.1)" };
 
 function weekdayOf(year: number, month: number, day: number): number {
   const js = new Date(year, month - 1, day).getDay();
@@ -83,6 +84,7 @@ export default function TurniketDavomatTab() {
   const [committing, setCommitting] = useState(false);
   const [banner, setBanner] = useState<{ employees: number; days: number; skipped: number } | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const [selectedEmployee, setSelectedEmployee] = useState<number | null>(null);
 
   const load = useCallback(async (y: number, m: number) => {
     setLoading(true);
@@ -232,18 +234,18 @@ export default function TurniketDavomatTab() {
             </thead>
             <tbody>
               {data.rows.map((r, ri) => (
-                <tr key={r.employee_id} style={{ borderTop: "1px solid #F4F9FD" }}>
+                <tr key={r.employee_id} onClick={() => setSelectedEmployee(r.employee_id)}
+                  className="cursor-pointer hover:opacity-80 transition-opacity" style={{ borderTop: "1px solid #F4F9FD" }}>
                   <td className="px-2 py-2 text-xs font-bold text-center sticky left-0" style={{ color: "#91929E", background: ri % 2 ? "#FFFFFF" : "#FAFCFF" }}>{ri + 1}</td>
                   <td className="px-3 py-2 text-xs font-bold sticky whitespace-nowrap" style={{ color: "#0A1629", background: ri % 2 ? "#FFFFFF" : "#FAFCFF", left: 32 }}>{r.full_name}</td>
                   {days.map(d => {
                     const code = r.cells[String(d)] || "";
-                    const isTime = /^\d{1,2}:\d{2}$/.test(code);
-                    const cfg = isTime ? TIME_CELL_CFG : CODE_CFG[code];
+                    const cfg = CODE_CFG[code];
                     return (
                       <td key={d} className="text-center py-2" style={{ background: ri % 2 ? "#FFFFFF" : "#FAFCFF" }}>
                         {code ? (
                           <span className="inline-flex items-center justify-center text-[10px] font-bold whitespace-nowrap"
-                            style={{ minWidth: 30, height: 20, padding: "0 3px", borderRadius: 5, color: cfg?.color || "#0A1629", background: cfg?.bg || "transparent" }}>
+                            style={{ minWidth: 22, height: 20, borderRadius: 5, color: cfg?.color || "#0A1629", background: cfg?.bg || "transparent" }}>
                             {code}
                           </span>
                         ) : null}
@@ -264,9 +266,9 @@ export default function TurniketDavomatTab() {
       )}
 
       <div className="flex items-center gap-4 flex-wrap px-6 py-4" style={{ borderTop: "1px solid #F4F9FD" }}>
-        {[["8:35", "Kelgan (kirish vaqti)"], ["X", "Dam olish kuni"], ["MT", "Mehnat ta'tili"], ["O'", "O'quv ta'tili"], ["K", "Xizmat safari"], ["B", "Bolnichniy"]].map(([code, label]) => (
+        {[["8", "Kelgan"], ["X", "Dam olish kuni"], ["MT", "Mehnat ta'tili"], ["O'", "O'quv ta'tili"], ["K", "Xizmat safari"], ["B", "Bolnichniy"]].map(([code, label]) => (
           <span key={code} className="flex items-center gap-1.5 text-[11px]" style={{ color: "#91929E" }}>
-            <span className="inline-flex items-center justify-center text-[9px] font-bold px-1" style={{ minWidth: 20, height: 16, borderRadius: 4, color: code === "8:35" ? TIME_CELL_CFG.color : CODE_CFG[code]?.color, background: code === "8:35" ? TIME_CELL_CFG.bg : CODE_CFG[code]?.bg }}>
+            <span className="inline-flex items-center justify-center text-[9px] font-bold px-1" style={{ minWidth: 20, height: 16, borderRadius: 4, color: CODE_CFG[code]?.color, background: CODE_CFG[code]?.bg }}>
               {code}
             </span>
             {label}
@@ -348,6 +350,10 @@ export default function TurniketDavomatTab() {
             </div>
           </div>
         </div>
+      )}
+
+      {selectedEmployee && (
+        <TurniketEmployeeMonthModal employeeId={selectedEmployee} year={year} month={month} onClose={() => setSelectedEmployee(null)} />
       )}
     </div>
   );

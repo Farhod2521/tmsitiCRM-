@@ -296,7 +296,7 @@ def _build_turniket_tabel(db: Session, year: int, month: int) -> schemas.AutoTab
             if in_status_range and emp.status in _STATUS_RANGE_CODE:
                 cells[str(day)] = _STATUS_RANGE_CODE[emp.status]
             elif rec is not None and rec.check_in:
-                cells[str(day)] = rec.check_in
+                cells[str(day)] = "8"
                 worked_min += rec.worked_minutes or 0
                 h, m = map(int, rec.check_in.split(":"))
                 late_min += max(0, (h * 60 + m) - (WORK_START_HOUR * 60 + WORK_START_MIN))
@@ -327,3 +327,76 @@ def get_turniket_tabel(
     if current.role not in _VIEW_ROLES:
         raise HTTPException(status_code=403, detail="Ruxsat yo'q")
     return _build_turniket_tabel(db, year, month)
+
+
+@router.get("/employee/{employee_id}", response_model=schemas.TurniketEmployeeMonthOut)
+def get_employee_month(
+    employee_id: int,
+    year:        int,
+    month:       int,
+    db:          Session = Depends(get_db),
+    current:     models.Employee = Depends(get_current_employee),
+):
+    """Bitta xodimning bir oylik turniket kalendari — har kun uchun kirish VA
+    chiqish vaqti (Turniket davomat jadvalida xodim ustiga bosilganda ochiladi)."""
+    if current.role not in _VIEW_ROLES:
+        raise HTTPException(status_code=403, detail="Ruxsat yo'q")
+
+    emp = db.query(models.Employee).filter(models.Employee.id == employee_id).first()
+    if not emp:
+        raise HTTPException(status_code=404, detail="Xodim topilmadi")
+    dept = db.query(models.Department).filter(models.Department.id == emp.department_id).first() if emp.department_id else None
+
+    days_in_month = monthrange(year, month)[1]
+    month_prefix = f"{year:04d}-{month:02d}-"
+    records = db.query(models.TurniketAttendance).filter(
+        models.TurniketAttendance.employee_id == employee_id,
+        models.TurniketAttendance.date >= f"{month_prefix}01",
+        models.TurniketAttendance.date <= f"{month_prefix}{days_in_month:02d}",
+    ).all()
+    rec_by_day = {int(r.date[-2:]): r for r in records}
+
+    days: List[schemas.TurniketDayDetail] = []
+    kelgan_kunlar = 0
+    kelmagan_kunlar = 0
+    jami_ish_soati_min = 0
+    for day in range(1, days_in_month + 1):
+        d = date(year, month, day)
+        weekday = d.weekday()
+        rec = rec_by_day.get(day)
+
+        in_status_range = bool(
+            emp.status_date_from and emp.status_date_to
+            and emp.status_date_from <= d.isoformat() <= emp.status_date_to
+        )
+        if weekday >= 5:
+            status = "dam_olish"
+        elif in_status_range and emp.status in _STATUS_RANGE_CODE:
+            status = "status_" + _STATUS_RANGE_CODE[emp.status]
+        elif rec is not None and rec.check_in:
+            status = "kelgan"
+            kelgan_kunlar += 1
+            jami_ish_soati_min += rec.worked_minutes or 0
+        elif d <= date.today():
+            status = "kelmagan"
+            kelmagan_kunlar += 1
+        else:
+            status = "kelajak"
+
+        days.append(schemas.TurniketDayDetail(
+            day=day, weekday=weekday, status=status,
+            check_in=rec.check_in if rec else None,
+            check_out=rec.check_out if rec else None,
+            worked_minutes=rec.worked_minutes if rec else None,
+        ))
+
+    return schemas.TurniketEmployeeMonthOut(
+        employee_id=emp.id,
+        full_name=emp.full_name,
+        position=emp.position,
+        department_name=dept.name if dept else None,
+        days=days,
+        kelgan_kunlar=kelgan_kunlar,
+        kelmagan_kunlar=kelmagan_kunlar,
+        jami_ish_soati_min=jami_ish_soati_min,
+    )

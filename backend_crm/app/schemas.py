@@ -228,6 +228,24 @@ class TurniketCommitOut(BaseModel):
     imported_days: int
     skipped_rows: int
 
+class TurniketDayDetail(BaseModel):
+    day: int
+    weekday: int   # 0=Dushanba ... 6=Yakshanba
+    status: str    # "kelgan" | "kelmagan" | "dam_olish" | "kelajak" | "status_MT"/"status_O'"/"status_K"/"status_B"
+    check_in: Optional[str] = None
+    check_out: Optional[str] = None
+    worked_minutes: Optional[int] = None
+
+class TurniketEmployeeMonthOut(BaseModel):
+    employee_id: int
+    full_name: str
+    position: str
+    department_name: Optional[str] = None
+    days: List[TurniketDayDetail]
+    kelgan_kunlar: int
+    kelmagan_kunlar: int
+    jami_ish_soati_min: int
+
 
 # ── Attendance / Davomat ──────────────────────────────────────────────────────
 class CheckInIn(BaseModel):
