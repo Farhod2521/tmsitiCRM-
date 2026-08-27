@@ -474,10 +474,11 @@ export default function AttendanceCalendar() {
                   const rec = recByDay.get(d);
                   const isToday = isCurrentMonth && d === todayDay;
 
-                  const dotColor = isToday ? "#3F8CFF" : rec ? lateColor(rec.late_minutes) : "#00A578";
+                  const dotColor = rec ? lateColor(rec.late_minutes) : "#00A578";
+                  const timeStr = rec?.check_in_local ?? (rec ? fmtTime(rec.check_in) : null);
                   return (
                     <div key={d}
-                      title={rec ? `Soat ${rec.check_in_local ?? ""} — ${lateText(rec.late_minutes)}` : undefined}
+                      title={rec ? `Soat ${timeStr ?? ""} — ${lateText(rec.late_minutes)}` : undefined}
                       className="flex flex-col items-center justify-center relative"
                       style={{
                         minHeight: 66,
@@ -495,8 +496,14 @@ export default function AttendanceCalendar() {
                         style={{ color: isWeekend ? "#FF8C8C" : "#0A1629" }}>
                         {d}
                       </span>
-                      {present && (
-                        <span className="w-1.5 h-1.5 rounded-full mt-2" style={{ background: dotColor }} />
+                      {present && timeStr && (
+                        <span className="flex items-center gap-0.5 mt-1.5 px-1.5 py-0.5"
+                          style={{ background: `${dotColor}1A`, borderRadius: 6 }}>
+                          <Clock size={9} style={{ color: dotColor }} />
+                          <span className="text-[10px] font-bold leading-none" style={{ color: dotColor }}>
+                            {timeStr}
+                          </span>
+                        </span>
                       )}
                     </div>
                   );
