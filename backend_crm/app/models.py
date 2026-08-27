@@ -333,6 +333,60 @@ class IjroDocBolimReviewLog(Base):
     reviewer  = relationship("Employee", foreign_keys=[reviewed_by])
 
 
+class InternalDocumentStatus(str, enum.Enum):
+    """Pastdan-yuqoriga ichki hujjat oqimi: Xodim -> Bo'lim boshlig'i -> Zamdirektor -> Ijro (faqat ko'radi)."""
+    yuborildi              = "yuborildi"               # xodim yubordi, bo'lim boshlig'i tekshirishi kutilmoqda
+    oqilgan                = "oqilgan"                  # bo'lim boshlig'i ochib ko'rdi, hali qaror yo'q
+    bolim_tasdiqladi       = "bolim_tasdiqladi"         # bo'lim boshlig'i tasdiqladi, zamdirektorga yuborildi
+    zamdirektor_tasdiqladi = "zamdirektor_tasdiqladi"   # yakuniy tasdiq — IJRO ko'radi
+    rad_etildi             = "rad_etildi"               # bo'lim boshlig'i yoki zamdirektor rad etdi
+
+
+class InternalDocument(Base):
+    """Xodim (yoki bo'lim boshlig'ining o'zi) kiritgan, bo'lim boshlig'i va zamdirektor
+    ko'rib chiqadigan ichki hujjat — tasdiqlangandan keyin IJRO roliga ko'rinadi."""
+    __tablename__ = "internal_documents"
+
+    id              = Column(Integer, primary_key=True, index=True)
+    hujjat_raqami   = Column(String(50), unique=True, nullable=False)   # avtomatik: "IH-2026-000123"
+    nomi            = Column(String(300), nullable=False)
+    mazmun          = Column(Text, nullable=True)
+    fayl_name       = Column(String(255), nullable=True)
+    fayl_b64        = Column(Text, nullable=True)
+    department_id   = Column(Integer, ForeignKey("departments.id"), nullable=False)
+    zamdirektor_id  = Column(Integer, ForeignKey("employees.id"), nullable=True)
+    status          = Column(SAEnum(InternalDocumentStatus, name="internal_doc_status_enum"),
+                              default=InternalDocumentStatus.yuborildi, nullable=False)
+    rad_sababi      = Column(Text, nullable=True)
+    # Rad etilgandan keyin qayta yuborilgan bo'lsa, avvalgi hujjatga havola — to'liq tarix ko'rinishi uchun.
+    parent_doc_id   = Column(Integer, ForeignKey("internal_documents.id"), nullable=True)
+    created_by      = Column(Integer, ForeignKey("employees.id"), nullable=False)
+    created_at      = Column(DateTime, default=datetime.utcnow)
+    updated_at      = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    department  = relationship("Department")
+    zamdirektor = relationship("Employee", foreign_keys=[zamdirektor_id])
+    creator     = relationship("Employee", foreign_keys=[created_by])
+    parent_doc  = relationship("InternalDocument", remote_side=[id])
+
+
+class InternalDocumentLog(Base):
+    """Ichki hujjat bo'yicha har bir bosqich (yaratildi/o'qildi/tasdiqlandi/rad etildi)
+    tarixi — kim, qachon, nima qildi — to'liq shaffoflik uchun."""
+    __tablename__ = "internal_document_log"
+
+    id         = Column(Integer, primary_key=True, index=True)
+    doc_id     = Column(Integer, ForeignKey("internal_documents.id", ondelete="CASCADE"), nullable=False)
+    # "yaratildi" | "oqildi" | "bolim_tasdiqladi" | "bolim_rad_etdi" | "zamdirektor_tasdiqladi" | "zamdirektor_rad_etdi"
+    action     = Column(String(30), nullable=False)
+    izoh       = Column(Text, nullable=True)
+    actor_id   = Column(Integer, ForeignKey("employees.id"), nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    doc   = relationship("InternalDocument")
+    actor = relationship("Employee")
+
+
 class WeeklyReport(Base):
     """Haftalik hisobot — xodim/bo'lim boshlig'i o'zi yuklaydi, rahbari tasdiqlab ball qo'yadi."""
     __tablename__ = "weekly_reports"

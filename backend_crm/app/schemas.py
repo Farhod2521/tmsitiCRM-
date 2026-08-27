@@ -1,7 +1,7 @@
 from pydantic import BaseModel
 from typing import Optional, List, Literal
 from datetime import datetime, date
-from .models import RoleEnum, DeptTypeEnum, EmployeeStatusEnum, WorkLocationEnum, IjroDocManba, IjroDocHolati, IjroDocTur, IjroDocDavriyligi, IjroDocBolimHolati
+from .models import RoleEnum, DeptTypeEnum, EmployeeStatusEnum, WorkLocationEnum, IjroDocManba, IjroDocHolati, IjroDocTur, IjroDocDavriyligi, IjroDocBolimHolati, InternalDocumentStatus
 
 
 # ── Department ────────────────────────────────────────────────────────────────
@@ -690,6 +690,54 @@ class IjroDocTracking(BaseModel):
 
 class BolimAddIn(BaseModel):
     bolim_id: int
+
+
+# ── Ichki hujjatlar (Xodim -> Bo'lim boshlig'i -> Zamdirektor -> Ijro) ───────
+
+class InternalDocumentLogOut(BaseModel):
+    id:           int
+    action:       str
+    izoh:         Optional[str] = None
+    actor_nomi:   Optional[str] = None
+    created_at:   Optional[datetime] = None
+    model_config = {"from_attributes": True}
+
+class InternalDocumentListOut(BaseModel):
+    """Ro'yxat ko'rinishi uchun yengil variant — log/fayl_b64siz."""
+    id:               int
+    hujjat_raqami:    str
+    nomi:             str
+    department_id:    int
+    department_nomi:  Optional[str] = None
+    zamdirektor_id:   Optional[int] = None
+    zamdirektor_nomi: Optional[str] = None
+    status:           InternalDocumentStatus
+    rad_sababi:       Optional[str] = None
+    parent_doc_id:    Optional[int] = None
+    created_by:       int
+    created_by_nomi:  Optional[str] = None
+    created_at:       Optional[datetime] = None
+    model_config = {"from_attributes": True}
+
+class InternalDocumentOut(InternalDocumentListOut):
+    mazmun:    Optional[str] = None
+    fayl_name: Optional[str] = None
+    log:       List[InternalDocumentLogOut] = []
+
+class InternalDocumentIn(BaseModel):
+    nomi:           str
+    mazmun:         Optional[str] = None
+    fayl_name:      Optional[str] = None
+    fayl_b64:       Optional[str] = None
+    zamdirektor_id: Optional[int] = None   # bo'lim boshlig'i o'zi yaratganda majburiy
+    parent_doc_id:  Optional[int] = None   # rad etilib qayta yuborilayotgan bo'lsa
+
+class InternalDocApproveIn(BaseModel):
+    zamdirektor_id: int
+
+class InternalDocRejectIn(BaseModel):
+    izoh: str
+
 
 class IjroDocUpdate(BaseModel):
     tur:                      Optional[IjroDocTur]         = None

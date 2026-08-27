@@ -7,6 +7,8 @@ import {
   Calendar, Send, ClipboardCheck, UserCog, History, Paperclip, X, Hourglass,
 } from "lucide-react";
 import { apiFetch } from "@/lib/api";
+import InternalDocMineTab from "@/components/internal-docs/InternalDocMineTab";
+import InternalDocInboxTab from "@/components/internal-docs/InternalDocInboxTab";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -563,6 +565,7 @@ function DetailPanel({
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 export default function BolimNazoratPage() {
+  const [tab, setTab] = useState<"ijro" | "hujjatlar">("ijro");
   const [rows,       setRows]       = useState<DocBolimRow[]>([]);
   const [loading,    setLoading]    = useState(true);
   const [selected,   setSelected]   = useState<DocBolimRow | null>(null);
@@ -607,13 +610,35 @@ export default function BolimNazoratPage() {
   };
 
   return (
-    <div className="flex flex-col" style={{ height: "calc(100vh - 56px)" }}>
+    <div className="flex flex-col" style={tab === "ijro" ? { height: "calc(100vh - 56px)" } : undefined}>
       {/* Header */}
       <div className="mb-4 flex-shrink-0">
         <h1 className="font-bold text-xl" style={{ color: "#0A1629" }}>Ijro nazorati</h1>
         <p className="text-xs mt-0.5" style={{ color: "#91929E" }}>Bo'limingizga yuborilgan topshiriqlar va hujjatlar</p>
       </div>
 
+      {/* Tabs */}
+      <div className="flex gap-1 p-1 mb-4 w-fit flex-shrink-0" style={{ background: "#F4F9FD", borderRadius: 16 }}>
+        {([["ijro", "IJRO nazorati"], ["hujjatlar", "Mening hujjatlarim"]] as const).map(([key, label]) => (
+          <button key={key} onClick={() => setTab(key)}
+            className="px-5 py-2.5 text-sm font-bold transition-all"
+            style={{
+              background: tab === key ? "#FFFFFF" : "transparent",
+              color: tab === key ? "#0A1629" : "#91929E",
+              borderRadius: 12,
+              boxShadow: tab === key ? "0px 2px 8px rgba(0,0,0,0.08)" : "none",
+            }}>
+            {label}
+          </button>
+        ))}
+      </div>
+
+      {tab === "hujjatlar" ? (
+        <div className="flex flex-col gap-5">
+          <InternalDocInboxTab />
+          <InternalDocMineTab showZamdirektor />
+        </div>
+      ) : (
       <div className="flex gap-4 flex-1 overflow-hidden">
         {/* LEFT PANEL */}
         <div className="w-[340px] flex-shrink-0 flex flex-col"
@@ -734,6 +759,7 @@ export default function BolimNazoratPage() {
           )}
         </div>
       </div>
+      )}
     </div>
   );
 }

@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { getUser } from "@/lib/auth";
 import { apiFetch } from "@/lib/api";
+import InternalDocIjroViewTab from "@/components/internal-docs/InternalDocIjroViewTab";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -1921,7 +1922,7 @@ function KalendarTab({ docs, onGoToTasks }: { docs: IjroDoc[]; onGoToTasks: () =
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 export default function IjroNazoratPage() {
-  const [tab,   setTab]   = useState<"panel" | "tasks" | "calendar">("panel");
+  const [tab,   setTab]   = useState<"panel" | "tasks" | "calendar" | "hujjatlar">("panel");
   const [docs,  setDocs]  = useState<IjroDoc[]>([]);
   const [depts, setDepts] = useState<Department[]>([]);
   const [loading, setLoading] = useState(true);
@@ -1995,6 +1996,11 @@ export default function IjroNazoratPage() {
           style={{ borderRadius:10, background: tab==="calendar"?"#3F8CFF":"transparent", color: tab==="calendar"?"#FFFFFF":"#7D8592" }}>
           <Calendar size={16}/> Kalandar
         </button>
+        <button onClick={() => setTab("hujjatlar")}
+          className="flex items-center gap-2 px-5 py-2.5 text-sm font-bold transition-all"
+          style={{ borderRadius:10, background: tab==="hujjatlar"?"#3F8CFF":"transparent", color: tab==="hujjatlar"?"#FFFFFF":"#7D8592" }}>
+          <FileText size={16}/> Mening hujjatlarim
+        </button>
       </div>
 
       {/* Content */}
@@ -2006,8 +2012,10 @@ export default function IjroNazoratPage() {
         <BoshqaruvPaneli docs={docs} depts={depts} onRefresh={loadDocs} />
       ) : tab === "tasks" ? (
         <Topshiriqlar docs={docs} depts={depts} onRefresh={loadDocs} />
-      ) : (
+      ) : tab === "calendar" ? (
         <KalendarTab docs={docs} onGoToTasks={() => setTab("tasks")} />
+      ) : (
+        <InternalDocIjroViewTab />
       )}
     </div>
   );
