@@ -717,6 +717,7 @@ class InternalDocumentListOut(BaseModel):
     created_by:       int
     created_by_nomi:  Optional[str] = None
     created_at:       Optional[datetime] = None
+    editable:         bool = False   # joriy foydalanuvchi (agar u yaratgan bo'lsa) tahrirlashi/o'chirishi mumkinmi
     model_config = {"from_attributes": True}
 
 class InternalDocumentOut(InternalDocumentListOut):
@@ -737,6 +738,12 @@ class InternalDocApproveIn(BaseModel):
 
 class InternalDocRejectIn(BaseModel):
     izoh: str
+
+class InternalDocumentEditIn(BaseModel):
+    nomi:      Optional[str] = None
+    mazmun:    Optional[str] = None
+    fayl_name: Optional[str] = None
+    fayl_b64:  Optional[str] = None
 
 
 class IjroDocUpdate(BaseModel):

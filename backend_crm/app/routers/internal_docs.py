@@ -22,12 +22,26 @@ def _log(db: Session, doc_id: int, action: str, izoh: Optional[str], actor_id: O
     db.add(models.InternalDocumentLog(doc_id=doc_id, action=action, izoh=izoh, actor_id=actor_id))
 
 
-def _make_out(doc: models.InternalDocument, db: Optional[Session] = None, full: bool = True) -> schemas.InternalDocumentOut:
+def _is_editable(doc: models.InternalDocument) -> bool:
+    """Hujjat egasi (kim yaratgan bo'lsa) tahrirlashi/o'chirishi mumkin bo'lgan
+    holatlar: rad etilgan (qayta yuborish uchun), yoki hali "keyingi" tasdiqlovchi
+    tomonidan tasdiqlanmagan bosqichda. Bo'lim boshlig'i o'zi yaratgan hujjatda bu
+    chegara zamdirektor tasdig'i, oddiy xodimda esa bo'lim boshlig'i tasdig'i."""
+    if doc.status == models.InternalDocumentStatus.rad_etildi:
+        return True
+    creator_is_head = bool(doc.creator and doc.creator.role in _HEAD_ROLES)
+    if creator_is_head:
+        return doc.status in (models.InternalDocumentStatus.bolim_tasdiqladi, models.InternalDocumentStatus.zamdirektor_oqidi)
+    return doc.status in (models.InternalDocumentStatus.yuborildi, models.InternalDocumentStatus.bolim_oqidi)
+
+
+def _make_out(doc: models.InternalDocument, current: models.Employee, db: Optional[Session] = None, full: bool = True) -> schemas.InternalDocumentOut:
     cls = schemas.InternalDocumentOut if full else schemas.InternalDocumentListOut
     out = cls.model_validate(doc)
     out.department_nomi  = doc.department.name if doc.department else None
     out.zamdirektor_nomi = doc.zamdirektor.full_name if doc.zamdirektor else None
     out.created_by_nomi  = doc.creator.full_name if doc.creator else None
+    out.editable          = doc.created_by == current.id and _is_editable(doc)
     if full and db is not None:
         logs = (
             db.query(models.InternalDocumentLog)
@@ -102,7 +116,7 @@ def create_doc(
 
     db.commit()
     db.refresh(doc)
-    return _make_out(doc, db)
+    return _make_out(doc, current, db)
 
 
 @router.get("/mine", response_model=List[schemas.InternalDocumentListOut])
@@ -118,7 +132,7 @@ def my_docs(
         .order_by(models.InternalDocument.created_at.desc())
         .all()
     )
-    return [_make_out(d, full=False) for d in docs]
+    return [_make_out(d, current, full=False) for d in docs]
 
 
 @router.get("/bolim-inbox", response_model=List[schemas.InternalDocumentListOut])
@@ -142,7 +156,7 @@ def bolim_inbox(
             models.InternalDocument.created_by != current.id,
         )
     docs = q.order_by(models.InternalDocument.created_at.desc()).all()
-    return [_make_out(d, full=False) for d in docs]
+    return [_make_out(d, current, full=False) for d in docs]
 
 
 @router.get("/zamdirektor-inbox", response_model=List[schemas.InternalDocumentListOut])
@@ -168,7 +182,7 @@ def zamdirektor_inbox(
     if current.role == models.RoleEnum.zamdirektor:
         q = q.filter(models.InternalDocument.zamdirektor_id == current.id)
     docs = q.order_by(models.InternalDocument.created_at.desc()).all()
-    return [_make_out(d, full=False) for d in docs]
+    return [_make_out(d, current, full=False) for d in docs]
 
 
 @router.get("/ijro-view", response_model=List[schemas.InternalDocumentListOut])
@@ -190,7 +204,7 @@ def ijro_view(
         .order_by(models.InternalDocument.updated_at.desc())
         .all()
     )
-    return [_make_out(d, full=False) for d in docs]
+    return [_make_out(d, current, full=False) for d in docs]
 
 
 @router.get("/zamdirektorlar")
@@ -242,7 +256,7 @@ def get_doc(
         db.commit()
         db.refresh(doc)
 
-    return _make_out(doc, db)
+    return _make_out(doc, current, db)
 
 
 @router.get("/{doc_id}/file")
@@ -259,6 +273,72 @@ def download_file(
     if not doc.fayl_b64:
         raise HTTPException(status_code=404, detail="Fayl topilmadi")
     return {"file_name": doc.fayl_name, "file_b64": doc.fayl_b64}
+
+
+@router.patch("/{doc_id}", response_model=schemas.InternalDocumentOut)
+def edit_doc(
+    doc_id:  int,
+    data:    schemas.InternalDocumentEditIn,
+    db:      Session = Depends(get_db),
+    current: models.Employee = Depends(get_current_employee),
+):
+    """Hujjat egasi (yaratgan xodim) tahrirlaydi. Rad etilgan bo'lsa, tahrirlash
+    avtomatik qayta yuborish hisoblanadi — rad etgan bosqichga (bo'lim boshlig'i
+    yoki xuddi shu zamdirektorga) qaytadan yuboriladi, izoh tozalanadi."""
+    doc = db.query(models.InternalDocument).filter(models.InternalDocument.id == doc_id).first()
+    if not doc:
+        raise HTTPException(status_code=404, detail="Hujjat topilmadi")
+    if doc.created_by != current.id:
+        raise HTTPException(status_code=403, detail="Faqat hujjat egasi tahrirlashi mumkin")
+    if not _is_editable(doc):
+        raise HTTPException(status_code=400, detail="Hujjatni hozir tahrirlab bo'lmaydi")
+
+    fields = data.model_dump(exclude_unset=True)
+    if "nomi" in fields and fields["nomi"]:
+        doc.nomi = fields["nomi"]
+    if "mazmun" in fields:
+        doc.mazmun = fields["mazmun"]
+    if "fayl_name" in fields:
+        doc.fayl_name = fields["fayl_name"]
+    if "fayl_b64" in fields:
+        doc.fayl_b64 = fields["fayl_b64"]
+
+    if doc.status == models.InternalDocumentStatus.rad_etildi:
+        last_reject = (
+            db.query(models.InternalDocumentLog)
+            .filter(models.InternalDocumentLog.doc_id == doc.id,
+                    models.InternalDocumentLog.action.in_(["bolim_rad_etdi", "zamdirektor_rad_etdi"]))
+            .order_by(models.InternalDocumentLog.created_at.desc())
+            .first()
+        )
+        doc.status = (
+            models.InternalDocumentStatus.bolim_tasdiqladi
+            if last_reject and last_reject.action == "zamdirektor_rad_etdi"
+            else models.InternalDocumentStatus.yuborildi
+        )
+        doc.rad_sababi = None
+        _log(db, doc.id, "qayta_yuborildi", None, current.id)
+
+    db.commit()
+    db.refresh(doc)
+    return _make_out(doc, current, db)
+
+
+@router.delete("/{doc_id}", status_code=204)
+def delete_doc(
+    doc_id:  int,
+    db:      Session = Depends(get_db),
+    current: models.Employee = Depends(get_current_employee),
+):
+    doc = db.query(models.InternalDocument).filter(models.InternalDocument.id == doc_id).first()
+    if not doc:
+        raise HTTPException(status_code=404, detail="Hujjat topilmadi")
+    if doc.created_by != current.id:
+        raise HTTPException(status_code=403, detail="Faqat hujjat egasi o'chirishi mumkin")
+    if not _is_editable(doc):
+        raise HTTPException(status_code=400, detail="Hujjatni hozir o'chirib bo'lmaydi")
+    db.delete(doc)
+    db.commit()
 
 
 @router.post("/{doc_id}/approve", response_model=schemas.InternalDocumentOut)
@@ -287,7 +367,7 @@ def bolim_approve(
     _log(db, doc.id, "bolim_tasdiqladi", None, current.id)
     db.commit()
     db.refresh(doc)
-    return _make_out(doc, db)
+    return _make_out(doc, current, db)
 
 
 @router.post("/{doc_id}/reject", response_model=schemas.InternalDocumentOut)
@@ -314,7 +394,7 @@ def bolim_reject(
     _log(db, doc.id, "bolim_rad_etdi", data.izoh, current.id)
     db.commit()
     db.refresh(doc)
-    return _make_out(doc, db)
+    return _make_out(doc, current, db)
 
 
 @router.post("/{doc_id}/zamdirektor-approve", response_model=schemas.InternalDocumentOut)
@@ -335,7 +415,7 @@ def zamdirektor_approve(
     _log(db, doc.id, "zamdirektor_tasdiqladi", None, current.id)
     db.commit()
     db.refresh(doc)
-    return _make_out(doc, db)
+    return _make_out(doc, current, db)
 
 
 @router.post("/{doc_id}/zamdirektor-reject", response_model=schemas.InternalDocumentOut)
@@ -360,4 +440,4 @@ def zamdirektor_reject(
     _log(db, doc.id, "zamdirektor_rad_etdi", data.izoh, current.id)
     db.commit()
     db.refresh(doc)
-    return _make_out(doc, db)
+    return _make_out(doc, current, db)

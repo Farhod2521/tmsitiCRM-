@@ -35,6 +35,7 @@ export interface InternalDocListItem {
   created_by: number;
   created_by_nomi: string | null;
   created_at: string | null;
+  editable: boolean;
 }
 
 export interface InternalDocDetail extends InternalDocListItem {
@@ -62,6 +63,7 @@ export const LOG_ACTION_LABEL: Record<string, string> = {
   zamdirektor_tasdiqladi: "Zamdirektor tasdiqladi",
   zamdirektor_rad_etdi:   "Zamdirektor rad etdi",
   ijrochi_oqidi:          "Ijrochi (IJRO) ochib ko'rdi",
+  qayta_yuborildi:        "Tuzatib qayta yuborildi",
 };
 
 export function fmtDt(d: string | null): string {

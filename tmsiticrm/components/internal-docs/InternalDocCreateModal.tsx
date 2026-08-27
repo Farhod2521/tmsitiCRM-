@@ -8,15 +8,18 @@ import { fileToBase64, InternalDocDetail } from "./types";
 interface ZamdirektorOpt { id: number; full_name: string; position: string; }
 
 export default function InternalDocCreateModal({
-  showZamdirektor, parentDoc, onClose, onCreated,
+  showZamdirektor, editDoc, onClose, onSaved,
 }: {
   showZamdirektor: boolean;
-  parentDoc?: InternalDocDetail | null;
+  editDoc?: InternalDocDetail | null;
   onClose: () => void;
-  onCreated: () => void;
+  onSaved: () => void;
 }) {
-  const [nomi, setNomi] = useState(parentDoc?.nomi || "");
-  const [mazmun, setMazmun] = useState(parentDoc?.mazmun || "");
+  const isEdit = !!editDoc;
+  const isResubmit = editDoc?.status === "rad_etildi";
+
+  const [nomi, setNomi] = useState(editDoc?.nomi || "");
+  const [mazmun, setMazmun] = useState(editDoc?.mazmun || "");
   const [fileName, setFileName] = useState<string | null>(null);
   const [fileB64, setFileB64] = useState<string | null>(null);
   const [zamdirektorlar, setZamdirektorlar] = useState<ZamdirektorOpt[]>([]);
@@ -24,12 +27,15 @@ export default function InternalDocCreateModal({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Yaratishda (tahrirlashda emas) zamdirektor tanlash kerak bo'lsa ro'yxatni yuklaymiz.
+  const needZamdirektorPicker = showZamdirektor && !isEdit;
+
   useEffect(() => {
-    if (!showZamdirektor) return;
+    if (!needZamdirektorPicker) return;
     apiFetch<ZamdirektorOpt[]>("/internal-docs/zamdirektorlar")
       .then(setZamdirektorlar)
       .catch(() => {});
-  }, [showZamdirektor]);
+  }, [needZamdirektorPicker]);
 
   async function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -41,21 +47,26 @@ export default function InternalDocCreateModal({
   async function handleSubmit() {
     setError(null);
     if (!nomi.trim()) { setError("Hujjat nomini kiriting"); return; }
-    if (showZamdirektor && !zamdirektorId) { setError("Zamdirektorni tanlang"); return; }
+    if (needZamdirektorPicker && !zamdirektorId) { setError("Zamdirektorni tanlang"); return; }
     setSaving(true);
     try {
-      await apiFetch("/internal-docs/", {
-        method: "POST",
-        body: JSON.stringify({
-          nomi: nomi.trim(),
-          mazmun: mazmun.trim() || null,
-          fayl_name: fileName,
-          fayl_b64: fileB64,
-          zamdirektor_id: showZamdirektor ? zamdirektorId : null,
-          parent_doc_id: parentDoc?.id ?? null,
-        }),
-      });
-      onCreated();
+      if (isEdit) {
+        const body: Record<string, unknown> = { nomi: nomi.trim(), mazmun: mazmun.trim() || null };
+        if (fileB64) { body.fayl_name = fileName; body.fayl_b64 = fileB64; }
+        await apiFetch(`/internal-docs/${editDoc!.id}`, { method: "PATCH", body: JSON.stringify(body) });
+      } else {
+        await apiFetch("/internal-docs/", {
+          method: "POST",
+          body: JSON.stringify({
+            nomi: nomi.trim(),
+            mazmun: mazmun.trim() || null,
+            fayl_name: fileName,
+            fayl_b64: fileB64,
+            zamdirektor_id: needZamdirektorPicker ? zamdirektorId : null,
+          }),
+        });
+      }
+      onSaved();
       onClose();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Xatolik yuz berdi");
@@ -75,12 +86,10 @@ export default function InternalDocCreateModal({
         <div className="flex items-center justify-between px-6 py-4 flex-shrink-0" style={{ borderBottom: "1px solid #F4F9FD" }}>
           <div>
             <h2 className="font-bold text-lg" style={{ color: "#0A1629" }}>
-              {parentDoc ? "Hujjatni qayta yuborish" : "Yangi hujjat yaratish"}
+              {isResubmit ? "Hujjatni tuzatib qayta yuborish" : isEdit ? "Hujjatni tahrirlash" : "Yangi hujjat yaratish"}
             </h2>
-            {parentDoc && (
-              <p className="text-xs mt-0.5" style={{ color: "#91929E" }}>
-                Avvalgi: № {parentDoc.hujjat_raqami} — rad etilgan
-              </p>
+            {isEdit && (
+              <p className="text-xs mt-0.5" style={{ color: "#91929E" }}>№ {editDoc!.hujjat_raqami}</p>
             )}
           </div>
           <button onClick={onClose} className="w-9 h-9 flex items-center justify-center hover:opacity-70"
@@ -90,6 +99,13 @@ export default function InternalDocCreateModal({
         </div>
 
         <div className="flex-1 overflow-y-auto px-6 py-5 flex flex-col gap-4">
+          {isResubmit && editDoc?.rad_sababi && (
+            <div className="p-3.5" style={{ background: "rgba(255,92,92,0.06)", border: "1px solid rgba(255,92,92,0.15)", borderRadius: 12 }}>
+              <p className="text-xs font-bold mb-1" style={{ color: "#FF5C5C" }}>Rad etish sababi:</p>
+              <p className="text-sm" style={{ color: "#0A1629" }}>{editDoc.rad_sababi}</p>
+            </div>
+          )}
+
           <div>
             <label className="text-xs font-bold mb-2 block" style={{ color: "#91929E" }}>Hujjat nomi *</label>
             <input value={nomi} onChange={e => setNomi(e.target.value)}
@@ -106,7 +122,7 @@ export default function InternalDocCreateModal({
               style={{ background: "#F4F9FD", borderRadius: 12, border: "1.5px solid #EEF2FF", color: "#0A1629" }} />
           </div>
 
-          {showZamdirektor && (
+          {needZamdirektorPicker && (
             <div>
               <label className="text-xs font-bold mb-2 block" style={{ color: "#91929E" }}>Zamdirektor *</label>
               <div className="relative">
@@ -124,7 +140,15 @@ export default function InternalDocCreateModal({
           )}
 
           <div>
-            <label className="text-xs font-bold mb-2 block" style={{ color: "#91929E" }}>Fayl biriktirish</label>
+            <label className="text-xs font-bold mb-2 block" style={{ color: "#91929E" }}>
+              Fayl biriktirish{isEdit && editDoc?.fayl_name ? " (almashtirish uchun yangisini tanlang)" : ""}
+            </label>
+            {isEdit && editDoc?.fayl_name && !fileName && (
+              <div className="flex items-center gap-2 px-4 py-3 mb-2" style={{ background: "#F4F9FD", borderRadius: 12, border: "1px solid #EEF2FF" }}>
+                <CloudUpload size={16} style={{ color: "#91929E" }} />
+                <span className="text-sm font-bold" style={{ color: "#0A1629" }}>Hozirgi: {editDoc.fayl_name}</span>
+              </div>
+            )}
             <label className="flex flex-col items-center justify-center gap-2 py-6 cursor-pointer hover:opacity-80 transition-opacity"
               style={{ border: "2px dashed #D0D9E8", borderRadius: 14, background: "#FAFCFF" }}>
               <div className="w-10 h-10 flex items-center justify-center" style={{ background: "rgba(63,140,255,0.1)", borderRadius: 10 }}>
@@ -149,7 +173,7 @@ export default function InternalDocCreateModal({
             className="flex items-center gap-2 px-5 py-2.5 text-sm font-bold text-white disabled:opacity-50"
             style={{ background: "#3F8CFF", borderRadius: 12, boxShadow: "0 4px 12px rgba(63,140,255,0.3)" }}>
             {saving ? <Loader2 size={15} className="animate-spin" /> : <Send size={15} />}
-            {parentDoc ? "Qayta yuborish" : "Yaratish"}
+            {isResubmit ? "Qayta yuborish" : isEdit ? "Saqlash" : "Yaratish"}
           </button>
         </div>
       </div>

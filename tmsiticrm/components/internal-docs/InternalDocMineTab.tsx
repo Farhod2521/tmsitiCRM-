@@ -38,10 +38,10 @@ export default function InternalDocMineTab({ showZamdirektor }: { showZamdirekto
       <InternalDocTable docs={docs} loading={loading} showZamdirektor onRowClick={d => setSelectedId(d.id)} />
 
       {createOpen && (
-        <InternalDocCreateModal showZamdirektor={showZamdirektor} onClose={() => setCreateOpen(false)} onCreated={load} />
+        <InternalDocCreateModal showZamdirektor={showZamdirektor} onClose={() => setCreateOpen(false)} onSaved={load} />
       )}
       {selectedId && (
-        <InternalDocDetailModal docId={selectedId} onClose={() => setSelectedId(null)} onChanged={load} allowResubmit />
+        <InternalDocDetailModal docId={selectedId} onClose={() => setSelectedId(null)} onChanged={load} />
       )}
     </div>
   );

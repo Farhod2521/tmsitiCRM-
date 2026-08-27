@@ -1,23 +1,23 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { X, Loader2, FileText, Download, CheckCircle2, XCircle, History, ChevronDown, RefreshCw } from "lucide-react";
+import { X, Loader2, FileText, Download, Eye, CheckCircle2, XCircle, History, ChevronDown, RefreshCw, Pencil, Trash2 } from "lucide-react";
 import { apiFetch } from "@/lib/api";
 import { InternalDocDetail, STATUS_CFG, LOG_ACTION_LABEL, fmtDt, downloadBase64 } from "./types";
 import InternalDocCreateModal from "./InternalDocCreateModal";
 import InternalDocStepper from "./InternalDocStepper";
+import InternalDocFilePreviewModal from "./InternalDocFilePreviewModal";
 
 interface ZamdirektorOpt { id: number; full_name: string; position: string; }
 
 export default function InternalDocDetailModal({
-  docId, onClose, onChanged, showBolimActions = false, showZamdirektorActions = false, allowResubmit = false,
+  docId, onClose, onChanged, showBolimActions = false, showZamdirektorActions = false,
 }: {
   docId: number;
   onClose: () => void;
   onChanged: () => void;
   showBolimActions?: boolean;
   showZamdirektorActions?: boolean;
-  allowResubmit?: boolean;
 }) {
   const [doc, setDoc] = useState<InternalDocDetail | null>(null);
   const [loading, setLoading] = useState(true);
@@ -25,8 +25,10 @@ export default function InternalDocDetailModal({
   const [zamdirektorId, setZamdirektorId] = useState<number | "">("");
   const [izoh, setIzoh] = useState("");
   const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [resubmitOpen, setResubmitOpen] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
+  const [previewOpen, setPreviewOpen] = useState(false);
 
   const load = () => {
     setLoading(true);
@@ -103,8 +105,24 @@ export default function InternalDocDetailModal({
     }
   }
 
+  async function handleDelete() {
+    if (!confirm("Hujjatni butunlay o'chirishni tasdiqlaysizmi?")) return;
+    setDeleting(true);
+    try {
+      await apiFetch(`/internal-docs/${docId}`, { method: "DELETE" });
+      onChanged();
+      onClose();
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "O'chirishda xato");
+    } finally {
+      setDeleting(false);
+    }
+  }
+
   const canReviewNow = doc && (doc.status === "yuborildi" || doc.status === "bolim_oqidi");
   const canZamReviewNow = doc && (doc.status === "bolim_tasdiqladi" || doc.status === "zamdirektor_oqidi");
+  const isRejected = doc?.status === "rad_etildi";
+  const canPreview = doc?.fayl_name && /\.(docx|pdf)$/i.test(doc.fayl_name);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
@@ -119,10 +137,27 @@ export default function InternalDocDetailModal({
             <p className="text-xs font-bold" style={{ color: "#3F8CFF" }}>№ {doc?.hujjat_raqami || "..."}</p>
             <h2 className="font-bold text-lg truncate" style={{ color: "#0A1629" }}>{doc?.nomi || "Yuklanmoqda..."}</h2>
           </div>
-          <button onClick={onClose} className="w-9 h-9 flex items-center justify-center hover:opacity-70 flex-shrink-0"
-            style={{ background: "#F4F9FD", borderRadius: 10 }}>
-            <X size={16} style={{ color: "#7D8592" }} />
-          </button>
+          <div className="flex items-center gap-2 flex-shrink-0">
+            {doc?.editable && (
+              <>
+                <button onClick={() => setEditOpen(true)}
+                  className="flex items-center gap-1.5 px-3 py-2 text-xs font-bold hover:opacity-80 transition-opacity"
+                  style={{ background: "rgba(63,140,255,0.1)", borderRadius: 10, color: "#3F8CFF" }}>
+                  {isRejected ? <RefreshCw size={13} /> : <Pencil size={13} />}
+                  {isRejected ? "Qayta yuborish" : "Tahrirlash"}
+                </button>
+                <button onClick={handleDelete} disabled={deleting}
+                  className="flex items-center gap-1.5 px-3 py-2 text-xs font-bold hover:opacity-80 transition-opacity disabled:opacity-50"
+                  style={{ background: "rgba(255,92,92,0.1)", borderRadius: 10, color: "#FF5C5C" }}>
+                  {deleting ? <Loader2 size={13} className="animate-spin" /> : <Trash2 size={13} />} O'chirish
+                </button>
+              </>
+            )}
+            <button onClick={onClose} className="w-9 h-9 flex items-center justify-center hover:opacity-70 flex-shrink-0"
+              style={{ background: "#F4F9FD", borderRadius: 10 }}>
+              <X size={16} style={{ color: "#7D8592" }} />
+            </button>
+          </div>
         </div>
 
         <div className="flex-1 overflow-y-auto px-6 py-5 flex flex-col gap-4">
@@ -150,17 +185,27 @@ export default function InternalDocDetailModal({
               )}
 
               {doc.fayl_name && (
-                <button onClick={handleDownload}
-                  className="flex items-center justify-between px-4 py-3 hover:opacity-80 transition-opacity"
-                  style={{ background: "#F4F9FD", borderRadius: 12, border: "1px solid #EEF2FF" }}>
-                  <span className="flex items-center gap-2 text-sm font-bold" style={{ color: "#0A1629" }}>
-                    <FileText size={15} style={{ color: "#3F8CFF" }} /> {doc.fayl_name}
-                  </span>
-                  <Download size={15} style={{ color: "#3F8CFF" }} />
-                </button>
+                <div className="flex items-center gap-2">
+                  <div className="flex-1 flex items-center gap-2 px-4 py-3" style={{ background: "#F4F9FD", borderRadius: 12, border: "1px solid #EEF2FF" }}>
+                    <FileText size={15} style={{ color: "#3F8CFF", flexShrink: 0 }} />
+                    <span className="text-sm font-bold truncate" style={{ color: "#0A1629" }}>{doc.fayl_name}</span>
+                  </div>
+                  {canPreview && (
+                    <button onClick={() => setPreviewOpen(true)} title="Ko'rish"
+                      className="w-11 h-11 flex items-center justify-center flex-shrink-0 hover:opacity-80 transition-opacity"
+                      style={{ background: "rgba(109,93,211,0.1)", borderRadius: 12 }}>
+                      <Eye size={16} style={{ color: "#6D5DD3" }} />
+                    </button>
+                  )}
+                  <button onClick={handleDownload} title="Yuklab olish"
+                    className="w-11 h-11 flex items-center justify-center flex-shrink-0 hover:opacity-80 transition-opacity"
+                    style={{ background: "rgba(63,140,255,0.1)", borderRadius: 12 }}>
+                    <Download size={16} style={{ color: "#3F8CFF" }} />
+                  </button>
+                </div>
               )}
 
-              {doc.status === "rad_etildi" && doc.rad_sababi && (
+              {isRejected && doc.rad_sababi && (
                 <div className="p-3.5" style={{ background: "rgba(255,92,92,0.06)", border: "1px solid rgba(255,92,92,0.15)", borderRadius: 12 }}>
                   <p className="text-xs font-bold mb-1" style={{ color: "#FF5C5C" }}>Rad etish sababi:</p>
                   <p className="text-sm" style={{ color: "#0A1629" }}>{doc.rad_sababi}</p>
@@ -185,15 +230,6 @@ export default function InternalDocDetailModal({
                     ))}
                   </div>
                 </div>
-              )}
-
-              {/* Qayta yuborish */}
-              {allowResubmit && doc.status === "rad_etildi" && (
-                <button onClick={() => setResubmitOpen(true)}
-                  className="flex items-center justify-center gap-2 py-3 text-sm font-bold text-white"
-                  style={{ background: "#3F8CFF", borderRadius: 12 }}>
-                  <RefreshCw size={14} /> Qayta yuborish
-                </button>
               )}
 
               {/* Bo'lim boshlig'i harakatlari */}
@@ -259,14 +295,20 @@ export default function InternalDocDetailModal({
         </div>
       </div>
 
-      {resubmitOpen && doc && (
+      {editOpen && doc && (
         <div onClick={e => e.stopPropagation()}>
           <InternalDocCreateModal
             showZamdirektor={false}
-            parentDoc={doc}
-            onClose={() => setResubmitOpen(false)}
-            onCreated={() => { onChanged(); onClose(); }}
+            editDoc={doc}
+            onClose={() => setEditOpen(false)}
+            onSaved={() => { onChanged(); load(); }}
           />
+        </div>
+      )}
+
+      {previewOpen && doc?.fayl_name && (
+        <div onClick={e => e.stopPropagation()}>
+          <InternalDocFilePreviewModal docId={docId} fileName={doc.fayl_name} onClose={() => setPreviewOpen(false)} />
         </div>
       )}
     </div>
