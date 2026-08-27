@@ -430,6 +430,9 @@ def bolim_reject(
     _log(db, doc.id, "bolim_rad_etdi", data.izoh, current.id)
     db.commit()
     db.refresh(doc)
+
+    _notify(doc.creator, f"\U0000274C Hujjat rad etildi\n\U0001F4AC Sababi: {data.izoh}\n{_doc_summary(doc)}")
+
     return _make_out(doc, current, db)
 
 
@@ -476,4 +479,7 @@ def zamdirektor_reject(
     _log(db, doc.id, "zamdirektor_rad_etdi", data.izoh, current.id)
     db.commit()
     db.refresh(doc)
+
+    _notify(doc.creator, f"\U0000274C Hujjat rad etildi\n\U0001F4AC Sababi: {data.izoh}\n{_doc_summary(doc)}")
+
     return _make_out(doc, current, db)
