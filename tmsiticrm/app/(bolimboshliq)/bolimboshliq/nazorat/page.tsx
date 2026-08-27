@@ -566,6 +566,7 @@ function DetailPanel({
 
 export default function BolimNazoratPage() {
   const [tab, setTab] = useState<"ijro" | "hujjatlar">("ijro");
+  const [hujjatSubTab, setHujjatSubTab] = useState<"inbox" | "mine">("inbox");
   const [rows,       setRows]       = useState<DocBolimRow[]>([]);
   const [loading,    setLoading]    = useState(true);
   const [selected,   setSelected]   = useState<DocBolimRow | null>(null);
@@ -634,9 +635,22 @@ export default function BolimNazoratPage() {
       </div>
 
       {tab === "hujjatlar" ? (
-        <div className="flex flex-col gap-5">
-          <InternalDocInboxTab />
-          <InternalDocMineTab showZamdirektor />
+        <div className="flex flex-col gap-4">
+          <div className="flex gap-1 p-1 w-fit" style={{ background: "#F4F9FD", borderRadius: 16 }}>
+            {([["inbox", "Xodimlardan kelgan"], ["mine", "Mening hujjatlarim"]] as const).map(([key, label]) => (
+              <button key={key} onClick={() => setHujjatSubTab(key)}
+                className="px-5 py-2.5 text-sm font-bold transition-all"
+                style={{
+                  background: hujjatSubTab === key ? "#FFFFFF" : "transparent",
+                  color: hujjatSubTab === key ? "#0A1629" : "#91929E",
+                  borderRadius: 12,
+                  boxShadow: hujjatSubTab === key ? "0px 2px 8px rgba(0,0,0,0.08)" : "none",
+                }}>
+                {label}
+              </button>
+            ))}
+          </div>
+          {hujjatSubTab === "inbox" ? <InternalDocInboxTab /> : <InternalDocMineTab showZamdirektor />}
         </div>
       ) : (
       <div className="flex gap-4 flex-1 overflow-hidden">
