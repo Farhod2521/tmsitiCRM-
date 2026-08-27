@@ -29,6 +29,7 @@ export default function InternalDocDetailModal({
   const [error, setError] = useState<string | null>(null);
   const [editOpen, setEditOpen] = useState(false);
   const [previewOpen, setPreviewOpen] = useState(false);
+  const [logOpen, setLogOpen] = useState(false);
 
   const load = () => {
     setLoading(true);
@@ -215,20 +216,25 @@ export default function InternalDocDetailModal({
               {/* Tarix */}
               {doc.log.length > 0 && (
                 <div>
-                  <p className="text-xs font-bold mb-2 uppercase tracking-wide flex items-center gap-1.5" style={{ color: "#91929E" }}>
-                    <History size={13} /> Jarayon tarixi
-                  </p>
-                  <div className="flex flex-col gap-2">
-                    {doc.log.slice().reverse().map(l => (
-                      <div key={l.id} className="px-3 py-2" style={{ background: "#F4F9FD", borderRadius: 10 }}>
-                        <p className="text-xs font-bold" style={{ color: "#0A1629" }}>{LOG_ACTION_LABEL[l.action] || l.action}</p>
-                        {l.izoh && <p className="text-sm mt-0.5" style={{ color: "#3D4557" }}>&ldquo;{l.izoh}&rdquo;</p>}
-                        <p className="text-xs mt-1" style={{ color: "#91929E" }}>
-                          {l.actor_nomi}{l.created_at && ` — ${fmtDt(l.created_at)}`}
-                        </p>
-                      </div>
-                    ))}
-                  </div>
+                  <button type="button" onClick={() => setLogOpen(o => !o)}
+                    className="w-full flex items-center justify-between text-xs font-bold mb-2 uppercase tracking-wide"
+                    style={{ color: "#91929E" }}>
+                    <span className="flex items-center gap-1.5"><History size={13} /> Jarayon tarixi ({doc.log.length})</span>
+                    <ChevronDown size={14} style={{ transform: logOpen ? "rotate(180deg)" : undefined, transition: "transform 0.15s" }} />
+                  </button>
+                  {logOpen && (
+                    <div className="flex flex-col gap-2">
+                      {doc.log.slice().reverse().map(l => (
+                        <div key={l.id} className="px-3 py-2" style={{ background: "#F4F9FD", borderRadius: 10 }}>
+                          <p className="text-xs font-bold" style={{ color: "#0A1629" }}>{LOG_ACTION_LABEL[l.action] || l.action}</p>
+                          {l.izoh && <p className="text-sm mt-0.5" style={{ color: "#3D4557" }}>&ldquo;{l.izoh}&rdquo;</p>}
+                          <p className="text-xs mt-1" style={{ color: "#91929E" }}>
+                            {l.actor_nomi}{l.created_at && ` — ${fmtDt(l.created_at)}`}
+                          </p>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               )}
 
