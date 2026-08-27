@@ -342,13 +342,32 @@ def edit_doc(
             .order_by(models.InternalDocumentLog.created_at.desc())
             .first()
         )
+        back_to_zamdirektor = bool(last_reject and last_reject.action == "zamdirektor_rad_etdi")
         doc.status = (
             models.InternalDocumentStatus.bolim_tasdiqladi
-            if last_reject and last_reject.action == "zamdirektor_rad_etdi"
+            if back_to_zamdirektor
             else models.InternalDocumentStatus.yuborildi
         )
         doc.rad_sababi = None
         _log(db, doc.id, "qayta_yuborildi", None, current.id)
+
+        db.commit()
+        db.refresh(doc)
+
+        if back_to_zamdirektor:
+            _notify(doc.zamdirektor, f"\U0001F504 Hujjat qayta kiritildi\n\U0001F464 Yubordi: {current.full_name}\n{_doc_summary(doc)}")
+        else:
+            heads = (
+                db.query(models.Employee)
+                .filter(models.Employee.role.in_(_HEAD_ROLES),
+                        models.Employee.department_id == doc.department_id,
+                        models.Employee.telegram_id.isnot(None))
+                .all()
+            )
+            for head in heads:
+                _notify(head, f"\U0001F504 Hujjat qayta kiritildi\n\U0001F464 Yubordi: {current.full_name}\n{_doc_summary(doc)}")
+
+        return _make_out(doc, current, db)
 
     db.commit()
     db.refresh(doc)
