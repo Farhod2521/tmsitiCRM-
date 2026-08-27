@@ -305,6 +305,13 @@ export default function TurniketDavomatTab() {
                 {preview.rows.map(r => {
                   const cfg = CONFIDENCE_CFG[r.confidence];
                   const Icon = cfg.icon;
+                  const mySelection = selections[r.row_index] ?? "";
+                  const takenElsewhere = new Set(
+                    Object.entries(selections)
+                      .filter(([idx, v]) => Number(idx) !== r.row_index && v !== "")
+                      .map(([, v]) => v)
+                  );
+                  const options = employees.filter(e => e.id === mySelection || !takenElsewhere.has(e.id));
                   return (
                     <div key={r.row_index} className="flex items-center gap-3 px-3 py-2.5 flex-wrap" style={{ background: "#FAFCFF", borderRadius: 12 }}>
                       <span className="flex items-center gap-1.5 px-2 py-1 text-[10px] font-bold whitespace-nowrap" style={{ background: cfg.bg, color: cfg.color, borderRadius: 6 }}>
@@ -314,11 +321,11 @@ export default function TurniketDavomatTab() {
                         <p className="text-xs font-bold truncate" style={{ color: "#0A1629" }}>{r.xlsx_name}</p>
                         <p className="text-[10px]" style={{ color: "#91929E" }}>{r.days_with_data} kunlik ma'lumot</p>
                       </div>
-                      <select value={selections[r.row_index] ?? ""} onChange={e => setSelections(s => ({ ...s, [r.row_index]: e.target.value ? Number(e.target.value) : "" }))}
+                      <select value={mySelection} onChange={e => setSelections(s => ({ ...s, [r.row_index]: e.target.value ? Number(e.target.value) : "" }))}
                         className="px-3 py-2 text-xs font-bold outline-none flex-shrink-0"
                         style={{ background: "#FFFFFF", borderRadius: 8, border: "1.5px solid #EEF2FF", color: "#0A1629", minWidth: 200 }}>
                         <option value="">— O'tkazib yuborish —</option>
-                        {employees.map(e => (
+                        {options.map(e => (
                           <option key={e.id} value={e.id}>{e.full_name} — {e.position}</option>
                         ))}
                       </select>
