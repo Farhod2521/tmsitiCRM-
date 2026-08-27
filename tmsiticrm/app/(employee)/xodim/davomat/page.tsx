@@ -4,12 +4,13 @@ import { useState, useEffect } from "react";
 import Header from "@/components/layout/Header";
 import AttendanceCalendar from "@/components/profile/AttendanceCalendar";
 import AutoTabelTable from "@/components/attendance/AutoTabelTable";
+import TurniketDavomatTab from "@/components/attendance/TurniketDavomatTab";
 import { getUser } from "@/lib/auth";
-import { Users, User } from "lucide-react";
+import { Users, User, DoorOpen } from "lucide-react";
 
 export default function XodimDavomatPage() {
   const [isKadr, setIsKadr] = useState(false);
-  const [tab, setTab] = useState<"xodimlar" | "ozim">("xodimlar");
+  const [tab, setTab] = useState<"xodimlar" | "turniket" | "ozim">("xodimlar");
 
   useEffect(() => { setIsKadr(getUser()?.role === "kadr"); }, []);
 
@@ -33,6 +34,11 @@ export default function XodimDavomatPage() {
           style={{ borderRadius: 10, background: tab === "xodimlar" ? "#3F8CFF" : "transparent", color: tab === "xodimlar" ? "#FFFFFF" : "#7D8592" }}>
           <Users size={16} /> Xodimlar davomati
         </button>
+        <button onClick={() => setTab("turniket")}
+          className="flex items-center gap-2 px-5 py-2.5 text-sm font-bold transition-all"
+          style={{ borderRadius: 10, background: tab === "turniket" ? "#3F8CFF" : "transparent", color: tab === "turniket" ? "#FFFFFF" : "#7D8592" }}>
+          <DoorOpen size={16} /> Turniket davomat
+        </button>
         <button onClick={() => setTab("ozim")}
           className="flex items-center gap-2 px-5 py-2.5 text-sm font-bold transition-all"
           style={{ borderRadius: 10, background: tab === "ozim" ? "#3F8CFF" : "transparent", color: tab === "ozim" ? "#FFFFFF" : "#7D8592" }}>
@@ -40,7 +46,7 @@ export default function XodimDavomatPage() {
         </button>
       </div>
 
-      {tab === "xodimlar" ? <AutoTabelTable /> : <AttendanceCalendar />}
+      {tab === "xodimlar" ? <AutoTabelTable /> : tab === "turniket" ? <TurniketDavomatTab /> : <AttendanceCalendar />}
     </div>
   );
 }
