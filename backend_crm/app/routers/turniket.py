@@ -21,7 +21,7 @@ from sqlalchemy.orm import Session
 from .. import models, schemas
 from ..database import get_db
 from ..deps import get_current_employee
-from ..name_match import match_employee
+from ..name_match import match_employee, normalize
 from .attendance import WORK_START_HOUR, WORK_START_MIN
 
 router = APIRouter(prefix="/turniket", tags=["Turniket davomat"])
@@ -129,10 +129,19 @@ def preview_import(
         raise HTTPException(status_code=400, detail=f"Faylni o'qib bo'lmadi: {e}")
 
     employees = db.query(models.Employee).filter(models.Employee.is_active == True).all()
+    employees_by_id = {e.id: e for e in employees}
+    aliases = {
+        a.normalized_name: a.employee_id
+        for a in db.query(models.TurniketNameAlias).all()
+    }
 
     preview_rows = []
     for idx, row in enumerate(parsed["rows"]):
-        emp, confidence = match_employee(row["xlsx_name"], employees)
+        alias_employee_id = aliases.get(normalize(row["xlsx_name"]))
+        if alias_employee_id and alias_employee_id in employees_by_id:
+            emp, confidence = employees_by_id[alias_employee_id], "saved"
+        else:
+            emp, confidence = match_employee(row["xlsx_name"], employees)
         preview_rows.append(schemas.TurniketPreviewRow(
             row_index=idx,
             xlsx_name=row["xlsx_name"],
@@ -172,6 +181,7 @@ def commit_import(
 
     rows = json.loads(batch.payload_json)
     valid_employee_ids = {e.id for e in db.query(models.Employee.id).all()}
+    existing_aliases = {a.normalized_name: a for a in db.query(models.TurniketNameAlias).all()}
 
     resolved: Dict[int, dict] = {}
     skipped = 0
@@ -181,6 +191,16 @@ def commit_import(
             skipped += 1
             continue
         resolved.setdefault(employee_id, {}).update(row["days"])
+
+        norm_name = normalize(row["xlsx_name"])
+        if norm_name:
+            existing = existing_aliases.get(norm_name)
+            if existing:
+                existing.employee_id = employee_id
+            else:
+                alias = models.TurniketNameAlias(normalized_name=norm_name, employee_id=employee_id)
+                db.add(alias)
+                existing_aliases[norm_name] = alias
 
     if not resolved:
         db.delete(batch)

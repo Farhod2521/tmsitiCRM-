@@ -177,6 +177,22 @@ class TurniketAttendance(Base):
     employee = relationship("Employee", foreign_keys=[employee_id])
 
 
+class TurniketNameAlias(Base):
+    """Kadr xlsx dagi bir ismni qo'lda biror xodimga bog'lasa (algoritm topa
+    olmagan yoki noto'g'ri taxmin qilgan holatda), shu moslik shu yerda eslab
+    qolinadi — keyingi oylarda xuddi shu ism yana chiqsa, qayta qo'lda
+    tanlashning hojati bo'lmaydi."""
+    __tablename__ = "turniket_name_aliases"
+
+    id              = Column(Integer, primary_key=True, index=True)
+    normalized_name = Column(String(200), unique=True, nullable=False)
+    employee_id     = Column(Integer, ForeignKey("employees.id"), nullable=False)
+    created_at      = Column(DateTime, default=datetime.utcnow)
+    updated_at      = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    employee = relationship("Employee", foreign_keys=[employee_id])
+
+
 class TurniketImportBatch(Base):
     """Xlsx yuklab /turniket/preview chaqirilganda tahlil natijasi shu yerda
     vaqtincha saqlanadi (kun-kun ma'lumoti bilan) — kadr tuzatishlarni tanlab

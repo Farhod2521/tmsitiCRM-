@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
-import { ChevronLeft, ChevronRight, Loader2, Users, Upload, X, CheckCircle2, AlertTriangle, HelpCircle } from "lucide-react";
+import { ChevronLeft, ChevronRight, Loader2, Users, Upload, X, CheckCircle2, AlertTriangle, HelpCircle, BookmarkCheck } from "lucide-react";
 import { apiFetch } from "@/lib/api";
 
 const MON_NAMES = [
@@ -31,7 +31,7 @@ interface PreviewRow {
   days_with_data: number;
   matched_employee_id: number | null;
   matched_employee_name: string | null;
-  confidence: "exact" | "surname_only" | "none";
+  confidence: "exact" | "saved" | "surname_only" | "none";
 }
 interface PreviewOut {
   batch_id: string;
@@ -42,6 +42,7 @@ interface PreviewOut {
 interface EmployeeOpt { id: number; full_name: string; position: string; }
 
 const CONFIDENCE_CFG: Record<string, { label: string; color: string; bg: string; icon: typeof CheckCircle2 }> = {
+  saved:        { label: "Saqlangan moslik", color: "#3F8CFF", bg: "rgba(63,140,255,0.1)", icon: BookmarkCheck },
   exact:        { label: "Aniq mos keldi", color: "#00A578", bg: "rgba(0,196,140,0.1)", icon: CheckCircle2 },
   surname_only: { label: "Familiya bo'yicha", color: "#E0A400", bg: "rgba(224,164,0,0.12)", icon: AlertTriangle },
   none:         { label: "Topilmadi", color: "#FF5C5C", bg: "rgba(255,92,92,0.1)", icon: HelpCircle },
