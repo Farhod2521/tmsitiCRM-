@@ -1,4 +1,17 @@
-export type InternalDocStatus = "yuborildi" | "oqilgan" | "bolim_tasdiqladi" | "zamdirektor_tasdiqladi" | "rad_etildi";
+export type InternalDocStatus =
+  | "yuborildi" | "bolim_oqidi" | "bolim_tasdiqladi"
+  | "zamdirektor_oqidi" | "zamdirektor_tasdiqladi" | "ijrochi_oqidi"
+  | "rad_etildi";
+
+// Rad etilgan bo'lmasa, jarayon shu tartibda bosqichma-bosqich boradi — stepper shu ro'yxatga qarab chiziladi.
+export const STATUS_STEPS: { key: InternalDocStatus; label: string }[] = [
+  { key: "yuborildi",              label: "Yuborildi" },
+  { key: "bolim_oqidi",            label: "Bo'lim ko'rdi" },
+  { key: "bolim_tasdiqladi",       label: "Bo'lim tasdiqladi" },
+  { key: "zamdirektor_oqidi",      label: "Zamdirektor ko'rdi" },
+  { key: "zamdirektor_tasdiqladi", label: "Zamdirektor tasdiqladi" },
+  { key: "ijrochi_oqidi",          label: "Ijrochi ko'rdi" },
+];
 
 export interface InternalDocLogEntry {
   id: number;
@@ -31,20 +44,24 @@ export interface InternalDocDetail extends InternalDocListItem {
 }
 
 export const STATUS_CFG: Record<InternalDocStatus, { label: string; color: string; bg: string }> = {
-  yuborildi:              { label: "Yuborildi",                color: "#3F8CFF", bg: "rgba(63,140,255,0.1)" },
-  oqilgan:                { label: "O'qilgan",                 color: "#6D5DD3", bg: "rgba(109,93,211,0.1)" },
-  bolim_tasdiqladi:       { label: "Bo'lim tasdiqladi",        color: "#15C0E6", bg: "rgba(21,192,230,0.1)" },
-  zamdirektor_tasdiqladi: { label: "Zamdirektor tasdiqladi",    color: "#00C48C", bg: "rgba(0,196,140,0.1)" },
-  rad_etildi:             { label: "Rad etildi",                color: "#FF5C5C", bg: "rgba(255,92,92,0.1)" },
+  yuborildi:              { label: "Yuborildi",             color: "#3F8CFF", bg: "rgba(63,140,255,0.1)" },
+  bolim_oqidi:            { label: "Bo'lim ko'rdi",         color: "#6D5DD3", bg: "rgba(109,93,211,0.1)" },
+  bolim_tasdiqladi:       { label: "Bo'lim tasdiqladi",     color: "#15C0E6", bg: "rgba(21,192,230,0.1)" },
+  zamdirektor_oqidi:      { label: "Zamdirektor ko'rdi",    color: "#6D5DD3", bg: "rgba(109,93,211,0.1)" },
+  zamdirektor_tasdiqladi: { label: "Zamdirektor tasdiqladi",color: "#00C48C", bg: "rgba(0,196,140,0.1)" },
+  ijrochi_oqidi:          { label: "Ijrochi ko'rdi",        color: "#00C48C", bg: "rgba(0,196,140,0.1)" },
+  rad_etildi:             { label: "Rad etildi",            color: "#FF5C5C", bg: "rgba(255,92,92,0.1)" },
 };
 
 export const LOG_ACTION_LABEL: Record<string, string> = {
   yaratildi:              "Yaratildi",
-  oqildi:                 "Bo'lim boshlig'i ochib ko'rdi",
+  bolim_oqidi:            "Bo'lim boshlig'i ochib ko'rdi",
   bolim_tasdiqladi:       "Bo'lim boshlig'i tasdiqladi",
   bolim_rad_etdi:         "Bo'lim boshlig'i rad etdi",
+  zamdirektor_oqidi:      "Zamdirektor ochib ko'rdi",
   zamdirektor_tasdiqladi: "Zamdirektor tasdiqladi",
   zamdirektor_rad_etdi:   "Zamdirektor rad etdi",
+  ijrochi_oqidi:          "Ijrochi (IJRO) ochib ko'rdi",
 };
 
 export function fmtDt(d: string | null): string {

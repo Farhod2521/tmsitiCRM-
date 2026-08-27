@@ -5,8 +5,9 @@ import { X, Loader2, FileText, Download, CheckCircle2, XCircle, History, Chevron
 import { apiFetch } from "@/lib/api";
 import { InternalDocDetail, STATUS_CFG, LOG_ACTION_LABEL, fmtDt, downloadBase64 } from "./types";
 import InternalDocCreateModal from "./InternalDocCreateModal";
+import InternalDocStepper from "./InternalDocStepper";
 
-interface Employee { id: number; full_name: string; position: string; role: string; }
+interface ZamdirektorOpt { id: number; full_name: string; position: string; }
 
 export default function InternalDocDetailModal({
   docId, onClose, onChanged, showBolimActions = false, showZamdirektorActions = false, allowResubmit = false,
@@ -20,7 +21,7 @@ export default function InternalDocDetailModal({
 }) {
   const [doc, setDoc] = useState<InternalDocDetail | null>(null);
   const [loading, setLoading] = useState(true);
-  const [zamdirektorlar, setZamdirektorlar] = useState<Employee[]>([]);
+  const [zamdirektorlar, setZamdirektorlar] = useState<ZamdirektorOpt[]>([]);
   const [zamdirektorId, setZamdirektorId] = useState<number | "">("");
   const [izoh, setIzoh] = useState("");
   const [saving, setSaving] = useState(false);
@@ -39,8 +40,8 @@ export default function InternalDocDetailModal({
 
   useEffect(() => {
     if (!showBolimActions) return;
-    apiFetch<Employee[]>("/employees/")
-      .then(list => setZamdirektorlar(list.filter(e => e.role === "zamdirektor")))
+    apiFetch<ZamdirektorOpt[]>("/internal-docs/zamdirektorlar")
+      .then(setZamdirektorlar)
       .catch(() => {});
   }, [showBolimActions]);
 
@@ -102,8 +103,8 @@ export default function InternalDocDetailModal({
     }
   }
 
-  const canReviewNow = doc && (doc.status === "yuborildi" || doc.status === "oqilgan");
-  const canZamReviewNow = doc && doc.status === "bolim_tasdiqladi";
+  const canReviewNow = doc && (doc.status === "yuborildi" || doc.status === "bolim_oqidi");
+  const canZamReviewNow = doc && (doc.status === "bolim_tasdiqladi" || doc.status === "zamdirektor_oqidi");
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
@@ -139,6 +140,8 @@ export default function InternalDocDetailModal({
                 {doc.created_by_nomi && <span className="text-xs" style={{ color: "#91929E" }}>Yuklagan: <b style={{ color: "#0A1629" }}>{doc.created_by_nomi}</b></span>}
                 {doc.zamdirektor_nomi && <span className="text-xs" style={{ color: "#91929E" }}>Zamdirektor: <b style={{ color: "#0A1629" }}>{doc.zamdirektor_nomi}</b></span>}
               </div>
+
+              <InternalDocStepper doc={doc} />
 
               {doc.mazmun && (
                 <div className="p-3.5" style={{ background: "#FAFCFF", borderRadius: 12, border: "1px solid #F0F4FB" }}>

@@ -334,11 +334,14 @@ class IjroDocBolimReviewLog(Base):
 
 
 class InternalDocumentStatus(str, enum.Enum):
-    """Pastdan-yuqoriga ichki hujjat oqimi: Xodim -> Bo'lim boshlig'i -> Zamdirektor -> Ijro (faqat ko'radi)."""
-    yuborildi              = "yuborildi"               # xodim yubordi, bo'lim boshlig'i tekshirishi kutilmoqda
-    oqilgan                = "oqilgan"                  # bo'lim boshlig'i ochib ko'rdi, hali qaror yo'q
+    """Pastdan-yuqoriga ichki hujjat oqimi: Xodim -> Bo'lim boshlig'i -> Zamdirektor -> Ijrochi (faqat ko'radi).
+    Har bir bosqichda "ko'rdi/o'qidi" holati alohida — jarayon to'liq shaffof ko'rinishi uchun."""
+    yuborildi              = "yuborildi"                # xodim yubordi, bo'lim boshlig'i tekshirishi kutilmoqda
+    bolim_oqidi            = "bolim_oqidi"              # bo'lim boshlig'i ochib ko'rdi, hali qaror yo'q
     bolim_tasdiqladi       = "bolim_tasdiqladi"         # bo'lim boshlig'i tasdiqladi, zamdirektorga yuborildi
-    zamdirektor_tasdiqladi = "zamdirektor_tasdiqladi"   # yakuniy tasdiq — IJRO ko'radi
+    zamdirektor_oqidi      = "zamdirektor_oqidi"        # zamdirektor ochib ko'rdi, hali qaror yo'q
+    zamdirektor_tasdiqladi = "zamdirektor_tasdiqladi"   # zamdirektor tasdiqladi — ijrochiga (IJRO roliga) yuborildi
+    ijrochi_oqidi          = "ijrochi_oqidi"            # IJRO roli ochib ko'rdi — jarayon yakunlandi
     rad_etildi             = "rad_etildi"               # bo'lim boshlig'i yoki zamdirektor rad etdi
 
 

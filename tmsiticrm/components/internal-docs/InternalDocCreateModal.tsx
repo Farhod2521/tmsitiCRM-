@@ -5,7 +5,7 @@ import { X, Loader2, Send, CloudUpload, ChevronDown } from "lucide-react";
 import { apiFetch } from "@/lib/api";
 import { fileToBase64, InternalDocDetail } from "./types";
 
-interface Employee { id: number; full_name: string; position: string; role: string; }
+interface ZamdirektorOpt { id: number; full_name: string; position: string; }
 
 export default function InternalDocCreateModal({
   showZamdirektor, parentDoc, onClose, onCreated,
@@ -19,15 +19,15 @@ export default function InternalDocCreateModal({
   const [mazmun, setMazmun] = useState(parentDoc?.mazmun || "");
   const [fileName, setFileName] = useState<string | null>(null);
   const [fileB64, setFileB64] = useState<string | null>(null);
-  const [zamdirektorlar, setZamdirektorlar] = useState<Employee[]>([]);
+  const [zamdirektorlar, setZamdirektorlar] = useState<ZamdirektorOpt[]>([]);
   const [zamdirektorId, setZamdirektorId] = useState<number | "">("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!showZamdirektor) return;
-    apiFetch<Employee[]>("/employees/")
-      .then(list => setZamdirektorlar(list.filter(e => e.role === "zamdirektor")))
+    apiFetch<ZamdirektorOpt[]>("/internal-docs/zamdirektorlar")
+      .then(setZamdirektorlar)
       .catch(() => {});
   }, [showZamdirektor]);
 

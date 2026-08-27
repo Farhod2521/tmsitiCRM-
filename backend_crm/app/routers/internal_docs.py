@@ -160,7 +160,9 @@ def zamdirektor_inbox(
         joinedload(models.InternalDocument.creator),
     ).filter(models.InternalDocument.status.in_([
         models.InternalDocumentStatus.bolim_tasdiqladi,
+        models.InternalDocumentStatus.zamdirektor_oqidi,
         models.InternalDocumentStatus.zamdirektor_tasdiqladi,
+        models.InternalDocumentStatus.ijrochi_oqidi,
         models.InternalDocumentStatus.rad_etildi,
     ]))
     if current.role == models.RoleEnum.zamdirektor:
@@ -181,11 +183,32 @@ def ijro_view(
         db.query(models.InternalDocument)
         .options(joinedload(models.InternalDocument.department), joinedload(models.InternalDocument.zamdirektor),
                  joinedload(models.InternalDocument.creator))
-        .filter(models.InternalDocument.status == models.InternalDocumentStatus.zamdirektor_tasdiqladi)
+        .filter(models.InternalDocument.status.in_([
+            models.InternalDocumentStatus.zamdirektor_tasdiqladi,
+            models.InternalDocumentStatus.ijrochi_oqidi,
+        ]))
         .order_by(models.InternalDocument.updated_at.desc())
         .all()
     )
     return [_make_out(d, full=False) for d in docs]
+
+
+@router.get("/zamdirektorlar")
+def list_zamdirektorlar(
+    db:      Session = Depends(get_db),
+    current: models.Employee = Depends(get_current_employee),
+):
+    """Zamdirektor lavozimidagi xodimlar ro'yxati — hujjat yaratish/tasdiqlashda
+    tanlash uchun. `/employees/` bo'lim boshlig'i uchun faqat o'z bo'limini
+    qaytaradi (zamdirektor odatda boshqa bo'limda bo'ladi), shuning uchun bu
+    alohida, cheklanmagan endpoint kerak."""
+    zams = (
+        db.query(models.Employee)
+        .filter(models.Employee.role == models.RoleEnum.zamdirektor, models.Employee.is_active == True)
+        .order_by(models.Employee.full_name)
+        .all()
+    )
+    return [{"id": z.id, "full_name": z.full_name, "position": z.position} for z in zams]
 
 
 @router.get("/{doc_id}", response_model=schemas.InternalDocumentOut)
@@ -202,8 +225,20 @@ def get_doc(
 
     if (current.role in _HEAD_ROLES and current.department_id == doc.department_id
             and doc.status == models.InternalDocumentStatus.yuborildi):
-        doc.status = models.InternalDocumentStatus.oqilgan
-        _log(db, doc.id, "oqildi", None, current.id)
+        doc.status = models.InternalDocumentStatus.bolim_oqidi
+        _log(db, doc.id, "bolim_oqidi", None, current.id)
+        db.commit()
+        db.refresh(doc)
+    elif (doc.zamdirektor_id == current.id
+            and doc.status == models.InternalDocumentStatus.bolim_tasdiqladi):
+        doc.status = models.InternalDocumentStatus.zamdirektor_oqidi
+        _log(db, doc.id, "zamdirektor_oqidi", None, current.id)
+        db.commit()
+        db.refresh(doc)
+    elif (current.role == models.RoleEnum.ijro
+            and doc.status == models.InternalDocumentStatus.zamdirektor_tasdiqladi):
+        doc.status = models.InternalDocumentStatus.ijrochi_oqidi
+        _log(db, doc.id, "ijrochi_oqidi", None, current.id)
         db.commit()
         db.refresh(doc)
 
@@ -240,7 +275,7 @@ def bolim_approve(
         raise HTTPException(status_code=403, detail="Ruxsat yo'q")
     if current.role in _HEAD_ROLES and current.department_id != doc.department_id:
         raise HTTPException(status_code=403, detail="Bu sizning bo'limingiz emas")
-    if doc.status not in (models.InternalDocumentStatus.yuborildi, models.InternalDocumentStatus.oqilgan):
+    if doc.status not in (models.InternalDocumentStatus.yuborildi, models.InternalDocumentStatus.bolim_oqidi):
         raise HTTPException(status_code=400, detail="Hujjat allaqachon ko'rib chiqilgan")
 
     zam = db.query(models.Employee).filter(models.Employee.id == data.zamdirektor_id).first()
@@ -269,7 +304,7 @@ def bolim_reject(
         raise HTTPException(status_code=403, detail="Ruxsat yo'q")
     if current.role in _HEAD_ROLES and current.department_id != doc.department_id:
         raise HTTPException(status_code=403, detail="Bu sizning bo'limingiz emas")
-    if doc.status not in (models.InternalDocumentStatus.yuborildi, models.InternalDocumentStatus.oqilgan):
+    if doc.status not in (models.InternalDocumentStatus.yuborildi, models.InternalDocumentStatus.bolim_oqidi):
         raise HTTPException(status_code=400, detail="Hujjat allaqachon ko'rib chiqilgan")
     if not data.izoh or not data.izoh.strip():
         raise HTTPException(status_code=422, detail="Rad etish sababini yozing")
@@ -293,7 +328,7 @@ def zamdirektor_approve(
         raise HTTPException(status_code=404, detail="Hujjat topilmadi")
     if doc.zamdirektor_id != current.id:
         raise HTTPException(status_code=403, detail="Ruxsat yo'q")
-    if doc.status != models.InternalDocumentStatus.bolim_tasdiqladi:
+    if doc.status not in (models.InternalDocumentStatus.bolim_tasdiqladi, models.InternalDocumentStatus.zamdirektor_oqidi):
         raise HTTPException(status_code=400, detail="Hujjat hali bo'lim boshlig'i tomonidan tasdiqlanmagan")
 
     doc.status = models.InternalDocumentStatus.zamdirektor_tasdiqladi
@@ -315,7 +350,7 @@ def zamdirektor_reject(
         raise HTTPException(status_code=404, detail="Hujjat topilmadi")
     if doc.zamdirektor_id != current.id:
         raise HTTPException(status_code=403, detail="Ruxsat yo'q")
-    if doc.status != models.InternalDocumentStatus.bolim_tasdiqladi:
+    if doc.status not in (models.InternalDocumentStatus.bolim_tasdiqladi, models.InternalDocumentStatus.zamdirektor_oqidi):
         raise HTTPException(status_code=400, detail="Hujjat hali bo'lim boshlig'i tomonidan tasdiqlanmagan")
     if not data.izoh or not data.izoh.strip():
         raise HTTPException(status_code=422, detail="Rad etish sababini yozing")
