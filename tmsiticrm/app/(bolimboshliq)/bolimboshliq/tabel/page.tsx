@@ -182,9 +182,10 @@ export default function TabelPage() {
     const hdrCell = `${brd};background:${HEAD};color:#ffffff;font-weight:bold;font-family:Aptos,Calibri,sans-serif;font-size:8pt;text-align:center;padding:4pt 2pt;vertical-align:middle`;
     const dayHdrCell = `${brd};background:${DAYBG};color:${NAVY};font-weight:bold;font-family:Aptos,Calibri,sans-serif;font-size:8pt;text-align:center;padding:4pt 1pt;vertical-align:middle`;
 
+    const PAGE_USABLE_W = 760; // landscape A4 (841.9pt) minus 36pt side margins
     const nameColPt = 90, posColPt = 78, numColPt = 20, stColPt = 28, sumColPt = 26;
     const fixedColsPt = numColPt + nameColPt + posColPt + stColPt + sumColPt * 2;
-    const dayCW = Math.max(14, Math.floor((608 - fixedColsPt) / days.length));
+    const dayCW = Math.max(14, Math.floor((PAGE_USABLE_W - fixedColsPt) / days.length));
     const tableW = fixedColsPt + dayCW * days.length;
 
     const colgroup = `<colgroup>
@@ -248,9 +249,6 @@ table{border-collapse:collapse;}p{margin:2pt 0;}
 <p style="text-align:center;font-size:9pt;color:${MUTED};margin-bottom:4pt">
   ${deptName}&nbsp;&nbsp;&#8226;&nbsp;&nbsp;01.${mm}.${year}&nbsp;&#8212;&nbsp;${endDay}.${mm}.${year}
 </p>
-<p style="text-align:right;font-size:8pt;color:${MUTED};margin-bottom:8pt">
-  Davomat bo&#8216;yicha mas&#8217;ul: ____________________
-</p>
 <table width="${tableW}" style="border-collapse:collapse;table-layout:fixed;margin-bottom:2pt">
   ${colgroup}
   <thead>
@@ -269,13 +267,8 @@ table{border-collapse:collapse;}p{margin:2pt 0;}
 </table>
 <div style="margin-top:10pt"><table style="border-collapse:collapse;width:auto">${legend}</table></div>
 <table style="border:none;width:${tableW}pt;margin-top:24pt"><tr>
-  <td style="border:none;width:30%">
-    <p style="font-weight:bold;color:${NAVY};font-family:Aptos,Calibri,sans-serif;font-size:9pt">MUTAXASSIS</p>
-    <div style="border-bottom:0.5pt solid #aaa;width:150pt;height:14pt"></div>
-    <p style="color:${MUTED};font-family:Aptos,Calibri,sans-serif;font-size:8pt">Imzo: ____________________</p>
-  </td>
-  <td style="border:none;width:40%"></td>
-  <td style="border:none;width:30%">
+  <td style="border:none;width:60%"></td>
+  <td style="border:none;width:40%">
     <p style="font-weight:bold;color:${NAVY};font-family:Aptos,Calibri,sans-serif;font-size:9pt">BO&#8216;LIM BOSHLIG&#8216;I</p>
     <div style="border-bottom:0.5pt solid #aaa;width:150pt;height:14pt"></div>
     <p style="color:${MUTED};font-family:Aptos,Calibri,sans-serif;font-size:8pt">Imzo: ____________________</p>
