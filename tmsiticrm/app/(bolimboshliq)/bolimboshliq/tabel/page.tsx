@@ -179,8 +179,8 @@ export default function TabelPage() {
     const MUTED  = "#526276";
     const BODY   = "#3C4B5F";
     const brd    = `border:0.5pt solid ${BRDCLR}`;
-    const hdrCell = `${brd};background:${HEAD};color:#ffffff;font-weight:bold;font-family:Aptos,Calibri,sans-serif;font-size:9pt;text-align:center;padding:5pt 2pt;vertical-align:middle`;
-    const dayHdrCell = `${brd};background:${DAYBG};color:${NAVY};font-weight:bold;font-family:Aptos,Calibri,sans-serif;font-size:9pt;text-align:center;padding:5pt 1pt;vertical-align:middle`;
+    const hdrCell = `${brd};background:${HEAD};color:#ffffff;font-weight:bold;font-family:Aptos,Calibri,sans-serif;font-size:10pt;text-align:center;padding:5pt 2pt;vertical-align:middle`;
+    const dayHdrCell = `${brd};background:${DAYBG};color:${NAVY};font-weight:bold;font-family:Aptos,Calibri,sans-serif;font-size:10pt;text-align:center;padding:5pt 1pt;vertical-align:middle`;
 
     const PAGE_USABLE_W = 760; // landscape A4 (841.9pt) minus 36pt side margins
     const nameColPt = 90, posColPt = 78, numColPt = 20, stColPt = 28, sumColPt = 26;
@@ -204,23 +204,23 @@ export default function TabelPage() {
         const plain = code === "" || code === "8" || code === "4" || code === "X";
         const bg    = plain ? "#ffffff" : s.bg;
         const color = code === "X" ? "#666666" : (plain ? NAVY : s.color);
-        return `<td style="${brd};text-align:center;background:${bg};color:${color};font-weight:normal;font-family:Aptos,Calibri,sans-serif;font-size:9pt;padding:5pt 1pt">${code}</td>`;
+        return `<td style="${brd};text-align:center;background:${bg};color:${color};font-weight:normal;font-family:Aptos,Calibri,sans-serif;font-size:10pt;padding:5pt 1pt">${code}</td>`;
       }).join("");
       return `<tr style="background:#ffffff">
-        <td style="${brd};text-align:center;color:${NAVY};font-weight:bold;font-family:Aptos,Calibri,sans-serif;font-size:9pt">${ei + 1}</td>
-        <td style="${brd};padding:5pt 4pt;font-family:Aptos,Calibri,sans-serif;font-size:9pt;color:${NAVY}">${e.name}</td>
-        <td style="${brd};padding:5pt 3pt;text-align:center;font-family:Aptos,Calibri,sans-serif;font-size:9pt;color:${NAVY}">${e.pos}</td>
-        <td style="${brd};text-align:center;font-family:Aptos,Calibri,sans-serif;font-size:9pt;color:${NAVY}">${e.unit}</td>
+        <td style="${brd};text-align:center;color:${NAVY};font-weight:bold;font-family:Aptos,Calibri,sans-serif;font-size:10pt">${ei + 1}</td>
+        <td style="${brd};padding:5pt 4pt;font-family:Aptos,Calibri,sans-serif;font-size:10pt;color:${NAVY}">${e.name}</td>
+        <td style="${brd};padding:5pt 3pt;text-align:center;font-family:Aptos,Calibri,sans-serif;font-size:10pt;color:${NAVY}">${e.pos}</td>
+        <td style="${brd};text-align:center;font-family:Aptos,Calibri,sans-serif;font-size:10pt;color:${NAVY}">${e.unit}</td>
         ${cells}
-        <td style="${brd};text-align:center;font-weight:bold;font-family:Aptos,Calibri,sans-serif;font-size:10pt;color:${NAVY}">${cntP(e)}</td>
-        <td style="${brd};text-align:center;font-weight:bold;font-family:Aptos,Calibri,sans-serif;font-size:10pt;color:${cntA(e) ? "#c0392b" : "#c5c6cf"}">${cntA(e)}</td>
+        <td style="${brd};text-align:center;font-weight:bold;font-family:Aptos,Calibri,sans-serif;font-size:11pt;color:${NAVY}">${cntP(e)}</td>
+        <td style="${brd};text-align:center;font-weight:bold;font-family:Aptos,Calibri,sans-serif;font-size:11pt;color:${cntA(e) ? "#c0392b" : "#c5c6cf"}">${cntA(e)}</td>
       </tr>`;
     }).join("");
 
     const endDay = tab === "half" ? 15 : total;
     const legend = Object.entries(CS).filter(([k]) => k !== "").map(([c, s]) =>
-      `<tr><td style="background:${s.bg};border:0.5pt solid ${s.border};color:${s.color};text-align:center;width:24pt;font-weight:bold;font-family:Aptos,Calibri,sans-serif;font-size:9pt;padding:3pt">${c}</td>
-           <td style="border:none;padding-left:6pt;color:${BODY};font-family:Aptos,Calibri,sans-serif;font-size:9pt">${s.label}</td></tr>`
+      `<tr><td style="background:${s.bg};border:0.5pt solid ${s.border};color:${s.color};text-align:center;width:24pt;font-weight:bold;font-family:Aptos,Calibri,sans-serif;font-size:10pt;padding:3pt">${c}</td>
+           <td style="border:none;padding-left:6pt;color:${BODY};font-family:Aptos,Calibri,sans-serif;font-size:10pt">${s.label}</td></tr>`
     ).join("");
 
     const html = `<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
@@ -235,9 +235,9 @@ table{border-collapse:collapse;}p{margin:2pt 0;}
 <body><div class="WordSection1">
 <table style="border:none;width:100%;margin-bottom:8pt"><tr>
   <td style="border:none;width:56%"></td>
-  <td style="border:none;width:44%;text-align:right;font-family:Aptos,Calibri,sans-serif;font-size:9pt;color:${BODY};line-height:1.5">
+  <td style="border:none;width:44%;text-align:right;font-family:Aptos,Calibri,sans-serif;font-size:10pt;color:${BODY};line-height:1.5">
     <b style="color:${NAVY};font-size:14pt">&#171;TASDIQLAYMAN&#187;</b><br>
-    Qurilishda texnik me&#8217;yorlash va standartlashtirish<br>
+    Texnik me&#8217;yorlash va standartlashtirish<br>
     ilmiy-tadqiqot instituti direktori v.v.b.<br>
     <b>${DIRECTOR}</b><br>
     ________________&nbsp;&nbsp;&#171;___&#187;__________${year}&nbsp;y.
@@ -265,17 +265,21 @@ table{border-collapse:collapse;}p{margin:2pt 0;}
   </thead>
   <tbody>${rows}</tbody>
 </table>
-<table style="border:none;width:${tableW}pt;margin-top:42pt"><tr>
+<div style="margin-top:50pt">
+<table style="border:none;width:${tableW}pt"><tr>
   <td style="border:none;width:40%;vertical-align:top">
     <table style="border-collapse:collapse;width:auto">${legend}</table>
   </td>
-  <td style="border:none;width:60%;vertical-align:top;text-align:right">
-    <p style="font-weight:bold;color:${NAVY};font-family:Aptos,Calibri,sans-serif;font-size:11pt">BO&#8216;LIM BOSHLIG&#8216;I</p>
-    <div style="border-bottom:0.5pt solid #aaa;width:170pt;height:16pt;margin-left:auto"></div>
-    <p style="color:${MUTED};font-family:Aptos,Calibri,sans-serif;font-size:9pt">Imzo: ____________________</p>
-    <p style="color:${MUTED};font-family:Aptos,Calibri,sans-serif;font-size:9pt">Sana: &#171;___&#187;__________${year}&nbsp;y.</p>
+  <td style="border:none;width:60%;vertical-align:top">
+    <table align="right" style="border-collapse:collapse;width:180pt"><tr><td style="border:none;padding:0">
+      <p style="font-weight:bold;color:${NAVY};font-family:Aptos,Calibri,sans-serif;font-size:12pt">BO&#8216;LIM BOSHLIG&#8216;I</p>
+      <div style="border-bottom:0.5pt solid #aaa;width:170pt;height:16pt"></div>
+      <p style="color:${MUTED};font-family:Aptos,Calibri,sans-serif;font-size:10pt">Imzo: ____________________</p>
+      <p style="color:${MUTED};font-family:Aptos,Calibri,sans-serif;font-size:10pt">Sana: &#171;___&#187;__________${year}&nbsp;y.</p>
+    </td></tr></table>
   </td>
 </tr></table>
+</div>
 </div></body></html>`;
 
     const blob = new Blob(["﻿" + html], { type: "application/msword;charset=utf-8" });
