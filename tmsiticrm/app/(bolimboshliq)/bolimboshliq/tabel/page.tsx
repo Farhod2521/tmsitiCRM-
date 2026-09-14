@@ -202,7 +202,7 @@ export default function TabelPage() {
         const code = wk ? "X" : (e.days[d] ?? "");
         const s    = CS[code] ?? CS[""];
         const plain = code === "" || code === "8" || code === "4" || code === "X";
-        const bg    = plain ? "#ffffff" : s.bg;
+        const bg    = wk ? "#E9EAEC" : (plain ? "#ffffff" : s.bg);
         const color = code === "X" ? "#666666" : (plain ? NAVY : s.color);
         return `<td style="${brd};text-align:center;background:${bg};color:${color};font-weight:normal;font-family:Aptos,Calibri,sans-serif;font-size:10pt;padding:5pt 1pt">${code}</td>`;
       }).join("");
@@ -240,7 +240,7 @@ table{border-collapse:collapse;}p{margin:2pt 0;}
     Texnik me&#8217;yorlash va standartlashtirish<br>
     ilmiy-tadqiqot instituti direktori v.v.b.<br>
     <b>${DIRECTOR}</b><br>
-    ________________&nbsp;&nbsp;&#171;___&#187;__________${year}&nbsp;y.
+    &#171;___&#187;__________${year}&nbsp;y.
   </td>
 </tr></table>
 <p style="text-align:center;font-weight:bold;font-size:20pt;color:${NAVY};font-family:'Aptos Display',Aptos,Calibri,sans-serif">
@@ -280,6 +280,7 @@ table{border-collapse:collapse;}p{margin:2pt 0;}
   </td>
 </tr></table>
 </div>
+<div style="height:50px">&nbsp;</div>
 </div></body></html>`;
 
     const blob = new Blob(["﻿" + html], { type: "application/msword;charset=utf-8" });
