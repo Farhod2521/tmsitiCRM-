@@ -7,8 +7,8 @@ import { getUser } from "@/lib/auth";
 
 /* ── Types ── */
 type Code = "8" | "4" | "X" | "Б" | "К" | "У/Т" | "М/Т" | "";
-const WORK_CYCLE: Code[] = ["8", "Б", "К", "У/Т", "М/Т", ""];
-const HALF_CYCLE: Code[] = ["4", "Б", "К", "У/Т", "М/Т", ""];
+const WORK_CYCLE: Code[] = ["8", "X", "Б", "К", "У/Т", "М/Т", ""];
+const HALF_CYCLE: Code[] = ["4", "X", "Б", "К", "У/Т", "М/Т", ""];
 
 const CS: Record<string, { bg: string; color: string; border: string; label: string }> = {
   "8":   { bg: "#ffffff", color: "#041638", border: "#c5c6cf", label: "Ish kuni (8 soat)" },
@@ -71,7 +71,7 @@ function fillWeekends(emps: Emp[], year: number, month: number, total: number): 
 }
 
 const DEPT    = "Axborot texnologiyalarini joriy etish bo'limi";
-const DIRECTOR= "M. Mustapov";
+const DIRECTOR= "R.Kuchkarov";
 
 export default function TabelPage() {
   const now   = new Date();
@@ -167,50 +167,59 @@ export default function TabelPage() {
   function cntP(e: Emp) { return activeDays.filter(d => e.days[d] === "8" || e.days[d] === "4").length || ""; }
   function cntA(e: Emp) { return activeDays.filter(d => e.days[d] && e.days[d] !== "8" && e.days[d] !== "4" && e.days[d] !== "X").length || ""; }
 
-  /* ── Word export ── */
+  /* ── Word export (zamonaviy dizayn) ── */
   function downloadWord() {
     const mm  = String(month).padStart(2, "0");
     const days = activeDays;
-    const brd  = "border:1pt solid #c5c6cf";
-    const hdrD = "background:#e9e7eb;color:#45464e;font-weight:bold;font-size:8pt;text-align:center;padding:3pt 2pt";
 
-    const totalVarCols = days.length + 2;
-    const dayCW = Math.floor(608 / totalVarCols);
-    const tableW = 177 + dayCW * totalVarCols;
+    const NAVY   = "#17365D";
+    const HEAD   = "#245A8D";
+    const DAYBG  = "#EAF2F8";
+    const BRDCLR = "#C7D6E5";
+    const MUTED  = "#526276";
+    const BODY   = "#3C4B5F";
+    const brd    = `border:0.5pt solid ${BRDCLR}`;
+    const hdrCell = `${brd};background:${HEAD};color:#ffffff;font-weight:bold;font-family:Aptos,Calibri,sans-serif;font-size:8pt;text-align:center;padding:4pt 2pt;vertical-align:middle`;
+    const dayHdrCell = `${brd};background:${DAYBG};color:${NAVY};font-weight:bold;font-family:Aptos,Calibri,sans-serif;font-size:8pt;text-align:center;padding:4pt 1pt;vertical-align:middle`;
+
+    const nameColPt = 90, posColPt = 78, numColPt = 20, stColPt = 28, sumColPt = 26;
+    const fixedColsPt = numColPt + nameColPt + posColPt + stColPt + sumColPt * 2;
+    const dayCW = Math.max(14, Math.floor((608 - fixedColsPt) / days.length));
+    const tableW = fixedColsPt + dayCW * days.length;
 
     const colgroup = `<colgroup>
-      <col width="16"><col width="70"><col width="65"><col width="26">
+      <col width="${numColPt}"><col width="${nameColPt}"><col width="${posColPt}"><col width="${stColPt}">
       ${days.map(() => `<col width="${dayCW}">`).join("")}
-      <col width="${dayCW}"><col width="${dayCW}">
+      <col width="${sumColPt}"><col width="${sumColPt}">
     </colgroup>`;
 
-    const dayHdrs = days.map(d => {
-      const wk = isWknd(year, month, d);
-      return `<th style="${brd};background:${wk ? "#cccccc" : "#ccd5f0"};color:${wk ? "#555" : "#041638"};font-weight:bold;font-size:8pt;text-align:center;padding:3pt 1pt">${d}</th>`;
-    }).join("");
+    const dayNumHdrs = days.map(d => `<th style="${dayHdrCell}">${d}</th>`).join("");
 
     const rows = emps.map((e, ei) => {
       const cells = days.map(d => {
         const wk   = isWknd(year, month, d);
         const code = wk ? "X" : (e.days[d] ?? "");
         const s    = CS[code] ?? CS[""];
-        return `<td style="${brd};text-align:center;background:${wk ? "#ebebeb" : s.bg};color:${wk ? "#666" : s.color};font-weight:bold;font-size:9pt;padding:3pt 1pt">${code}</td>`;
+        const plain = code === "" || code === "8" || code === "4" || code === "X";
+        const bg    = plain ? "#ffffff" : s.bg;
+        const color = code === "X" ? "#666666" : (plain ? NAVY : s.color);
+        return `<td style="${brd};text-align:center;background:${bg};color:${color};font-weight:normal;font-family:Aptos,Calibri,sans-serif;font-size:8pt;padding:4pt 1pt">${code}</td>`;
       }).join("");
-      return `<tr style="background:${ei % 2 === 0 ? "#ffffff" : "#f5f5f5"}">
-        <td style="${brd};text-align:center;font-weight:bold">${e.id}</td>
-        <td style="${brd};padding:3pt 4pt;font-size:9pt;color:#041638">${e.name}</td>
-        <td style="${brd};padding:3pt 3pt;text-align:center;font-size:8pt">${e.pos}</td>
-        <td style="${brd};text-align:center;font-size:8pt">${e.unit}</td>
+      return `<tr style="background:#ffffff">
+        <td style="${brd};text-align:center;color:${NAVY};font-weight:bold;font-family:Aptos,Calibri,sans-serif;font-size:8pt">${ei + 1}</td>
+        <td style="${brd};padding:4pt 4pt;font-family:Aptos,Calibri,sans-serif;font-size:8pt;color:${NAVY}">${e.name}</td>
+        <td style="${brd};padding:4pt 3pt;text-align:center;font-family:Aptos,Calibri,sans-serif;font-size:8pt;color:${NAVY}">${e.pos}</td>
+        <td style="${brd};text-align:center;font-family:Aptos,Calibri,sans-serif;font-size:8pt;color:${NAVY}">${e.unit}</td>
         ${cells}
-        <td style="${brd};text-align:center;font-weight:bold;font-size:11pt;color:#041638">${cntP(e)}</td>
-        <td style="${brd};text-align:center;font-weight:bold;font-size:11pt;color:${cntA(e) ? "#cc0000" : "#aaa"}">${cntA(e)}</td>
+        <td style="${brd};text-align:center;font-weight:bold;font-family:Aptos,Calibri,sans-serif;font-size:9pt;color:${NAVY}">${cntP(e)}</td>
+        <td style="${brd};text-align:center;font-weight:bold;font-family:Aptos,Calibri,sans-serif;font-size:9pt;color:${cntA(e) ? "#c0392b" : "#c5c6cf"}">${cntA(e)}</td>
       </tr>`;
     }).join("");
 
     const endDay = tab === "half" ? 15 : total;
     const legend = Object.entries(CS).filter(([k]) => k !== "").map(([c, s]) =>
-      `<tr><td style="background:${s.bg};border:1pt solid ${s.border};color:${s.color};text-align:center;width:22pt;font-weight:bold;font-size:8pt;padding:2pt">${c}</td>
-           <td style="border:none;padding-left:5pt;color:#333;font-size:8pt">${s.label}</td></tr>`
+      `<tr><td style="background:${s.bg};border:0.5pt solid ${s.border};color:${s.color};text-align:center;width:22pt;font-weight:bold;font-family:Aptos,Calibri,sans-serif;font-size:8pt;padding:2pt">${c}</td>
+           <td style="border:none;padding-left:5pt;color:${BODY};font-family:Aptos,Calibri,sans-serif;font-size:8pt">${s.label}</td></tr>`
     ).join("");
 
     const html = `<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
@@ -219,49 +228,60 @@ export default function TabelPage() {
 <style>
 @page WordSection1{size:841.9pt 595.3pt;margin:42.5pt 36pt 42.5pt 36pt;mso-page-orientation:landscape;}
 div.WordSection1{page:WordSection1;}
-body{font-family:"Times New Roman",serif;font-size:10pt;color:#1a1a1a;}
-table{border-collapse:collapse;}td,th{font-size:9pt;}p{margin:2pt 0;}
+body{font-family:Aptos,Calibri,sans-serif;font-size:9pt;color:${NAVY};}
+table{border-collapse:collapse;}p{margin:2pt 0;}
 </style></head>
 <body><div class="WordSection1">
-<p style="text-align:right;font-size:9pt;color:#041638;margin-bottom:8pt">
-  <b>&#171;Tasdiqlaymanِ&#187;</b><br>Qurilishda texnik me&#8217;yorlash va standartlashtirish<br>
-  ilmiy-tadqiqot instituti direktori v.v.b<br>___________&nbsp;${DIRECTOR}<br><br>
-  &#171;______&#187;________________&nbsp;${year}&nbsp;y.
+<table style="border:none;width:100%;margin-bottom:6pt"><tr>
+  <td style="border:none;width:58%"></td>
+  <td style="border:none;width:42%;text-align:right;font-family:Aptos,Calibri,sans-serif;font-size:8pt;color:${BODY};line-height:1.4">
+    <b style="color:${NAVY};font-size:11pt">&#171;TASDIQLAYMAN&#187;</b><br>
+    Qurilishda texnik me&#8217;yorlash va standartlashtirish<br>
+    ilmiy-tadqiqot instituti direktori v.v.b.<br>
+    <b>${DIRECTOR}</b><br>
+    ________________&nbsp;&nbsp;&#171;___&#187;__________${year}&nbsp;y.
+  </td>
+</tr></table>
+<p style="text-align:center;font-weight:bold;font-size:17pt;color:${NAVY};font-family:'Aptos Display',Aptos,Calibri,sans-serif">
+  DAVOMAT JADVALI &#8212; ${tab === "half" ? `YARIM OYLIK (1&#8211;15 KUN)` : `TO&#8216;LIQ OYLIK (1&#8211;${total} KUN)`}
 </p>
-<p style="text-align:center;font-weight:bold;font-size:13pt;color:#041638">
-  Davomat jadvali &#8212; ${tab === "half" ? "Yarim oylik (1&#8211;15 kun)" : "To&#8216;liq oylik"}
+<p style="text-align:center;font-size:9pt;color:${MUTED};margin-bottom:4pt">
+  ${deptName}&nbsp;&nbsp;&#8226;&nbsp;&nbsp;01.${mm}.${year}&nbsp;&#8212;&nbsp;${endDay}.${mm}.${year}
 </p>
-<p style="text-align:center;font-style:italic;font-size:9pt;color:#45464e;margin-bottom:6pt">
-  ${deptName}&nbsp;&nbsp;&nbsp;&nbsp;01.${mm}.${year} &#8211; ${endDay}.${mm}.${year}
+<p style="text-align:right;font-size:8pt;color:${MUTED};margin-bottom:8pt">
+  Davomat bo&#8216;yicha mas&#8217;ul: ____________________
 </p>
 <table width="${tableW}" style="border-collapse:collapse;table-layout:fixed;margin-bottom:2pt">
   ${colgroup}
-  <thead><tr>
-    <th style="${brd};${hdrD}">&#8470;</th>
-    <th style="${brd};${hdrD};text-align:left;padding-left:4pt">F.I.Sh.</th>
-    <th style="${brd};${hdrD}">Lavozim</th>
-    <th style="${brd};${hdrD}">Shtat</th>
-    ${dayHdrs}
-    <th style="${brd};${hdrD}">I.K.</th>
-    <th style="${brd};${hdrD}">I.Km.</th>
-  </tr></thead>
+  <thead>
+    <tr>
+      <th rowspan="2" style="${hdrCell}">&#8470;</th>
+      <th rowspan="2" style="${hdrCell};text-align:left;padding-left:4pt">F.I.Sh.</th>
+      <th rowspan="2" style="${hdrCell}">Lavozim</th>
+      <th rowspan="2" style="${hdrCell}">Shtat</th>
+      <th colspan="${days.length}" style="${hdrCell}">KUNLAR</th>
+      <th rowspan="2" style="${hdrCell}">I.K.</th>
+      <th rowspan="2" style="${hdrCell}">I.Km.</th>
+    </tr>
+    <tr>${dayNumHdrs}</tr>
+  </thead>
   <tbody>${rows}</tbody>
 </table>
-<br>
-<table style="border:none;width:${tableW}pt;margin-top:12pt"><tr>
+<div style="margin-top:10pt"><table style="border-collapse:collapse;width:auto">${legend}</table></div>
+<table style="border:none;width:${tableW}pt;margin-top:24pt"><tr>
   <td style="border:none;width:30%">
-    <p style="font-weight:bold;color:#041638;font-size:9pt">Mutaxassis</p>
-    <div style="border-bottom:1pt solid #aaa;width:140pt;height:14pt"></div>
-    <p style="color:#777;font-size:8pt;font-style:italic">Imzo: ____________________</p>
+    <p style="font-weight:bold;color:${NAVY};font-family:Aptos,Calibri,sans-serif;font-size:9pt">MUTAXASSIS</p>
+    <div style="border-bottom:0.5pt solid #aaa;width:150pt;height:14pt"></div>
+    <p style="color:${MUTED};font-family:Aptos,Calibri,sans-serif;font-size:8pt">Imzo: ____________________</p>
   </td>
   <td style="border:none;width:40%"></td>
   <td style="border:none;width:30%">
-    <p style="font-weight:bold;color:#041638;font-size:9pt">Bo&#8216;lim boshlig&#8216;i</p>
-    <div style="border-bottom:1pt solid #aaa;width:140pt;height:14pt"></div>
-    <p style="color:#777;font-size:8pt;font-style:italic">Imzo: ____________________</p>
+    <p style="font-weight:bold;color:${NAVY};font-family:Aptos,Calibri,sans-serif;font-size:9pt">BO&#8216;LIM BOSHLIG&#8216;I</p>
+    <div style="border-bottom:0.5pt solid #aaa;width:150pt;height:14pt"></div>
+    <p style="color:${MUTED};font-family:Aptos,Calibri,sans-serif;font-size:8pt">Imzo: ____________________</p>
+    <p style="color:${MUTED};font-family:Aptos,Calibri,sans-serif;font-size:8pt">Sana: &#171;___&#187;__________${year}&nbsp;y.</p>
   </td>
 </tr></table>
-<div style="margin-top:10pt"><table style="border-collapse:collapse;width:auto">${legend}</table></div>
 </div></body></html>`;
 
     const blob = new Blob(["﻿" + html], { type: "application/msword;charset=utf-8" });
@@ -446,7 +466,7 @@ table{border-collapse:collapse;}td,th{font-size:9pt;}p{margin:2pt 0;}
       )}
 
       <p className="mt-3 text-xs text-center italic" style={{ color: "#75777f" }}>
-        Kunni bosing — kod o'zgaradi: 8 → Б → К → У/Т → М/Т → bo'sh
+        Kunni bosing — kod o'zgaradi: 8 → X → Б → К → У/Т → М/Т → bo'sh
       </p>
 
       {/* Signatures */}
