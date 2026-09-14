@@ -189,9 +189,9 @@ export default function TabelPage() {
     const tableW = fixedColsPt + dayCW * days.length;
 
     const colgroup = `<colgroup>
-      <col width="${numColPt}"><col width="${nameColPt}"><col width="${posColPt}"><col width="${stColPt}">
-      ${days.map(() => `<col width="${dayCW}">`).join("")}
-      <col width="${sumColPt}"><col width="${sumColPt}">
+      <col style="width:${numColPt}pt"><col style="width:${nameColPt}pt"><col style="width:${posColPt}pt"><col style="width:${stColPt}pt">
+      ${days.map(() => `<col style="width:${dayCW}pt">`).join("")}
+      <col style="width:${sumColPt}pt"><col style="width:${sumColPt}pt">
     </colgroup>`;
 
     const dayNumHdrs = days.map(d => `<th style="${dayHdrCell}">${d}</th>`).join("");
@@ -249,7 +249,7 @@ table{border-collapse:collapse;}p{margin:2pt 0;}
 <p style="text-align:center;font-size:9pt;color:${MUTED};margin-bottom:4pt">
   ${deptName}&nbsp;&nbsp;&#8226;&nbsp;&nbsp;01.${mm}.${year}&nbsp;&#8212;&nbsp;${endDay}.${mm}.${year}
 </p>
-<table width="${tableW}" style="border-collapse:collapse;table-layout:fixed;margin-bottom:2pt">
+<table style="border-collapse:collapse;table-layout:fixed;width:${tableW}pt;margin-bottom:2pt">
   ${colgroup}
   <thead>
     <tr>
