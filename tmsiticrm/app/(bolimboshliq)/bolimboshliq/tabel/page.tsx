@@ -265,13 +265,13 @@ table{border-collapse:collapse;}p{margin:2pt 0;}
   </thead>
   <tbody>${rows}</tbody>
 </table>
-<table style="border:none;width:${tableW}pt;margin-top:28pt"><tr>
-  <td style="border:none;width:55%;vertical-align:top">
+<table style="border:none;width:${tableW}pt;margin-top:42pt"><tr>
+  <td style="border:none;width:40%;vertical-align:top">
     <table style="border-collapse:collapse;width:auto">${legend}</table>
   </td>
-  <td style="border:none;width:45%;vertical-align:top">
+  <td style="border:none;width:60%;vertical-align:top;text-align:right">
     <p style="font-weight:bold;color:${NAVY};font-family:Aptos,Calibri,sans-serif;font-size:11pt">BO&#8216;LIM BOSHLIG&#8216;I</p>
-    <div style="border-bottom:0.5pt solid #aaa;width:170pt;height:16pt"></div>
+    <div style="border-bottom:0.5pt solid #aaa;width:170pt;height:16pt;margin-left:auto"></div>
     <p style="color:${MUTED};font-family:Aptos,Calibri,sans-serif;font-size:9pt">Imzo: ____________________</p>
     <p style="color:${MUTED};font-family:Aptos,Calibri,sans-serif;font-size:9pt">Sana: &#171;___&#187;__________${year}&nbsp;y.</p>
   </td>
