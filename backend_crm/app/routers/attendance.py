@@ -1,12 +1,13 @@
 import math
 from calendar import monthrange
 from datetime import datetime, timezone, timedelta
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 from sqlalchemy.orm import Session
 from typing import List
 from .. import models, schemas
 from ..database import get_db
 from ..deps import get_current_employee, require_superadmin
+from .. import note_flow
 
 router = APIRouter(prefix="/attendance", tags=["Attendance"])
 
@@ -395,6 +396,8 @@ def _note_out(n: models.AttendanceNote) -> schemas.AttendanceNoteOut:
         out.employee_nomi = n.employee.full_name
         out.position = n.employee.position
         out.department_nomi = n.employee.department.name if n.employee.department else None
+    if n.bolim_reviewer:
+        out.bolim_by_nomi = n.bolim_reviewer.full_name
     if n.reviewer:
         out.reviewed_by_nomi = n.reviewer.full_name
     if n.zamdirektor_reviewer:
@@ -405,6 +408,7 @@ def _note_out(n: models.AttendanceNote) -> schemas.AttendanceNoteOut:
 @router.post("/notes", response_model=schemas.AttendanceNoteOut)
 def create_note(
     data:    schemas.AttendanceNoteIn,
+    background: BackgroundTasks,
     db:      Session = Depends(get_db),
     current: models.Employee = Depends(get_current_employee),
 ):
@@ -428,10 +432,13 @@ def create_note(
         object_time_to=data.object_time_to,
         object_latitude=data.object_latitude,
         object_longitude=data.object_longitude,
+        review_status=note_flow.initial_status(db, current),
     )
     db.add(note)
     db.commit()
     db.refresh(note)
+    # Ko'rib chiquvchilarga Telegram'da tugmali xabar (javobni kechiktirmaslik uchun fonda)
+    background.add_task(note_flow.after_create, note.id)
     return _note_out(note)
 
 
@@ -486,41 +493,28 @@ def inbox_notes(
     return [_note_out(n) for n in notes]
 
 
-_ADMIN_REVIEW_ROLES = {models.RoleEnum.superadmin, models.RoleEnum.direktor, models.RoleEnum.zamdirektor}
-
-
 @router.post("/notes/{note_id}/review", response_model=schemas.AttendanceNoteOut)
 def review_note(
     note_id: int,
     data:    schemas.AttendanceNoteReviewIn,
+    background: BackgroundTasks,
     db:      Session = Depends(get_db),
     current: models.Employee = Depends(get_current_employee),
 ):
-    """Ikki bosqichli tasdiqlash:
-    1-bosqich (kutilmoqda -> kadr_tasdiqladi/sababsiz) — faqat kadr roli.
-    2-bosqich (kadr_tasdiqladi -> sababli/sababsiz) — faqat zamdirektor/direktor/superadmin.
-    Rad etish ('sababsiz') istalgan bosqichda darhol yakuniy holat bo'ladi."""
+    """Bosqichma-bosqich tasdiqlash (note_flow.py):
+    bolim_kutilmoqda — bo'lim boshlig'i; kutilmoqda — kadr;
+    kadr_tasdiqladi — zamdirektor/direktor/superadmin.
+    Rad etish istalgan bosqichda darhol "sababsiz" (yakuniy) bo'ladi.
+    Telegram'dagi tugmali xabarlar ham shunga mos yangilanadi."""
     note = db.query(models.AttendanceNote).filter(models.AttendanceNote.id == note_id).first()
     if not note:
         raise HTTPException(status_code=404, detail="Topilmadi")
-
-    if note.review_status == "kutilmoqda":
-        if current.role != models.RoleEnum.kadr:
-            raise HTTPException(status_code=403, detail="Ruxsat yo'q")
-        note.review_status = "sababsiz" if data.status == "sababsiz" else "kadr_tasdiqladi"
-        note.reviewed_by = current.id
-        note.reviewed_at = datetime.utcnow()
-    elif note.review_status == "kadr_tasdiqladi":
-        if current.role not in _ADMIN_REVIEW_ROLES:
-            raise HTTPException(status_code=403, detail="Ruxsat yo'q")
-        note.review_status = "sababli" if data.status == "sababli" else "sababsiz"
-        note.zamdirektor_by = current.id
-        note.zamdirektor_at = datetime.utcnow()
-    else:
-        raise HTTPException(status_code=400, detail="Bu izoh allaqachon ko'rib chiqilgan")
-
-    db.commit()
-    db.refresh(note)
+    approve = data.status == "sababli"
+    try:
+        prev = note_flow.apply_review(db, note, current, approve)
+    except note_flow.ReviewError as e:
+        raise HTTPException(status_code=400 if note.review_status not in note_flow.PENDING else 403, detail=str(e))
+    background.add_task(note_flow.after_review, note.id, prev, current.id, approve, "sayt")
     return _note_out(note)
 
 

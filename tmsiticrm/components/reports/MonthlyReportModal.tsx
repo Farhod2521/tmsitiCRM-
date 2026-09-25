@@ -10,7 +10,7 @@ import { apiFetch } from "@/lib/api";
 const WEEK_DAYS = ["Du", "Se", "Ch", "Pa", "Ju", "Sh", "Ya"];
 
 type DayStatus = "kelgan" | "kechikkan" | "kelmagan" | "dam_olish" | "bayram" | "kelajak";
-type ReviewStatus = "kutilmoqda" | "kadr_tasdiqladi" | "sababli" | "sababsiz";
+type ReviewStatus = "bolim_kutilmoqda" | "kutilmoqda" | "kadr_tasdiqladi" | "sababli" | "sababsiz";
 type NoteType = "kechikish" | "kelmaslik" | "obyektda" | "ruxsat";
 
 interface CalendarDay { day: number; weekday: number; status: DayStatus; time: string | null; }
@@ -23,6 +23,8 @@ interface NoteDetail {
   expected_time: string | null;
   created_at: string;
   review_status: ReviewStatus;
+  bolim_by_nomi?: string | null;
+  bolim_at?: string | null;
   reviewed_by_nomi: string | null;
   reviewed_at: string | null;
   zamdirektor_by_nomi: string | null;
@@ -73,6 +75,7 @@ const NOTE_TYPE_LABEL: Record<NoteType, string> = {
 };
 
 const REVIEW_CFG: Record<ReviewStatus, { label: string; color: string; bg: string }> = {
+  bolim_kutilmoqda: { label: "Bo'lim boshlig'i ko'rib chiqmoqda",  color: "#B4780C", bg: "rgba(255,189,33,0.15)" },
   kutilmoqda:      { label: "Kadr ko'rib chiqmoqda",              color: "#91929E", bg: "rgba(145,146,158,0.12)" },
   kadr_tasdiqladi: { label: "Zamdirektor tasdiqlashi kutilmoqda", color: "#3F8CFF", bg: "rgba(63,140,255,0.12)" },
   sababli:         { label: "Sababli",                            color: "#00A578", bg: "rgba(0,165,120,0.12)" },
@@ -154,22 +157,23 @@ function ScoreGauge({ item, size = 110, compact = false }: { item: ScoreItem; si
 /* ── Kunlik izoh + tasdiqlash zanjiri modali ── */
 function NoteDetailModal({ note, onClose }: { note: NoteDetail; onClose: () => void }) {
   const rc = REVIEW_CFG[note.review_status];
-  const steps: { label: string; done: boolean; by: string | null; at: string | null; state: "done" | "waiting" | "rejected" | "pending" }[] = [
-    {
-      label: "Kadr tasdiqladi",
-      done: note.review_status !== "kutilmoqda",
-      by: note.reviewed_by_nomi, at: note.reviewed_at,
-      state: note.review_status === "kutilmoqda" ? "pending" : note.review_status === "sababsiz" && !note.zamdirektor_by_nomi ? "rejected" : "done",
-    },
-    {
-      label: "Zamdirektor tasdiqladi",
-      done: note.review_status === "sababli" || (note.review_status === "sababsiz" && !!note.zamdirektor_by_nomi),
-      by: note.zamdirektor_by_nomi, at: note.zamdirektor_at,
-      state: note.review_status === "sababli" ? "done"
-        : note.review_status === "sababsiz" && note.zamdirektor_by_nomi ? "rejected"
-        : note.review_status === "kadr_tasdiqladi" ? "waiting" : "pending",
-    },
+  // Bosqichlar: [bo'lim boshlig'i] -> kadr -> zamdirektor. Qaror qilgan oxirgi
+  // bosqich "sababsiz" bo'lsa — o'sha bosqich rad etgan hisoblanadi.
+  const raw: { key: ReviewStatus; label: string; by: string | null; at: string | null }[] = [
+    ...(note.bolim_by_nomi || note.review_status === "bolim_kutilmoqda"
+      ? [{ key: "bolim_kutilmoqda" as ReviewStatus, label: "Bo'lim boshlig'i tasdiqladi", by: note.bolim_by_nomi ?? null, at: note.bolim_at ?? null }]
+      : []),
+    { key: "kutilmoqda", label: "Kadr tasdiqladi", by: note.reviewed_by_nomi, at: note.reviewed_at },
+    { key: "kadr_tasdiqladi", label: "Zamdirektor tasdiqladi", by: note.zamdirektor_by_nomi, at: note.zamdirektor_at },
   ];
+  const steps: { label: string; done: boolean; by: string | null; at: string | null; state: "done" | "waiting" | "rejected" | "pending" }[] =
+    raw.map((st, i) => {
+      const nextBy = raw[i + 1]?.by;
+      const state = st.by
+        ? (note.review_status === "sababsiz" && !nextBy ? "rejected" : "done")
+        : note.review_status === st.key ? "waiting" : "pending";
+      return { label: st.label, done: !!st.by, by: st.by, at: st.at, state };
+    });
 
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center p-4"

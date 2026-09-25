@@ -3,13 +3,14 @@ Bu yerda oddiy foydalanuvchi tokeni (JWT) talab qilinmaydi: xodim kimligi CRM
 profilida yaratilgan bir martalik `token` (TelegramLinkToken) orqali aniqlanadi —
 telefon raqami yoki parol ochiq deep-linkda yuborilmaydi va tekshirilmaydi."""
 from datetime import datetime, timezone, timedelta
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, BackgroundTasks, Depends
 from sqlalchemy.orm import Session
 from ..database import get_db
 from ..deps import require_bot_secret
 from ..auth import get_password_hash, encrypt_password
 from .. import models, schemas
 from .attendance import get_absent_employees, build_pending_message_text
+from .. import note_flow
 
 router = APIRouter(prefix="/bot", tags=["Telegram Bot"], dependencies=[Depends(require_bot_secret)])
 
@@ -56,6 +57,27 @@ def link_account(data: schemas.BotLinkIn, db: Session = Depends(get_db)):
     link.used_at = datetime.utcnow()
     db.commit()
     return schemas.BotLinkOut(ok=True, full_name=emp.full_name, phone=emp.phone)
+
+
+@router.post("/attendance-notes/review", response_model=schemas.BotNoteReviewOut)
+def bot_review_note(data: schemas.BotNoteReviewIn, background: BackgroundTasks, db: Session = Depends(get_db)):
+    """Telegram'dagi "Tasdiqlash"/"Rad etish" inline tugmasi bosilganda bot
+    chaqiradi. Saytdagi tasdiqlash bilan bir xil mantiq (note_flow.apply_review);
+    xabarlarni tahrirlash va keyingi bosqichga yuborish — fonda."""
+    actor = db.query(models.Employee).filter(models.Employee.telegram_id == data.telegram_id).first()
+    if not actor or not actor.is_active:
+        return schemas.BotNoteReviewOut(ok=False, message="Telegram hisobingiz CRM'ga bog'lanmagan")
+    note = db.query(models.AttendanceNote).filter(models.AttendanceNote.id == data.note_id).first()
+    if not note:
+        return schemas.BotNoteReviewOut(ok=False, message="Ariza topilmadi")
+    if note.review_status != data.stage:
+        return schemas.BotNoteReviewOut(ok=False, message="Bu bosqich allaqachon ko'rib chiqilgan")
+    try:
+        prev = note_flow.apply_review(db, note, actor, data.approve)
+    except note_flow.ReviewError as e:
+        return schemas.BotNoteReviewOut(ok=False, message=str(e))
+    background.add_task(note_flow.after_review, note.id, prev, actor.id, data.approve, "bot")
+    return schemas.BotNoteReviewOut(ok=True, message="✅ Tasdiqlandi" if data.approve else "❌ Rad etildi")
 
 
 @router.post("/reset-password", response_model=schemas.BotResetOut)

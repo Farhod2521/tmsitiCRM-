@@ -41,7 +41,7 @@ import httpx
 from telegram import KeyboardButton, ReplyKeyboardMarkup, ReplyKeyboardRemove, Update
 from telegram.error import TelegramError
 from telegram.ext import (
-    Application, ApplicationBuilder, CommandHandler, ContextTypes,
+    Application, ApplicationBuilder, CallbackQueryHandler, CommandHandler, ContextTypes,
     ConversationHandler, MessageHandler, filters,
 )
 
@@ -306,6 +306,40 @@ async def send_daily_attendance_reminder(context: ContextTypes.DEFAULT_TYPE) -> 
         log.warning("TELEGRAM_CHAT_ID sozlanmagan — guruhga eslatma yuborilmadi")
 
 
+# ─── Davomat arizasi: inline "Tasdiqlash" / "Rad etish" tugmalari ─────────────
+
+async def attendance_note_decision(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """callback_data: "an:<note_id>:<bosqich>:<a|r>". Qaror backendda (saytdagi
+    bilan bir xil mantiq) qabul qilinadi; xabarlarni tahrirlash va keyingi
+    bosqichga yuborishni ham backend bajaradi — bu yerda faqat javob beramiz."""
+    q = update.callback_query
+    try:
+        _, note_id, stage, action = q.data.split(":")
+        payload = {"telegram_id": q.from_user.id, "note_id": int(note_id),
+                   "stage": stage, "approve": action == "a"}
+    except (ValueError, AttributeError):
+        await q.answer("Noto'g'ri tugma", show_alert=True)
+        return
+    try:
+        async with httpx.AsyncClient(timeout=15) as client:
+            resp = await client.post(f"{BACKEND_URL}/bot/attendance-notes/review", json=payload, headers=_HEADERS)
+        data = resp.json()
+    except Exception:
+        log.exception("attendance-notes/review xatosi")
+        await q.answer("Server bilan bog'lanib bo'lmadi. Keyinroq urinib ko'ring.", show_alert=True)
+        return
+    if data.get("ok"):
+        await q.answer(data.get("message") or "Qabul qilindi")
+    else:
+        await q.answer(data.get("message") or "Xatolik", show_alert=True)
+        # Bosqich allaqachon yopilgan bo'lsa — eski tugmalarni olib tashlaymiz
+        if "allaqachon" in (data.get("message") or ""):
+            try:
+                await q.edit_message_reply_markup(reply_markup=None)
+            except TelegramError:
+                pass
+
+
 def build_app() -> Application:
     app = ApplicationBuilder().token(BOT_TOKEN).build()
 
@@ -337,6 +371,7 @@ def build_app() -> Application:
         fallbacks=[CommandHandler("cancel", cancel)],
     )
     app.add_handler(conv)
+    app.add_handler(CallbackQueryHandler(attendance_note_decision, pattern=r"^an:"))
     return app
 
 

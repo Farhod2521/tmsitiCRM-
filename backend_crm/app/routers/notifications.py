@@ -25,6 +25,8 @@ def _href(role, section: str) -> str:
         return {"izohlar": "/superadmin/izohlar", "hujjatlar": "/superadmin/ichki-hujjatlar"}.get(section, "/superadmin/nazorat")
     if p == "/xodim":
         return "/xodim/izohlar" if section == "izohlar" else "/xodim/ijro-nazorati"
+    if p == "/bolimboshliq" and section == "izohlar":
+        return "/bolimboshliq/davomat"
     return f"{p}/nazorat"
 
 
@@ -45,6 +47,12 @@ def my_notifications(
 
     Note = models.AttendanceNote
     # ── Davomat izohlari (arizalar) ───────────────────────────────────────────
+    if role in _HEADS and current.department_id:
+        add("izoh_bolim", "izohlar", "Tasdig'ingizni kutayotgan davomat arizalari",
+            db.query(Note).join(models.Employee, Note.employee_id == models.Employee.id)
+            .filter(Note.review_status == "bolim_kutilmoqda",
+                    models.Employee.department_id == current.department_id,
+                    Note.employee_id != current.id).count())
     if role == R.kadr:
         add("izoh_kadr", "izohlar", "Ko'rib chiqilmagan davomat arizalari",
             db.query(Note).filter(Note.review_status == "kutilmoqda").count())

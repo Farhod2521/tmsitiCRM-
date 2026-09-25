@@ -355,6 +355,8 @@ class AttendanceNoteOut(BaseModel):
     object_longitude: Optional[float] = None
     created_at: datetime
     review_status: str = "kutilmoqda"
+    bolim_by_nomi: Optional[str] = None
+    bolim_at: Optional[datetime] = None
     reviewed_by_nomi: Optional[str] = None
     reviewed_at: Optional[datetime] = None
     zamdirektor_by_nomi: Optional[str] = None
@@ -363,6 +365,16 @@ class AttendanceNoteOut(BaseModel):
 
 class AttendanceNoteReviewIn(BaseModel):
     status: Literal["sababli", "sababsiz"]
+
+class BotNoteReviewIn(BaseModel):
+    telegram_id: int
+    note_id: int
+    stage: str          # tugma yuborilgan paytdagi bosqich (eski tugma bosilsa rad etiladi)
+    approve: bool
+
+class BotNoteReviewOut(BaseModel):
+    ok: bool
+    message: str
 
 
 # ── Parolni Telegram orqali tiklash ────────────────────────────────────────────

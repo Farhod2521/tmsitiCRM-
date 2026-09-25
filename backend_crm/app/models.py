@@ -143,17 +143,39 @@ class AttendanceNote(Base):
     object_longitude = Column(Float, nullable=True)
     created_at    = Column(DateTime, default=datetime.utcnow)
 
-    # Ikki bosqichli tasdiqlash: "kutilmoqda" -> (kadr) -> "kadr_tasdiqladi" -> (zamdirektor) -> "sababli"
+    # Tasdiqlash bosqichlari (note_flow.py):
+    #   oddiy xodim yozsa:   "bolim_kutilmoqda" -> (bo'lim boshlig'i) -> "kutilmoqda" -> (kadr)
+    #                        -> "kadr_tasdiqladi" -> (zamdirektor) -> "sababli"
+    #   bo'lim boshlig'i yozsa: "kutilmoqda" dan boshlanadi.
     # Rad etish istalgan bosqichda darhol "sababsiz" (yakuniy) deb belgilaydi.
     review_status = Column(String(20), nullable=False, default="kutilmoqda")
+    bolim_by      = Column(Integer, ForeignKey("employees.id"), nullable=True)   # bo'lim boshlig'i bosqichi
+    bolim_at      = Column(DateTime, nullable=True)
     reviewed_by   = Column(Integer, ForeignKey("employees.id"), nullable=True)   # kadr bosqichi
     reviewed_at   = Column(DateTime, nullable=True)
     zamdirektor_by = Column(Integer, ForeignKey("employees.id"), nullable=True)  # zamdirektor bosqichi
     zamdirektor_at = Column(DateTime, nullable=True)
 
     employee    = relationship("Employee", foreign_keys=[employee_id])
+    bolim_reviewer = relationship("Employee", foreign_keys=[bolim_by])
     reviewer    = relationship("Employee", foreign_keys=[reviewed_by])
     zamdirektor_reviewer = relationship("Employee", foreign_keys=[zamdirektor_by])
+
+
+class AttendanceNoteTgMessage(Base):
+    """Arizani ko'rib chiquvchilarga Telegram'da yuborilgan xabar (inline
+    tugmalar bilan). Bosqich yakunlanganda (saytda yoki botda) shu xabarlar
+    tahrirlanadi — tugmalar olib tashlanib, natija yoziladi."""
+    __tablename__ = "attendance_note_tg_messages"
+
+    id          = Column(Integer, primary_key=True, index=True)
+    note_id     = Column(Integer, ForeignKey("attendance_notes.id", ondelete="CASCADE"), nullable=False, index=True)
+    stage       = Column(String(20), nullable=False)    # yuborilgan paytdagi review_status
+    employee_id = Column(Integer, ForeignKey("employees.id"), nullable=True)  # qabul qiluvchi
+    chat_id     = Column(BigInteger, nullable=False)
+    message_id  = Column(BigInteger, nullable=False)
+    closed      = Column(Boolean, default=False, nullable=False)
+    created_at  = Column(DateTime, default=datetime.utcnow)
 
 
 class TurniketAttendance(Base):

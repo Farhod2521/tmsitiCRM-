@@ -70,6 +70,7 @@ const NOTE_TYPE_LABEL: Record<string, string> = {
   ruxsat:    "Ruxsat so'ralgan",
 };
 const NOTE_STATUS: Record<string, { label: string; color: string }> = {
+  bolim_kutilmoqda: { label: "Bo'lim boshlig'ida", color: "#B4780C" },
   kutilmoqda:      { label: "Kutilmoqda",      color: "#91929E" },
   kadr_tasdiqladi: { label: "Kadr tasdiqladi", color: "#3F8CFF" },
   sababli:         { label: "Sababli",         color: "#00A578" },

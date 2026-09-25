@@ -79,3 +79,23 @@ def send_telegram_photo_to(chat_id, image_bytes: bytes, caption: str = "") -> bo
         return bool(result.get("ok"))
     except Exception:
         return False
+
+
+def telegram_api(method: str, payload: dict, timeout: int = 10) -> dict | None:
+    """Bot API'ga JSON so'rov (inline tugmalar, xabarni tahrirlash uchun).
+    Xato bo'lsa None qaytaradi — asosiy jarayon to'xtamasligi kerak."""
+    token = os.getenv("TELEGRAM_BOT_TOKEN")
+    if not token:
+        return None
+    req = urllib.request.Request(
+        f"https://api.telegram.org/bot{token}/{method}",
+        data=json.dumps(payload).encode("utf-8"),
+        method="POST",
+        headers={"Content-Type": "application/json"},
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
+            result = json.loads(resp.read().decode("utf-8"))
+        return result.get("result") if result.get("ok") else None
+    except Exception:
+        return None

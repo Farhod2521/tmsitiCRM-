@@ -5,7 +5,7 @@ import Header from "@/components/layout/Header";
 import { apiFetch } from "@/lib/api";
 import { MessageSquareWarning, AlarmClock, UserX, MapPinned, DoorOpen, Loader2, Check, X as XIcon } from "lucide-react";
 
-type ReviewStatus = "kutilmoqda" | "kadr_tasdiqladi" | "sababli" | "sababsiz";
+type ReviewStatus = "bolim_kutilmoqda" | "kutilmoqda" | "kadr_tasdiqladi" | "sababli" | "sababsiz";
 type NoteType = "kechikish" | "kelmaslik" | "obyektda" | "ruxsat";
 
 interface AttendanceNote {
@@ -25,6 +25,8 @@ interface AttendanceNote {
   object_longitude: number | null;
   created_at: string;
   review_status: ReviewStatus;
+  bolim_by_nomi?: string | null;
+  bolim_at?: string | null;
   reviewed_by_nomi: string | null;
   reviewed_at: string | null;
   zamdirektor_by_nomi: string | null;
@@ -38,17 +40,19 @@ const NOTE_TYPE_CFG: Record<NoteType, { label: string; icon: typeof AlarmClock; 
   ruxsat:    { label: "Ruxsat so'ragan", icon: DoorOpen,   color: "#6D5DD3", bg: "rgba(109,93,211,0.12)"  },
 };
 
-type FilterKey = "barchasi" | "kutilmoqda" | "kadr_tasdiqladi" | "sababli" | "sababsiz";
+type FilterKey = "barchasi" | "bolim_kutilmoqda" | "kutilmoqda" | "kadr_tasdiqladi" | "sababli" | "sababsiz";
 
 const FILTERS: { key: FilterKey; label: string }[] = [
   { key: "barchasi",  label: "Barchasi" },
-  { key: "kutilmoqda", label: "Kutilmoqda" },
+  { key: "bolim_kutilmoqda", label: "Bo'lim boshlig'ida" },
+  { key: "kutilmoqda", label: "Sizda kutilmoqda" },
   { key: "kadr_tasdiqladi", label: "Zamdirektorda" },
   { key: "sababli",   label: "Sababli" },
   { key: "sababsiz",  label: "Sababsiz" },
 ];
 
 const REVIEW_CFG: Record<ReviewStatus, { label: string; color: string; bg: string }> = {
+  bolim_kutilmoqda: { label: "Bo'lim boshlig'i ko'rib chiqmoqda", color: "#B4780C", bg: "rgba(255,189,33,0.15)" },
   kutilmoqda:      { label: "Kutilmoqda",                        color: "#91929E", bg: "rgba(145,146,158,0.12)" },
   kadr_tasdiqladi: { label: "Zamdirektor tasdiqlashi kutilmoqda", color: "#3F8CFF", bg: "rgba(63,140,255,0.12)" },
   sababli:         { label: "Sababli",                           color: "#00A578", bg: "rgba(0,165,120,0.12)" },
@@ -95,6 +99,7 @@ export default function XodimIzohlarPage() {
 
   const counts = {
     barchasi:   notes.length,
+    bolim_kutilmoqda: notes.filter(n => n.review_status === "bolim_kutilmoqda").length,
     kutilmoqda: notes.filter(n => n.review_status === "kutilmoqda").length,
     kadr_tasdiqladi: notes.filter(n => n.review_status === "kadr_tasdiqladi").length,
     sababli:    notes.filter(n => n.review_status === "sababli").length,
@@ -213,6 +218,11 @@ export default function XodimIzohlarPage() {
                         style={{ background: REVIEW_CFG[n.review_status].bg, color: REVIEW_CFG[n.review_status].color }}>
                         {REVIEW_CFG[n.review_status].label}
                       </span>
+                      {n.bolim_by_nomi && (
+                        <p className="text-[11px] mt-1 font-semibold" style={{ color: n.review_status === "sababsiz" && !n.reviewed_by_nomi ? "#FF5C5C" : "#00A578" }}>
+                          {n.review_status === "sababsiz" && !n.reviewed_by_nomi ? "✕" : "✓"} Bo&apos;lim boshlig&apos;i: {n.bolim_by_nomi}{n.bolim_at ? `, ${fmtDt(n.bolim_at)}` : ""}
+                        </p>
+                      )}
                       {n.review_status !== "kutilmoqda" && n.reviewed_by_nomi && (
                         <p className="text-[11px] mt-1" style={{ color: "#91929E" }}>
                           Kadr: {n.reviewed_by_nomi}{n.reviewed_at ? `, ${fmtDt(n.reviewed_at)}` : ""}

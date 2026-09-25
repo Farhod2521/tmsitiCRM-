@@ -5,7 +5,7 @@ import { MessageSquareWarning, AlarmClock, UserX, MapPinned, DoorOpen, Loader2, 
 import { apiFetch } from "@/lib/api";
 import { getUser } from "@/lib/auth";
 
-type ReviewStatus = "kutilmoqda" | "kadr_tasdiqladi" | "sababli" | "sababsiz";
+type ReviewStatus = "bolim_kutilmoqda" | "kutilmoqda" | "kadr_tasdiqladi" | "sababli" | "sababsiz";
 type NoteType = "kechikish" | "kelmaslik" | "obyektda" | "ruxsat";
 
 interface AttendanceNote {
@@ -25,6 +25,8 @@ interface AttendanceNote {
   object_longitude: number | null;
   created_at: string;
   review_status: ReviewStatus;
+  bolim_by_nomi?: string | null;
+  bolim_at?: string | null;
   reviewed_by_nomi: string | null;
   reviewed_at: string | null;
   zamdirektor_by_nomi: string | null;
@@ -32,6 +34,7 @@ interface AttendanceNote {
 }
 
 const REVIEW_CFG: Record<ReviewStatus, { label: string; color: string; bg: string }> = {
+  bolim_kutilmoqda: { label: "Bo'lim boshlig'i ko'rib chiqmoqda", color: "#B4780C", bg: "rgba(255,189,33,0.15)" },
   kutilmoqda:      { label: "Kutilmoqda",                     color: "#91929E", bg: "rgba(145,146,158,0.12)" },
   kadr_tasdiqladi: { label: "Zamdirektor tasdiqlashi kutilmoqda", color: "#3F8CFF", bg: "rgba(63,140,255,0.12)" },
   sababli:         { label: "Sababli",                        color: "#00A578", bg: "rgba(0,165,120,0.12)" },
@@ -53,7 +56,9 @@ export default function AttendanceNotesInbox() {
   const [notes,   setNotes]   = useState<AttendanceNote[]>([]);
   const [loading, setLoading] = useState(true);
   const [reviewingId, setReviewingId] = useState<number | null>(null);
-  const isKadr = getUser()?.role === "kadr";
+  const role = getUser()?.role;
+  const isKadr = role === "kadr";
+  const isHead = role === "bolim_boshligi" || role === "boshqarma_boshligi";
 
   const load = useCallback(() => {
     apiFetch<AttendanceNote[]>("/attendance/notes")
@@ -143,15 +148,18 @@ export default function AttendanceNotesInbox() {
                         </a>
                       </>
                     )}
+                    {n.bolim_by_nomi && (
+                      <> · Bo&apos;lim boshlig&apos;i: {n.bolim_by_nomi}{n.bolim_at ? `, ${fmtDt(n.bolim_at)}` : ""}</>
+                    )}
                     {n.review_status !== "kutilmoqda" && n.reviewed_by_nomi && (
-                      <> · {n.reviewed_by_nomi} tomonidan{n.reviewed_at ? `, ${fmtDt(n.reviewed_at)}` : ""}</>
+                      <> · Kadr: {n.reviewed_by_nomi} tomonidan{n.reviewed_at ? `, ${fmtDt(n.reviewed_at)}` : ""}</>
                     )}
                     {n.zamdirektor_by_nomi && (
                       <> · {n.zamdirektor_by_nomi} tomonidan{n.zamdirektor_at ? `, ${fmtDt(n.zamdirektor_at)}` : ""}</>
                     )}
                   </p>
 
-                  {isKadr && n.review_status === "kutilmoqda" && (
+                  {((isKadr && n.review_status === "kutilmoqda") || (isHead && n.review_status === "bolim_kutilmoqda")) && (
                     <div className="flex gap-2 mt-2.5">
                       <button onClick={() => handleReview(n.id, "sababli")} disabled={reviewingId === n.id}
                         className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-white disabled:opacity-50"

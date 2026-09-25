@@ -10,6 +10,14 @@ from .routers import auth, employees, departments, tabel, ball, attendance, repo
 
 Base.metadata.create_all(bind=engine)
 
+# Mavjud jadvallarga qo'shilgan ustunlar (create_all ularni qo'shmaydi) — PostgreSQL'da
+# idempotent: IF NOT EXISTS. Qo'lda ishga tushirish uchun: attendance_note_bolim_stage_migration.sql
+if engine.dialect.name == "postgresql":
+    from sqlalchemy import text as _sql
+    with engine.begin() as _conn:
+        _conn.execute(_sql("ALTER TABLE attendance_notes ADD COLUMN IF NOT EXISTS bolim_by INTEGER REFERENCES employees(id)"))
+        _conn.execute(_sql("ALTER TABLE attendance_notes ADD COLUMN IF NOT EXISTS bolim_at TIMESTAMP"))
+
 # Holatlar tarixi jadvali bo'sh bo'lsa (birinchi ishga tushirish) — joriy
 # holatlar va eski qo'lda to'ldirilgan tabeldan tiklanadi.
 from .database import SessionLocal
