@@ -195,8 +195,9 @@ class AutoTabelRow(BaseModel):
     full_name: str
     department_id: Optional[int] = None
     department_name: Optional[str] = None
-    cells: dict  # {day: code}  e.g. {"1":"8","2":"X","15":"MT","16":"5",...}
-    # Kelgan kunlar tafsiloti: {day: {"check_in": "12:00", "late_min": 180, "excused": true}}
+    cells: dict  # {day: code}  e.g. {"1":"8","2":"X","15":"MT",...}
+    # Kelgan kunlar tafsiloti: {day: {"check_in": "12:00", "late_min": 180, "excused": true,
+    #                                 "note": {"type": "kechikish", "text": "...", "status": "sababli"} | None}}
     day_info: dict = {}
     worked_min: int = 0    # ishlagan vaqt: har kun 8 soat - sababsiz kechikish, daqiqada
     late_min: int = 0      # shu oydagi jami sababsiz kechikish, daqiqada

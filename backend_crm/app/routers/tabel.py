@@ -1,6 +1,6 @@
 import io
 from calendar import monthrange
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
@@ -121,6 +121,7 @@ _AUTO_TABEL_EXCLUDED_STATUSES = {
     models.EmployeeStatusEnum.shafyor_farrosh, models.EmployeeStatusEnum.dekret,
 }
 STANDARD_WORKDAY_MIN = 8 * 60
+LATE_WARN_MIN = 10   # shu daqiqagacha kechikish — sariq, undan ko'pi — qizil
 
 
 def _fmt_hm(total_min: int) -> str:
@@ -128,10 +129,29 @@ def _fmt_hm(total_min: int) -> str:
     return f"{h} soat {m} daqiqa" if m else f"{h} soat"
 
 
-def _cell_hours(worked: int) -> str:
-    """Kun katagi uchun ishlagan vaqt: 480 -> "8", 300 -> "5", 457 -> "7:37"."""
-    h, m = divmod(max(0, worked), 60)
-    return f"{h}:{m:02d}" if m else str(h)
+def _notes_by_day(db: Session, emp_ids: list[int], date_from: str, date_to: str) -> dict[tuple[int, str], dict]:
+    """(employee_id, "YYYY-MM-DD") -> shu kunni qamragan eng oxirgi ariza (izoh)."""
+    if not emp_ids:
+        return {}
+    notes = (
+        db.query(models.AttendanceNote)
+        .filter(
+            models.AttendanceNote.employee_id.in_(emp_ids),
+            models.AttendanceNote.date_from <= date_to,
+            models.AttendanceNote.date_to >= date_from,
+        )
+        .order_by(models.AttendanceNote.created_at.asc())
+        .all()
+    )
+    result: dict[tuple[int, str], dict] = {}
+    for n in notes:
+        info = {"type": n.note_type, "text": n.text, "status": n.review_status}
+        d = datetime.strptime(max(n.date_from, date_from), "%Y-%m-%d").date()
+        end = datetime.strptime(min(n.date_to, date_to), "%Y-%m-%d").date()
+        while d <= end:
+            result[(n.employee_id, d.isoformat())] = info   # keyingisi ustiga yoziladi
+            d += timedelta(days=1)
+    return result
 
 
 def _build_auto_tabel(db: Session, year: int, month: int) -> schemas.AutoTabelOut:
@@ -165,6 +185,7 @@ def _build_auto_tabel(db: Session, year: int, month: int) -> schemas.AutoTabelOu
     for a in attendances:
         att_by_emp_day.setdefault(a.employee_id, {})[int(a.date[-2:])] = a
     excused = excused_days(db, emp_ids, f"{month_prefix}01", f"{month_prefix}{days_in_month:02d}")
+    notes = _notes_by_day(db, emp_ids, f"{month_prefix}01", f"{month_prefix}{days_in_month:02d}")
 
     rows = []
     for emp in employees:
@@ -204,11 +225,12 @@ def _build_auto_tabel(db: Session, year: int, month: int) -> schemas.AutoTabelOu
                     worked = STANDARD_WORKDAY_MIN - late
                     late_min += late
                 worked_min += worked
-                cells[str(day)] = _cell_hours(worked)
+                cells[str(day)] = "8"   # kelgan kun — har doim "8"; kechikish rangda ko'rinadi
                 day_info[str(day)] = {
                     "check_in": ci_local.strftime("%H:%M"),
                     "late_min": late,
                     "excused": is_excused,
+                    "note": notes.get((emp.id, d.isoformat())),
                 }
             else:
                 cells[str(day)] = ""
@@ -283,7 +305,8 @@ def auto_tabel_xlsx(
         "B":  PatternFill("solid", fgColor="FFFDE2E2"),
         "Д":  PatternFill("solid", fgColor="FFF0F0F0"),
     }
-    partial_fill = PatternFill("solid", fgColor="FFFFE8D6")
+    late_fill = PatternFill("solid", fgColor="FFFFF3CD")       # 10 daqiqagacha kechikkan
+    very_late_fill = PatternFill("solid", fgColor="FFFDE2E2")  # 10 daqiqadan ko'p kechikkan
 
     for row in data.rows:
         ws.append(
@@ -299,8 +322,9 @@ def auto_tabel_xlsx(
             cell = ws.cell(row=ri, column=1 + d)
             cell.alignment = Alignment(horizontal="center")
             fill = fills.get(code)
-            if fill is None and code[0].isdigit():
-                fill = partial_fill   # kechikish sababli 8 soatdan kam
+            info = row.day_info.get(str(d))
+            if info and info["late_min"] > 0 and not info["excused"]:
+                fill = late_fill if info["late_min"] <= LATE_WARN_MIN else very_late_fill
             if fill:
                 cell.fill = fill
         for extra_col in (2 + data.days_in_month, 3 + data.days_in_month):

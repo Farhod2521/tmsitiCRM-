@@ -10,13 +10,24 @@ const MON_NAMES = [
 ];
 const WEEK_DAYS = ["Du", "Se", "Ch", "Pa", "Ju", "Sh", "Ya"];
 
+interface DayNote {
+  type: string;
+  text: string | null;
+  status: string;
+}
+interface DayInfo {
+  check_in: string;
+  late_min: number;
+  excused: boolean;
+  note: DayNote | null;
+}
 interface AutoTabelRow {
   employee_id: number;
   full_name: string;
   department_id: number | null;
   department_name: string | null;
   cells: Record<string, string>;
-  day_info?: Record<string, { check_in: string; late_min: number; excused: boolean }>;
+  day_info?: Record<string, DayInfo>;
   worked_min: number;
   late_min: number;
   excused_min?: number;
@@ -43,8 +54,37 @@ const CODE_CFG: Record<string, { color: string; bg: string }> = {
   "Д":  { color: "#91929E", bg: "rgba(145,146,158,0.12)" },
 };
 
-// Kechikish sababli 8 soatdan kam ishlangan kun ("5", "7:37")
-const PARTIAL_CFG = { color: "#E07A1F", bg: "rgba(255,140,66,0.14)" };
+// Kelgan kun ("8") rangi: vaqtida — yashil, 10 daqiqagacha — sariq, undan ko'p — qizil.
+// Kadr arizani tasdiqlagan bo'lsa — yashil (ko'k nuqta bilan).
+const LATE_WARN_MIN = 10;
+const LATE_CFG = { color: "#B4780C", bg: "rgba(255,189,33,0.18)" };
+const VERY_LATE_CFG = { color: "#FF5C5C", bg: "rgba(255,92,92,0.12)" };
+
+function presentCfg(info: DayInfo) {
+  if (info.excused || info.late_min <= 0) return CODE_CFG["8"];
+  return info.late_min <= LATE_WARN_MIN ? LATE_CFG : VERY_LATE_CFG;
+}
+
+const NOTE_TYPE_LABEL: Record<string, string> = {
+  kechikish: "Kechikaman",
+  kelmaslik: "Kelmayman",
+  obyektda:  "Obyektda",
+  ruxsat:    "Ruxsat so'ralgan",
+};
+const NOTE_STATUS: Record<string, { label: string; color: string }> = {
+  kutilmoqda:      { label: "Kutilmoqda",      color: "#91929E" },
+  kadr_tasdiqladi: { label: "Kadr tasdiqladi", color: "#3F8CFF" },
+  sababli:         { label: "Sababli",         color: "#00A578" },
+  sababsiz:        { label: "Sababsiz",        color: "#FF5C5C" },
+};
+
+interface OpenCell {
+  row: AutoTabelRow;
+  day: number;
+  info: DayInfo;
+  x: number;
+  y: number;
+}
 
 function weekdayOf(year: number, month: number, day: number): number {
   // 0 = Dushanba ... 6 = Yakshanba
@@ -59,6 +99,21 @@ export default function AutoTabelTable() {
   const [data, setData] = useState<AutoTabelData | null>(null);
   const [loading, setLoading] = useState(true);
   const [downloading, setDownloading] = useState(false);
+  const [openCell, setOpenCell] = useState<OpenCell | null>(null);
+
+  // Tashqariga bosilganda yoki sahifa aylantirilganda oyna yopiladi
+  useEffect(() => {
+    if (!openCell) return;
+    const close = () => setOpenCell(null);
+    window.addEventListener("click", close);
+    window.addEventListener("scroll", close, true);
+    window.addEventListener("resize", close);
+    return () => {
+      window.removeEventListener("click", close);
+      window.removeEventListener("scroll", close, true);
+      window.removeEventListener("resize", close);
+    };
+  }, [openCell]);
 
   const load = useCallback(async (y: number, m: number) => {
     setLoading(true);
@@ -182,20 +237,27 @@ export default function AutoTabelTable() {
                   {days.map(d => {
                     const code = r.cells[String(d)] || "";
                     const info = r.day_info?.[String(d)];
-                    const cfg = CODE_CFG[code] ?? (/^\d/.test(code) ? PARTIAL_CFG : undefined);
-                    const title = info
-                      ? `Keldi: ${info.check_in}` + (info.late_min > 0
-                          ? ` · ${fmtHM(info.late_min)} kechikdi` + (info.excused ? " (ariza tasdiqlangan, vaqt qo'shildi)" : "")
-                          : "")
-                      : undefined;
+                    const cfg = info ? presentCfg(info) : CODE_CFG[code];
+                    const isOpen = openCell?.row.employee_id === r.employee_id && openCell.day === d;
                     return (
                       <td key={d} className="text-center py-2" style={{ background: ri % 2 ? "#FFFFFF" : "#FAFCFF" }}>
                         {code ? (
-                          <span className="relative inline-flex items-center justify-center text-[10px] font-bold" title={title}
-                            style={{ minWidth: 22, height: 20, padding: code.length > 2 ? "0 3px" : 0, borderRadius: 5, color: cfg?.color || "#0A1629", background: cfg?.bg || "transparent" }}>
+                          <span
+                            className={`relative inline-flex items-center justify-center text-[10px] font-bold${info ? " cursor-pointer hover:opacity-80" : ""}`}
+                            onClick={info ? (e) => {
+                              e.stopPropagation();
+                              if (isOpen) { setOpenCell(null); return; }
+                              const rect = e.currentTarget.getBoundingClientRect();
+                              setOpenCell({ row: r, day: d, info, x: rect.left + rect.width / 2, y: rect.bottom });
+                            } : undefined}
+                            style={{
+                              width: 22, height: 20, borderRadius: 5,
+                              color: cfg?.color || "#0A1629", background: cfg?.bg || "transparent",
+                              outline: isOpen ? `2px solid ${cfg?.color}` : "none",
+                            }}>
                             {code}
-                            {info?.excused && (
-                              <span className="absolute" style={{ top: -2, right: -2, width: 6, height: 6, borderRadius: 3, background: "#3F8CFF", border: "1px solid #FFFFFF" }} />
+                            {(info?.excused || info?.note) && (
+                              <span className="absolute" style={{ top: -2, right: -2, width: 6, height: 6, borderRadius: 3, background: info.excused ? "#3F8CFF" : "#FFBD21", border: "1px solid #FFFFFF" }} />
                             )}
                           </span>
                         ) : null}
@@ -227,17 +289,72 @@ export default function AutoTabelTable() {
             {label}
           </span>
         ))}
-        <span className="flex items-center gap-1.5 text-[11px]" style={{ color: "#91929E" }}>
-          <span className="inline-flex items-center justify-center text-[9px] font-bold" style={{ minWidth: 18, height: 16, padding: "0 2px", borderRadius: 4, color: PARTIAL_CFG.color, background: PARTIAL_CFG.bg }}>
-            5
+        {([[LATE_CFG, `${LATE_WARN_MIN} daq gacha kechikkan`], [VERY_LATE_CFG, `${LATE_WARN_MIN} daq dan ko'p kechikkan`]] as const).map(([c, label]) => (
+          <span key={label} className="flex items-center gap-1.5 text-[11px]" style={{ color: "#91929E" }}>
+            <span className="inline-flex items-center justify-center text-[9px] font-bold" style={{ width: 18, height: 16, borderRadius: 4, color: c.color, background: c.bg }}>
+              8
+            </span>
+            {label}
           </span>
-          Kechikkan (ishlagan soat)
+        ))}
+        <span className="flex items-center gap-1.5 text-[11px]" style={{ color: "#91929E" }}>
+          <span style={{ width: 7, height: 7, borderRadius: 4, background: "#FFBD21" }} />
+          Izoh bor
         </span>
         <span className="flex items-center gap-1.5 text-[11px]" style={{ color: "#91929E" }}>
           <span style={{ width: 7, height: 7, borderRadius: 4, background: "#3F8CFF" }} />
           Ariza tasdiqlangan — vaqt qo'shildi
         </span>
+        <span className="text-[11px]" style={{ color: "#B8C2D6" }}>
+          Kelgan kun ustiga bosing — kelgan vaqti va izohi ko'rinadi
+        </span>
       </div>
+
+      {openCell && (
+        <div
+          onClick={e => e.stopPropagation()}
+          className="fixed z-50 text-left"
+          style={{
+            left: Math.min(Math.max(openCell.x - 130, 8), window.innerWidth - 268),
+            top: openCell.y + 6,
+            width: 260,
+            background: "#FFFFFF",
+            borderRadius: 14,
+            boxShadow: "0px 10px 30px rgba(10,22,41,0.15)",
+            padding: 14,
+          }}>
+          <p className="text-xs font-bold" style={{ color: "#0A1629" }}>{openCell.row.full_name}</p>
+          <p className="text-[11px] mt-0.5" style={{ color: "#91929E" }}>
+            {String(openCell.day).padStart(2, "0")}.{String(month).padStart(2, "0")}.{year}
+          </p>
+          <div className="mt-2.5 flex items-center justify-between text-xs">
+            <span style={{ color: "#91929E" }}>Kelgan vaqti</span>
+            <span className="font-bold" style={{ color: presentCfg(openCell.info).color }}>{openCell.info.check_in}</span>
+          </div>
+          <div className="mt-1 flex items-center justify-between text-xs">
+            <span style={{ color: "#91929E" }}>Kechikish</span>
+            <span className="font-bold" style={{ color: presentCfg(openCell.info).color }}>
+              {openCell.info.late_min > 0 ? fmtHM(openCell.info.late_min) : "Vaqtida"}
+              {openCell.info.excused && " (vaqt qo'shildi)"}
+            </span>
+          </div>
+          {openCell.info.note && (
+            <div className="mt-2.5 pt-2.5" style={{ borderTop: "1px solid #F4F9FD" }}>
+              <div className="flex items-center justify-between text-[11px]">
+                <span className="font-bold" style={{ color: "#0A1629" }}>
+                  {NOTE_TYPE_LABEL[openCell.info.note.type] ?? openCell.info.note.type}
+                </span>
+                <span className="font-bold" style={{ color: NOTE_STATUS[openCell.info.note.status]?.color ?? "#91929E" }}>
+                  {NOTE_STATUS[openCell.info.note.status]?.label ?? openCell.info.note.status}
+                </span>
+              </div>
+              <p className="text-xs mt-1 whitespace-pre-wrap break-words" style={{ color: "#7D8592" }}>
+                {openCell.info.note.text || "Izoh yozilmagan"}
+              </p>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
