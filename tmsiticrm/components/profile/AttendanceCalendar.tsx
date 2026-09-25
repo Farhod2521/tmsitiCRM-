@@ -15,6 +15,7 @@ interface Attendance {
   distance_m: number | null;
   late_minutes: number;          // ish boshlanishidan kechikish (daqiqa)
   check_in_local: string | null; // "HH:MM" — UTC+5 mahalliy vaqt
+  late_excused?: boolean;        // kechikish arizasi kadr tomonidan tasdiqlangan
 }
 
 type NoteType = "kechikish" | "kelmaslik" | "obyektda" | "ruxsat";
@@ -69,6 +70,15 @@ function lateColor(min: number): string {
   if (min <= 10) return "#00A578";   // yashil
   if (min <= 30) return "#E0A400";   // sariq
   return "#FF5C5C";                  // qizil
+}
+
+// Tasdiqlangan ariza bo'lsa kechikish hisobga olinmaydi (vaqt qo'shib berilgan)
+function effLate(r: Attendance): number {
+  return r.late_excused ? 0 : r.late_minutes;
+}
+
+function lateLabel(r: Attendance): string {
+  return r.late_excused ? `${r.late_minutes} daq kech · ariza tasdiqlangan` : lateText(r.late_minutes);
 }
 
 // Kechikishni matn ko'rinishida: "12 daq kech" yoki "Vaqtida"
@@ -298,9 +308,9 @@ export default function AttendanceCalendar() {
     setMonth(today.getMonth() + 1);
   }
 
-  const onTimeCount  = records.filter(r => r.late_minutes <= 10).length;
-  const lateCount    = records.filter(r => r.late_minutes > 10 && r.late_minutes <= 30).length;
-  const veryLateCount = records.filter(r => r.late_minutes > 30).length;
+  const onTimeCount  = records.filter(r => effLate(r) <= 10).length;
+  const lateCount    = records.filter(r => effLate(r) > 10 && effLate(r) <= 30).length;
+  const veryLateCount = records.filter(r => effLate(r) > 30).length;
   function pct(n: number) { return presentCount > 0 ? Math.round((n / presentCount) * 100) : 0; }
 
   const STATS = [
@@ -372,8 +382,8 @@ export default function AttendanceCalendar() {
                         <span className="flex items-center gap-1">
                           <Clock size={11} /> Soat {todayRec.check_in_local ?? fmtTime(todayRec.check_in)}
                         </span>
-                        <span className="font-bold" style={{ color: lateColor(todayRec.late_minutes) }}>
-                          · {lateText(todayRec.late_minutes)}
+                        <span className="font-bold" style={{ color: lateColor(effLate(todayRec)) }}>
+                          · {lateLabel(todayRec)}
                         </span>
                       </p>
                     </div>
@@ -474,11 +484,11 @@ export default function AttendanceCalendar() {
                   const rec = recByDay.get(d);
                   const isToday = isCurrentMonth && d === todayDay;
 
-                  const dotColor = rec ? lateColor(rec.late_minutes) : "#00A578";
+                  const dotColor = rec ? lateColor(effLate(rec)) : "#00A578";
                   const timeStr = rec?.check_in_local ?? (rec ? fmtTime(rec.check_in) : null);
                   return (
                     <div key={d}
-                      title={rec ? `Soat ${timeStr ?? ""} — ${lateText(rec.late_minutes)}` : undefined}
+                      title={rec ? `Soat ${timeStr ?? ""} — ${lateLabel(rec)}` : undefined}
                       className="flex flex-col items-center justify-center relative"
                       style={{
                         minHeight: 66,

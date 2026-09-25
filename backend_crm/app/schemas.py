@@ -195,9 +195,12 @@ class AutoTabelRow(BaseModel):
     full_name: str
     department_id: Optional[int] = None
     department_name: Optional[str] = None
-    cells: dict  # {day: code}  e.g. {"1":"8","2":"X","15":"MT",...}
-    worked_min: int = 0    # hozirgacha ishlagan (kelgan kunlar * 8 soat), daqiqada
-    late_min: int = 0      # shu oydagi jami kechikish, daqiqada
+    cells: dict  # {day: code}  e.g. {"1":"8","2":"X","15":"MT","16":"5",...}
+    # Kelgan kunlar tafsiloti: {day: {"check_in": "12:00", "late_min": 180, "excused": true}}
+    day_info: dict = {}
+    worked_min: int = 0    # ishlagan vaqt: har kun 8 soat - sababsiz kechikish, daqiqada
+    late_min: int = 0      # shu oydagi jami sababsiz kechikish, daqiqada
+    excused_min: int = 0   # tasdiqlangan ariza bilan qo'shib berilgan vaqt, daqiqada
 
 class AutoTabelOut(BaseModel):
     days_in_month: int
@@ -262,6 +265,7 @@ class AttendanceOut(BaseModel):
     distance_m: Optional[float] = None
     late_minutes: int = 0          # ish boshlanish vaqtidan kechikish (daqiqa)
     check_in_local: Optional[str] = None  # "HH:MM" — UTC+5 mahalliy vaqt
+    late_excused: bool = False     # kechikish uchun ariza kadr tomonidan tasdiqlangan
     model_config = {"from_attributes": True}
 
 

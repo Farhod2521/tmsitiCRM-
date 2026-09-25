@@ -6,6 +6,7 @@ class AttendanceRecord {
   final double? distanceM;
   final int lateMinutes;
   final String? checkInLocal; // "HH:MM"
+  final bool lateExcused; // kechikish arizasi kadr tomonidan tasdiqlangan
 
   AttendanceRecord({
     required this.id,
@@ -14,6 +15,7 @@ class AttendanceRecord {
     required this.distanceM,
     required this.lateMinutes,
     required this.checkInLocal,
+    this.lateExcused = false,
   });
 
   factory AttendanceRecord.fromJson(Map<String, dynamic> json) => AttendanceRecord(
@@ -23,6 +25,7 @@ class AttendanceRecord {
         distanceM: (json['distance_m'] as num?)?.toDouble(),
         lateMinutes: json['late_minutes'] as int? ?? 0,
         checkInLocal: json['check_in_local'] as String?,
+        lateExcused: json['late_excused'] as bool? ?? false,
       );
 }
 

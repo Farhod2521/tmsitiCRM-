@@ -11,7 +11,7 @@ from openpyxl.utils import get_column_letter
 from .. import models, schemas
 from ..database import get_db
 from ..deps import get_current_employee
-from .attendance import TZ_UZ, WORK_START_HOUR, WORK_START_MIN
+from .attendance import TZ_UZ, WORK_START_HOUR, WORK_START_MIN, excused_days
 
 router = APIRouter(prefix="/tabel", tags=["Tabel"])
 
@@ -128,6 +128,12 @@ def _fmt_hm(total_min: int) -> str:
     return f"{h} soat {m} daqiqa" if m else f"{h} soat"
 
 
+def _cell_hours(worked: int) -> str:
+    """Kun katagi uchun ishlagan vaqt: 480 -> "8", 300 -> "5", 457 -> "7:37"."""
+    h, m = divmod(max(0, worked), 60)
+    return f"{h}:{m:02d}" if m else str(h)
+
+
 def _build_auto_tabel(db: Session, year: int, month: int) -> schemas.AutoTabelOut:
     days_in_month = monthrange(year, month)[1]
     today = datetime.now(TZ_UZ).date()
@@ -158,13 +164,16 @@ def _build_auto_tabel(db: Session, year: int, month: int) -> schemas.AutoTabelOu
     att_by_emp_day: dict[int, dict] = {}
     for a in attendances:
         att_by_emp_day.setdefault(a.employee_id, {})[int(a.date[-2:])] = a
+    excused = excused_days(db, emp_ids, f"{month_prefix}01", f"{month_prefix}{days_in_month:02d}")
 
     rows = []
     for emp in employees:
         emp_days = att_by_emp_day.get(emp.id, {})
         cells: dict[str, str] = {}
+        day_info: dict[str, dict] = {}
         worked_min = 0
         late_min = 0
+        excused_min = 0
         for day in range(1, days_in_month + 1):
             d = date(year, month, day)
             if d.weekday() >= 5:
@@ -182,11 +191,25 @@ def _build_auto_tabel(db: Session, year: int, month: int) -> schemas.AutoTabelOu
             if in_status_range and emp.status in _STATUS_RANGE_CODE:
                 cells[str(day)] = _STATUS_RANGE_CODE[emp.status]
             elif att is not None:
-                cells[str(day)] = "8"
-                worked_min += STANDARD_WORKDAY_MIN
                 ci_local = att.check_in.astimezone(TZ_UZ) if att.check_in.tzinfo is not None else att.check_in
                 work_start = ci_local.replace(hour=WORK_START_HOUR, minute=WORK_START_MIN, second=0, microsecond=0)
-                late_min += max(0, int(round((ci_local - work_start).total_seconds() / 60.0)))
+                late = min(STANDARD_WORKDAY_MIN, max(0, int(round((ci_local - work_start).total_seconds() / 60.0))))
+                is_excused = late > 0 and (emp.id, d.isoformat()) in excused
+                # Sababsiz kechikish ish vaqtidan ayiriladi; kadr arizani
+                # tasdiqlasa — kechikkan vaqt qo'shib beriladi (to'liq 8 soat).
+                if is_excused:
+                    worked = STANDARD_WORKDAY_MIN
+                    excused_min += late
+                else:
+                    worked = STANDARD_WORKDAY_MIN - late
+                    late_min += late
+                worked_min += worked
+                cells[str(day)] = _cell_hours(worked)
+                day_info[str(day)] = {
+                    "check_in": ci_local.strftime("%H:%M"),
+                    "late_min": late,
+                    "excused": is_excused,
+                }
             else:
                 cells[str(day)] = ""
 
@@ -196,8 +219,10 @@ def _build_auto_tabel(db: Session, year: int, month: int) -> schemas.AutoTabelOu
             department_id=emp.department_id,
             department_name=dept_map.get(emp.department_id),
             cells=cells,
+            day_info=day_info,
             worked_min=worked_min,
             late_min=late_min,
+            excused_min=excused_min,
         ))
 
     return schemas.AutoTabelOut(days_in_month=days_in_month, working_days=working_days, rows=rows)
@@ -258,6 +283,7 @@ def auto_tabel_xlsx(
         "B":  PatternFill("solid", fgColor="FFFDE2E2"),
         "Д":  PatternFill("solid", fgColor="FFF0F0F0"),
     }
+    partial_fill = PatternFill("solid", fgColor="FFFFE8D6")
 
     for row in data.rows:
         ws.append(
@@ -273,6 +299,8 @@ def auto_tabel_xlsx(
             cell = ws.cell(row=ri, column=1 + d)
             cell.alignment = Alignment(horizontal="center")
             fill = fills.get(code)
+            if fill is None and code[0].isdigit():
+                fill = partial_fill   # kechikish sababli 8 soatdan kam
             if fill:
                 cell.fill = fill
         for extra_col in (2 + data.days_in_month, 3 + data.days_in_month):

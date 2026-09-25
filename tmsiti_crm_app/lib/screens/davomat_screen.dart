@@ -131,7 +131,11 @@ class _ArrivedTodayTabState extends State<_ArrivedTodayTab>
       final rows = await ApiService.todayList();
       if (!mounted) return;
       setState(() => _rows = rows);
-      if (rows.isNotEmpty) _loadDayPhoto();
+      if (rows.isNotEmpty) {
+        _loadDayPhoto();
+      } else {
+        setState(() => _dayPhoto = null);
+      }
     } catch (_) {
       // jim — pastda bo'sh holat ko'rsatiladi
     } finally {
@@ -142,8 +146,11 @@ class _ArrivedTodayTabState extends State<_ArrivedTodayTab>
   Future<void> _loadDayPhoto() async {
     try {
       final b64 = await ApiService.dayEmployeePhoto();
-      if (!mounted || b64 == null || !b64.contains(',')) return;
-      setState(() => _dayPhoto = base64Decode(b64.split(',').last));
+      if (!mounted) return;
+      // Rasm bo'lmasa eski (boshqa xodimning) rasmini tozalaymiz
+      setState(() => _dayPhoto = (b64 == null || !b64.contains(','))
+          ? null
+          : base64Decode(b64.split(',').last));
     } catch (_) {
       // jim — trofey belgisi fallback sifatida ko'rsatiladi
     }
@@ -760,7 +767,8 @@ class _MyAttendanceTabState extends State<_MyAttendanceTab>
 
     return Column(
       children: sorted.map((r) {
-        final late = r.lateMinutes;
+        // Ariza tasdiqlangan bo'lsa kechikish hisobga olinmaydi
+        final late = r.lateExcused ? 0 : r.lateMinutes;
         final color = late <= 0
             ? AppColors.success
             : (late <= 15 ? AppColors.lateAmber : AppColors.danger);

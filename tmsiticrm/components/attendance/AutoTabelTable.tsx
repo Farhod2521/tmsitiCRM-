@@ -16,8 +16,10 @@ interface AutoTabelRow {
   department_id: number | null;
   department_name: string | null;
   cells: Record<string, string>;
+  day_info?: Record<string, { check_in: string; late_min: number; excused: boolean }>;
   worked_min: number;
   late_min: number;
+  excused_min?: number;
 }
 interface AutoTabelData {
   days_in_month: number;
@@ -40,6 +42,9 @@ const CODE_CFG: Record<string, { color: string; bg: string }> = {
   "B":  { color: "#FF5C5C", bg: "rgba(255,92,92,0.12)" },
   "Д":  { color: "#91929E", bg: "rgba(145,146,158,0.12)" },
 };
+
+// Kechikish sababli 8 soatdan kam ishlangan kun ("5", "7:37")
+const PARTIAL_CFG = { color: "#E07A1F", bg: "rgba(255,140,66,0.14)" };
 
 function weekdayOf(year: number, month: number, day: number): number {
   // 0 = Dushanba ... 6 = Yakshanba
@@ -176,13 +181,22 @@ export default function AutoTabelTable() {
                   </td>
                   {days.map(d => {
                     const code = r.cells[String(d)] || "";
-                    const cfg = CODE_CFG[code];
+                    const info = r.day_info?.[String(d)];
+                    const cfg = CODE_CFG[code] ?? (/^\d/.test(code) ? PARTIAL_CFG : undefined);
+                    const title = info
+                      ? `Keldi: ${info.check_in}` + (info.late_min > 0
+                          ? ` · ${fmtHM(info.late_min)} kechikdi` + (info.excused ? " (ariza tasdiqlangan, vaqt qo'shildi)" : "")
+                          : "")
+                      : undefined;
                     return (
                       <td key={d} className="text-center py-2" style={{ background: ri % 2 ? "#FFFFFF" : "#FAFCFF" }}>
                         {code ? (
-                          <span className="inline-flex items-center justify-center text-[10px] font-bold"
-                            style={{ width: 22, height: 20, borderRadius: 5, color: cfg?.color || "#0A1629", background: cfg?.bg || "transparent" }}>
+                          <span className="relative inline-flex items-center justify-center text-[10px] font-bold" title={title}
+                            style={{ minWidth: 22, height: 20, padding: code.length > 2 ? "0 3px" : 0, borderRadius: 5, color: cfg?.color || "#0A1629", background: cfg?.bg || "transparent" }}>
                             {code}
+                            {info?.excused && (
+                              <span className="absolute" style={{ top: -2, right: -2, width: 6, height: 6, borderRadius: 3, background: "#3F8CFF", border: "1px solid #FFFFFF" }} />
+                            )}
                           </span>
                         ) : null}
                       </td>
@@ -193,6 +207,9 @@ export default function AutoTabelTable() {
                   </td>
                   <td className="text-center py-2 text-xs font-bold whitespace-nowrap" style={{ color: r.late_min > 0 ? "#FF8C42" : "#D9E3F0", background: ri % 2 ? "#FFFFFF" : "#FAFCFF" }}>
                     {fmtHM(r.late_min)}
+                    {!!r.excused_min && (
+                      <div className="text-[9px] font-semibold" style={{ color: "#3F8CFF" }}>+{fmtHM(r.excused_min)} sababli</div>
+                    )}
                   </td>
                 </tr>
               ))}
@@ -210,6 +227,16 @@ export default function AutoTabelTable() {
             {label}
           </span>
         ))}
+        <span className="flex items-center gap-1.5 text-[11px]" style={{ color: "#91929E" }}>
+          <span className="inline-flex items-center justify-center text-[9px] font-bold" style={{ minWidth: 18, height: 16, padding: "0 2px", borderRadius: 4, color: PARTIAL_CFG.color, background: PARTIAL_CFG.bg }}>
+            5
+          </span>
+          Kechikkan (ishlagan soat)
+        </span>
+        <span className="flex items-center gap-1.5 text-[11px]" style={{ color: "#91929E" }}>
+          <span style={{ width: 7, height: 7, borderRadius: 4, background: "#3F8CFF" }} />
+          Ariza tasdiqlangan — vaqt qo'shildi
+        </span>
       </div>
     </div>
   );

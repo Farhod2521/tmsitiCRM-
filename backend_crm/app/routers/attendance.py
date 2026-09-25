@@ -1,4 +1,5 @@
 import math
+from calendar import monthrange
 from datetime import datetime, timezone, timedelta
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
@@ -45,7 +46,36 @@ def _location_for(db: Session, employee: models.Employee) -> tuple[float, float,
     return OFFICE_LAT, OFFICE_LNG, RADIUS_M
 
 
-def _to_out(rec: models.Attendance) -> schemas.AttendanceOut:
+# Kadr tasdiqlagan (yoki keyin zamdirektor ham tasdiqlagan) ariza — shu kungi
+# kechikish "sababli" hisoblanadi. 2-bosqichda rad etilsa "sababsiz" bo'ladi.
+APPROVED_NOTE_STATUSES = ("kadr_tasdiqladi", "sababli")
+
+
+def excused_days(db: Session, emp_ids: list[int], date_from: str, date_to: str) -> set[tuple[int, str]]:
+    """Tasdiqlangan arizalar qamrab olgan (employee_id, "YYYY-MM-DD") juftliklari."""
+    if not emp_ids:
+        return set()
+    notes = (
+        db.query(models.AttendanceNote)
+        .filter(
+            models.AttendanceNote.employee_id.in_(emp_ids),
+            models.AttendanceNote.review_status.in_(APPROVED_NOTE_STATUSES),
+            models.AttendanceNote.date_from <= date_to,
+            models.AttendanceNote.date_to >= date_from,
+        )
+        .all()
+    )
+    result: set[tuple[int, str]] = set()
+    for n in notes:
+        d = datetime.strptime(max(n.date_from, date_from), "%Y-%m-%d").date()
+        end = datetime.strptime(min(n.date_to, date_to), "%Y-%m-%d").date()
+        while d <= end:
+            result.add((n.employee_id, d.isoformat()))
+            d += timedelta(days=1)
+    return result
+
+
+def _to_out(rec: models.Attendance, excused: bool = False) -> schemas.AttendanceOut:
     """ORM yozuvni AttendanceOut'ga aylantiradi — kechikish va mahalliy vaqt bilan."""
     # check_in DB'da UTC+5 saqlangan (naive). Mahalliy vaqt sifatida o'qiymiz.
     ci = rec.check_in
@@ -68,6 +98,7 @@ def _to_out(rec: models.Attendance) -> schemas.AttendanceOut:
         distance_m=rec.distance_m,
         late_minutes=late,
         check_in_local=ci_local.strftime("%H:%M"),
+        late_excused=excused and late > 0,
     )
 
 
@@ -143,7 +174,9 @@ def my_month(
         .order_by(models.Attendance.date)
         .all()
     )
-    return [_to_out(r) for r in recs]
+    days_in_month = monthrange(year, month)[1]
+    excused = excused_days(db, [current.id], f"{prefix}01", f"{prefix}{days_in_month:02d}")
+    return [_to_out(r, (current.id, r.date) in excused) for r in recs]
 
 
 @router.get("/today", response_model=schemas.AttendanceOut | None)
@@ -212,15 +245,19 @@ def day_employee_photo(
     rasmini so'rab bo'lmaydi — server o'zi eng ertagi kelganni aniqlaydi."""
     if not date:
         date = datetime.now(TZ_UZ).strftime("%Y-%m-%d")
-    rec = (
+    # /today-list bilan bir xil tanlov: faqat faol xodimlar, aks holda
+    # ro'yxatdagi birinchi xodim bilan rasm mos kelmay qoladi.
+    recs = (
         db.query(models.Attendance)
         .filter(models.Attendance.date == date)
         .order_by(models.Attendance.check_in.asc())
-        .first()
+        .all()
     )
-    if not rec or not rec.employee:
-        return {"photo_base64": None}
-    return {"photo_base64": rec.employee.photo_base64}
+    for rec in recs:
+        emp = rec.employee
+        if emp and emp.is_active:
+            return {"employee_id": emp.id, "photo_base64": emp.photo_base64}
+    return {"employee_id": None, "photo_base64": None}
 
 
 _DAVOMAT_ADMIN_ROLES = {
