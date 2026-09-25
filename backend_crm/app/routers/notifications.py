@@ -1,7 +1,7 @@
 from datetime import datetime, timedelta
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, BackgroundTasks, Depends
 from sqlalchemy.orm import Session
-from .. import models, schemas
+from .. import models, schemas, note_flow
 from ..database import get_db
 from ..deps import get_current_employee
 
@@ -32,6 +32,7 @@ def _href(role, section: str) -> str:
 
 @router.get("", response_model=schemas.NotificationsOut)
 def my_notifications(
+    background: BackgroundTasks,
     db:      Session = Depends(get_db),
     current: models.Employee = Depends(get_current_employee),
 ):
@@ -46,6 +47,10 @@ def my_notifications(
                                                   count=count, href=_href(role, section)))
 
     Note = models.AttendanceNote
+    # Bo'lim boshlig'isiz kadrga tushib qolgan arizalar — boshliqqa qaytariladi
+    moved = note_flow.reroute_to_heads(db)
+    if moved:
+        background.add_task(note_flow.after_reroute, moved)
     # ── Davomat izohlari (arizalar) ───────────────────────────────────────────
     if role in _HEADS and current.department_id:
         add("izoh_bolim", "izohlar", "Tasdig'ingizni kutayotgan davomat arizalari",

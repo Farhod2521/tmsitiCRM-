@@ -108,6 +108,30 @@ def stage_reviewers(db: Session, note: models.AttendanceNote) -> list[models.Emp
     return []
 
 
+def reroute_to_heads(db: Session) -> list[int]:
+    """Oddiy xodimning arizasi bo'lim boshlig'isiz kadrga tushib qolgan bo'lsa
+    (eski kod bilan yozilgan yoki o'sha paytda boshliq faol bo'lmagan) va hozir
+    bo'limida faol boshliq bor — ariza bo'lim boshlig'iga qaytariladi.
+    Qaytarilgan arizalar id'larini beradi (Telegram fonda: after_reroute)."""
+    notes = (
+        db.query(models.AttendanceNote)
+        .filter(models.AttendanceNote.review_status == "kutilmoqda",
+                models.AttendanceNote.bolim_by.is_(None),
+                models.AttendanceNote.reviewed_by.is_(None))
+        .all()
+    )
+    moved = []
+    for n in notes:
+        author = n.employee
+        if author and author.role not in HEAD_ROLES and dept_heads(db, author):
+            n.review_status = "bolim_kutilmoqda"
+            moved.append(n.id)
+    if moved:
+        db.commit()
+        log.info("Bo'lim boshlig'iga qaytarilgan arizalar: %s", moved)
+    return moved
+
+
 # ── Qaror ─────────────────────────────────────────────────────────────────────
 
 def apply_review(db: Session, note: models.AttendanceNote, actor: models.Employee, approve: bool) -> str:
@@ -280,6 +304,27 @@ def after_create(note_id: int) -> None:
     with SessionLocal() as db:
         note = db.get(models.AttendanceNote, note_id)
         if note and note.review_status in PENDING:
+            _notify_stage(db, note)
+
+
+def after_reroute(note_ids: list[int]) -> None:
+    """Kadrlarga yuborilgan (endi eskirgan) xabarlarni yopib, bo'lim boshlig'iga yuboradi."""
+    with SessionLocal() as db:
+        for nid in note_ids:
+            note = db.get(models.AttendanceNote, nid)
+            if not note or note.review_status != "bolim_kutilmoqda":
+                continue
+            for m in (db.query(models.AttendanceNoteTgMessage)
+                      .filter(models.AttendanceNoteTgMessage.note_id == nid,
+                              models.AttendanceNoteTgMessage.stage == "kutilmoqda",
+                              models.AttendanceNoteTgMessage.closed.is_(False)).all()):
+                telegram_api("editMessageText", {
+                    "chat_id": m.chat_id, "message_id": m.message_id,
+                    "text": note_text(note, "↩️ <b>Avval bo'lim boshlig'i tasdiqlashi kerak</b> — ariza unga qaytarildi"),
+                    "parse_mode": "HTML", "disable_web_page_preview": True,
+                })
+                m.closed = True
+            db.commit()
             _notify_stage(db, note)
 
 

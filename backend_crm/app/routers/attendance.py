@@ -464,11 +464,17 @@ def my_active_note(
 
 @router.get("/notes", response_model=List[schemas.AttendanceNoteOut])
 def inbox_notes(
+    background: BackgroundTasks,
     db:      Session = Depends(get_db),
     current: models.Employee = Depends(get_current_employee),
 ):
-    """Bo'lim boshlig'i — o'z bo'limidagi oddiy xodimlarning izohlarini,
-    kadr roli — barcha (jumladan bo'lim boshliqlaridan kelgan) izohlarni ko'radi."""
+    """Bo'lim boshlig'i — o'z bo'limidagi oddiy xodimlarning izohlarini;
+    kadr — bo'lim boshlig'i tasdiqlaganlaridan boshlab; direktor/zamdirektor —
+    kadr tasdiqlaganlaridan boshlab (navbati kelmagan ariza ko'rinmaydi);
+    superadmin — barchasini ko'radi."""
+    moved = note_flow.reroute_to_heads(db)
+    if moved:
+        background.add_task(note_flow.after_reroute, moved)
     if current.role in _BOLIM_HEAD_ROLES:
         if not current.department_id:
             return []
@@ -481,10 +487,12 @@ def inbox_notes(
                 models.Employee.role.notin_(_BOLIM_HEAD_ROLES),
             )
         )
-    elif current.role in (
-        models.RoleEnum.kadr, models.RoleEnum.superadmin,
-        models.RoleEnum.direktor, models.RoleEnum.zamdirektor,
-    ):
+    elif current.role == models.RoleEnum.kadr:
+        q = db.query(models.AttendanceNote).filter(models.AttendanceNote.review_status != "bolim_kutilmoqda")
+    elif current.role in (models.RoleEnum.direktor, models.RoleEnum.zamdirektor):
+        q = db.query(models.AttendanceNote).filter(
+            models.AttendanceNote.review_status.notin_(["bolim_kutilmoqda", "kutilmoqda"]))
+    elif current.role == models.RoleEnum.superadmin:
         q = db.query(models.AttendanceNote)
     else:
         raise HTTPException(status_code=403, detail="Ruxsat yo'q")
