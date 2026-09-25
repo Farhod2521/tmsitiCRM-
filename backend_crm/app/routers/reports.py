@@ -14,6 +14,7 @@ from ..deps import get_current_employee
 from ..utils_weeks import get_month_weeks, weekly_max, is_current_week, today_uz
 from ..telegram import send_telegram_message
 from .attendance import WORK_START_HOUR, WORK_START_MIN, TZ_UZ as TZ_UZ_ATTENDANCE, _note_out
+from .holidays import month_holidays
 
 router = APIRouter(prefix="/reports", tags=["Haftalik hisobot"])
 
@@ -783,6 +784,7 @@ def monthly_report(
     ).order_by(models.AttendanceNote.date_from).all()
     notes_out = [_note_out(n) for n in notes]
 
+    holidays = month_holidays(db, year, month)
     calendar_days: list[schemas.MonthlyReportCalendarDay] = []
     kelgan = kechikkan = kelmagan = ish_kunlari_jami = 0
     late_minutes_total = 0
@@ -792,6 +794,9 @@ def monthly_report(
         wd = d.weekday()  # 0=Dushanba
         if wd >= 5:
             calendar_days.append(schemas.MonthlyReportCalendarDay(day=day, weekday=wd, status="dam_olish"))
+            continue
+        if day in holidays:
+            calendar_days.append(schemas.MonthlyReportCalendarDay(day=day, weekday=wd, status="bayram"))
             continue
 
         ish_kunlari_jami += 1
@@ -924,11 +929,12 @@ def _employee_month_days(
     ).all()
     att_by_day = {int(a.date[-2:]): a for a in attendances}
 
+    holidays = month_holidays(db, year, month)
     cells: list[schemas.MonthlyTableCell] = []
     kelgan = kechikkan = kelmagan = 0
     for day in range(1, days_in_month + 1):
         d = date(year, month, day)
-        if d.weekday() >= 5:
+        if d.weekday() >= 5 or day in holidays:
             continue
         if day > last_day_to_count:
             cells.append(schemas.MonthlyTableCell(day=day, status="kelajak"))
@@ -955,7 +961,11 @@ def _build_monthly_table_data(db: Session, year: int, month: int) -> schemas.Mon
     today = today_uz()
     last_day_to_count = today.day if (year, month) == (today.year, today.month) else days_in_month
 
-    working_days = [d for d in range(1, days_in_month + 1) if date(year, month, d).weekday() < 5]
+    holidays = month_holidays(db, year, month)
+    working_days = [
+        d for d in range(1, days_in_month + 1)
+        if date(year, month, d).weekday() < 5 and d not in holidays
+    ]
     day_labels = [schemas.MonthlyTableDayLabel(day=d, label=date(year, month, d).strftime("%d.%m")) for d in working_days]
 
     # "Hamma xodimlar" = barcha FAOL xodimlar — rahbariyat, direktor/zamdirektor ham

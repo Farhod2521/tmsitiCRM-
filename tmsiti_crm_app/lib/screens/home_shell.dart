@@ -18,6 +18,7 @@ class HomeShell extends StatefulWidget {
 
 class _HomeShellState extends State<HomeShell> {
   int _index = 0;
+  final _davomatKey = GlobalKey<DavomatScreenState>();
 
   void _goTo(int index) => setState(() => _index = index);
 
@@ -46,6 +47,7 @@ class _HomeShellState extends State<HomeShell> {
               onTap: () {
                 Navigator.pop(context);
                 _goTo(1);
+                _davomatKey.currentState?.startCheckIn();
               },
             ),
             const SizedBox(height: 10),
@@ -54,9 +56,11 @@ class _HomeShellState extends State<HomeShell> {
               color: AppColors.lateAmber,
               title: 'Ariza qoldirish',
               subtitle: "Kech qolaman / kelmayman / obyektga chiqdim",
-              onTap: () {
+              onTap: () async {
                 Navigator.pop(context);
-                _goTo(1);
+                // Ariza oynasi darhol ochiladi — bo'limga o'tmasdan
+                final note = await showAttendanceNoteSheet(context);
+                if (note != null) _davomatKey.currentState?.onNoteCreated(note);
               },
             ),
           ],
@@ -102,7 +106,7 @@ class _HomeShellState extends State<HomeShell> {
   Widget build(BuildContext context) {
     final pages = [
       HomeScreen(user: widget.user, onNavigate: _goTo),
-      DavomatScreen(user: widget.user),
+      DavomatScreen(key: _davomatKey, user: widget.user),
       const TasksScreen(),
       ProfileScreen(user: widget.user),
     ];

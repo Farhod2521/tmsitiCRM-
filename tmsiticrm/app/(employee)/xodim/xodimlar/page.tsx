@@ -114,7 +114,7 @@ export default function KadrXodimlarPage() {
                     )}
                   </td>
                   <td className="py-4" style={{ paddingRight: 16 }}>
-                    <StatusMenu empId={emp.id} status={emp.status} onChanged={handleStatusChange} />
+                    <StatusMenu empId={emp.id} empName={emp.full_name} status={emp.status} onChanged={handleStatusChange} />
                   </td>
                   <td className="py-4" style={{ paddingRight: 16 }}>
                     {emp.status === "dekret" ? (

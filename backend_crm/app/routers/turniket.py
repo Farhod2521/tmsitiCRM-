@@ -23,6 +23,9 @@ from ..database import get_db
 from ..deps import get_current_employee
 from ..name_match import match_employee, normalize
 from .attendance import WORK_START_HOUR, WORK_START_MIN
+from .holidays import month_holidays
+from .tabel import HOLIDAY_CODE
+from ..status_periods import status_code_map
 
 router = APIRouter(prefix="/turniket", tags=["Turniket davomat"])
 
@@ -237,12 +240,6 @@ _TABEL_EXCLUDED_ROLES = {
 _TABEL_EXCLUDED_STATUSES = {
     models.EmployeeStatusEnum.shafyor_farrosh, models.EmployeeStatusEnum.dekret,
 }
-_STATUS_RANGE_CODE = {
-    models.EmployeeStatusEnum.otpuska:            "MT",
-    models.EmployeeStatusEnum.oquv_tatilida:       "O'",
-    models.EmployeeStatusEnum.xizmat_safarida:     "K",
-    models.EmployeeStatusEnum.mehnatga_layoqatsiz: "B",
-}
 
 
 def _build_turniket_tabel(db: Session, year: int, month: int) -> schemas.AutoTabelOut:
@@ -276,6 +273,9 @@ def _build_turniket_tabel(db: Session, year: int, month: int) -> schemas.AutoTab
     for r in records:
         by_emp_day.setdefault(r.employee_id, {})[int(r.date[-2:])] = r
 
+    holidays = month_holidays(db, year, month)
+    status_codes = status_code_map(db, employees, f"{month_prefix}01", f"{month_prefix}{days_in_month:02d}")
+
     rows = []
     for emp in employees:
         emp_days = by_emp_day.get(emp.id, {})
@@ -287,14 +287,14 @@ def _build_turniket_tabel(db: Session, year: int, month: int) -> schemas.AutoTab
             if d.weekday() >= 5:
                 cells[str(day)] = "X"
                 continue
+            if day in holidays:
+                cells[str(day)] = HOLIDAY_CODE
+                continue
 
-            in_status_range = bool(
-                emp.status_date_from and emp.status_date_to
-                and emp.status_date_from <= d.isoformat() <= emp.status_date_to
-            )
+            status_code = status_codes.get((emp.id, d.isoformat()))
             rec = emp_days.get(day)
-            if in_status_range and emp.status in _STATUS_RANGE_CODE:
-                cells[str(day)] = _STATUS_RANGE_CODE[emp.status]
+            if status_code:
+                cells[str(day)] = status_code
             elif rec is not None and rec.check_in:
                 cells[str(day)] = "8"
                 worked_min += rec.worked_minutes or 0
@@ -313,8 +313,16 @@ def _build_turniket_tabel(db: Session, year: int, month: int) -> schemas.AutoTab
             late_min=late_min,
         ))
 
-    working_days = sum(1 for d in range(1, days_in_month + 1) if date(year, month, d).weekday() < 5)
-    return schemas.AutoTabelOut(days_in_month=days_in_month, working_days=working_days, rows=rows)
+    working_days = sum(
+        1 for d in range(1, days_in_month + 1)
+        if date(year, month, d).weekday() < 5 and d not in holidays
+    )
+    return schemas.AutoTabelOut(
+        days_in_month=days_in_month,
+        working_days=working_days,
+        rows=rows,
+        holidays={str(k): v for k, v in holidays.items()},
+    )
 
 
 @router.get("/tabel", response_model=schemas.AutoTabelOut)
@@ -355,6 +363,8 @@ def get_employee_month(
         models.TurniketAttendance.date <= f"{month_prefix}{days_in_month:02d}",
     ).all()
     rec_by_day = {int(r.date[-2:]): r for r in records}
+    holidays = month_holidays(db, year, month)
+    status_codes = status_code_map(db, [emp], f"{month_prefix}01", f"{month_prefix}{days_in_month:02d}")
 
     days: List[schemas.TurniketDayDetail] = []
     kelgan_kunlar = 0
@@ -365,14 +375,13 @@ def get_employee_month(
         weekday = d.weekday()
         rec = rec_by_day.get(day)
 
-        in_status_range = bool(
-            emp.status_date_from and emp.status_date_to
-            and emp.status_date_from <= d.isoformat() <= emp.status_date_to
-        )
+        status_code = status_codes.get((emp.id, d.isoformat()))
         if weekday >= 5:
             status = "dam_olish"
-        elif in_status_range and emp.status in _STATUS_RANGE_CODE:
-            status = "status_" + _STATUS_RANGE_CODE[emp.status]
+        elif day in holidays:
+            status = "bayram"
+        elif status_code:
+            status = "status_" + status_code
         elif rec is not None and rec.check_in:
             status = "kelgan"
             kelgan_kunlar += 1

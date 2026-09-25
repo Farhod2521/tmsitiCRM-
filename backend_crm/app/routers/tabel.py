@@ -12,6 +12,8 @@ from .. import models, schemas
 from ..database import get_db
 from ..deps import get_current_employee
 from .attendance import TZ_UZ, WORK_START_HOUR, WORK_START_MIN, excused_days
+from .holidays import month_holidays
+from ..status_periods import status_code_map
 
 router = APIRouter(prefix="/tabel", tags=["Tabel"])
 
@@ -106,14 +108,6 @@ def save_tabel(
     return {"saved": len(payload.records)}
 
 
-_STATUS_RANGE_CODE = {
-    models.EmployeeStatusEnum.otpuska:             "MT",
-    models.EmployeeStatusEnum.oquv_tatilida:        "O'",
-    models.EmployeeStatusEnum.xizmat_safarida:      "K",
-    models.EmployeeStatusEnum.mehnatga_layoqatsiz:  "B",
-}
-
-
 _AUTO_TABEL_EXCLUDED_ROLES = {
     models.RoleEnum.superadmin, models.RoleEnum.direktor, models.RoleEnum.zamdirektor,
 }
@@ -121,7 +115,8 @@ _AUTO_TABEL_EXCLUDED_STATUSES = {
     models.EmployeeStatusEnum.shafyor_farrosh, models.EmployeeStatusEnum.dekret,
 }
 STANDARD_WORKDAY_MIN = 8 * 60
-LATE_WARN_MIN = 10   # shu daqiqagacha kechikish — sariq, undan ko'pi — qizil
+LATE_WARN_MIN = 10
+HOLIDAY_CODE = "BY"  # bayram kuni (kadr kalendarida belgilangan)   # shu daqiqagacha kechikish — sariq, undan ko'pi — qizil
 
 
 def _fmt_hm(total_min: int) -> str:
@@ -158,7 +153,11 @@ def _build_auto_tabel(db: Session, year: int, month: int) -> schemas.AutoTabelOu
     days_in_month = monthrange(year, month)[1]
     today = datetime.now(TZ_UZ).date()
     last_day_to_count = today.day if (year, month) == (today.year, today.month) else days_in_month
-    working_days = sum(1 for d in range(1, days_in_month + 1) if date(year, month, d).weekday() < 5)
+    holidays = month_holidays(db, year, month)
+    working_days = sum(
+        1 for d in range(1, days_in_month + 1)
+        if date(year, month, d).weekday() < 5 and d not in holidays
+    )
 
     depts = db.query(models.Department).all()
     dept_order = {d.id: d.order_num for d in depts}
@@ -185,6 +184,8 @@ def _build_auto_tabel(db: Session, year: int, month: int) -> schemas.AutoTabelOu
     for a in attendances:
         att_by_emp_day.setdefault(a.employee_id, {})[int(a.date[-2:])] = a
     excused = excused_days(db, emp_ids, f"{month_prefix}01", f"{month_prefix}{days_in_month:02d}")
+    # Mehnat ta'tili/bolnichniy/safar — tarixdan (muddat tugagan bo'lsa ham saqlanadi)
+    status_codes = status_code_map(db, employees, f"{month_prefix}01", f"{month_prefix}{days_in_month:02d}")
     notes = _notes_by_day(db, emp_ids, f"{month_prefix}01", f"{month_prefix}{days_in_month:02d}")
 
     rows = []
@@ -200,17 +201,17 @@ def _build_auto_tabel(db: Session, year: int, month: int) -> schemas.AutoTabelOu
             if d.weekday() >= 5:
                 cells[str(day)] = "X"
                 continue
+            if day in holidays:
+                cells[str(day)] = HOLIDAY_CODE
+                continue
             if day > last_day_to_count:
                 cells[str(day)] = ""
                 continue
 
-            in_status_range = bool(
-                emp.status_date_from and emp.status_date_to
-                and emp.status_date_from <= d.isoformat() <= emp.status_date_to
-            )
+            status_code = status_codes.get((emp.id, d.isoformat()))
             att = emp_days.get(day)
-            if in_status_range and emp.status in _STATUS_RANGE_CODE:
-                cells[str(day)] = _STATUS_RANGE_CODE[emp.status]
+            if status_code:
+                cells[str(day)] = status_code
             elif att is not None:
                 ci_local = att.check_in.astimezone(TZ_UZ) if att.check_in.tzinfo is not None else att.check_in
                 work_start = ci_local.replace(hour=WORK_START_HOUR, minute=WORK_START_MIN, second=0, microsecond=0)
@@ -247,7 +248,12 @@ def _build_auto_tabel(db: Session, year: int, month: int) -> schemas.AutoTabelOu
             excused_min=excused_min,
         ))
 
-    return schemas.AutoTabelOut(days_in_month=days_in_month, working_days=working_days, rows=rows)
+    return schemas.AutoTabelOut(
+        days_in_month=days_in_month,
+        working_days=working_days,
+        rows=rows,
+        holidays={str(k): v for k, v in holidays.items()},
+    )
 
 
 _AUTO_TABEL_VIEW_ROLES = {
@@ -304,6 +310,7 @@ def auto_tabel_xlsx(
         "K":  PatternFill("solid", fgColor="FFE3EEFF"),
         "B":  PatternFill("solid", fgColor="FFFDE2E2"),
         "Д":  PatternFill("solid", fgColor="FFF0F0F0"),
+        HOLIDAY_CODE: PatternFill("solid", fgColor="FFFCE4EC"),
     }
     late_fill = PatternFill("solid", fgColor="FFFFF3CD")       # 10 daqiqagacha kechikkan
     very_late_fill = PatternFill("solid", fgColor="FFFDE2E2")  # 10 daqiqadan ko'p kechikkan

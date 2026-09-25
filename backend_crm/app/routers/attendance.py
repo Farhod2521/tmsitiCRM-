@@ -326,7 +326,11 @@ def admin_day(
 def get_absent_employees(db: Session, date: str) -> List[models.Employee]:
     """Berilgan sanada 'Ishga keldim' bosmagan, faol (rahbariyat/direktor/
     zamdirektordan tashqari) xodimlar ro'yxati — telegram eslatma (qo'lda va
-    avtomatik kunlik) funksiyalari uchun umumiy."""
+    avtomatik kunlik) funksiyalari uchun umumiy. Bayram kuni — bo'sh ro'yxat
+    (bot eslatma yubormaydi)."""
+    from .holidays import is_holiday
+    if is_holiday(db, date):
+        return []
     employees = (
         db.query(models.Employee)
         .join(models.Department, models.Employee.department_id == models.Department.id, isouter=True)

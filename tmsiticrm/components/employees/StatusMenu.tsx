@@ -3,9 +3,10 @@
 import { useState, useEffect, useRef } from "react";
 import Badge from "@/components/ui/Badge";
 import { apiFetch } from "@/lib/api";
+import StatusHistoryModal from "@/components/employees/StatusHistoryModal";
 import {
   Loader2, ArrowLeft, Palmtree, Baby, UserCheck,
-  Car, Plane, GraduationCap, Stethoscope, Laptop,
+  Car, Plane, GraduationCap, Stethoscope, Laptop, History,
 } from "lucide-react";
 
 export const STATUS_LABEL: Record<string, string> = {
@@ -37,8 +38,9 @@ const STATUS_MENU: { status: string; label: string; icon: typeof UserCheck; colo
   { status: "shafyor_farrosh",      label: "Texnik xodimlarga o'tkazish",      icon: Car,           color: "#7D8592", bg: "rgba(125,133,146,0.1)", needsRange: false },
 ];
 
-export default function StatusMenu({ empId, status, onChanged }: {
+export default function StatusMenu({ empId, empName, status, onChanged }: {
   empId: number;
+  empName?: string;
   status: string;
   onChanged: (id: number, status: string, dateFrom: string | null, dateTo: string | null) => void;
 }) {
@@ -47,6 +49,7 @@ export default function StatusMenu({ empId, status, onChanged }: {
   const [pending, setPending] = useState<null | { status: string; label: string }>(null);
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo,   setDateTo]   = useState("");
+  const [historyOpen, setHistoryOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
   function closeAll() {
@@ -92,18 +95,28 @@ export default function StatusMenu({ empId, status, onChanged }: {
         <div className="absolute left-0 top-8 z-30 w-64 py-1.5"
           style={{ background: "#FFFFFF", borderRadius: 12, boxShadow: "0 12px 32px rgba(10,22,41,0.16)", border: "1px solid #F4F9FD" }}>
           {!pending ? (
-            STATUS_MENU.filter(s => s.status !== status).map(s => {
-              const Icon = s.icon;
-              return (
-                <button key={s.status} onClick={() => pick(s)} disabled={saving}
-                  className="w-full flex items-center gap-2.5 px-3 py-2 hover:bg-[#F8FAFF] transition-colors disabled:opacity-50">
-                  <div className="w-7 h-7 flex-shrink-0 flex items-center justify-center" style={{ background: s.bg, borderRadius: 8 }}>
-                    {saving ? <Loader2 size={12} className="animate-spin" style={{ color: s.color }} /> : <Icon size={13} style={{ color: s.color }} />}
-                  </div>
-                  <span className="text-xs font-semibold text-left" style={{ color: "#0A1629" }}>{s.label}</span>
-                </button>
-              );
-            })
+            <>
+              {STATUS_MENU.filter(s => s.status !== status).map(s => {
+                const Icon = s.icon;
+                return (
+                  <button key={s.status} onClick={() => pick(s)} disabled={saving}
+                    className="w-full flex items-center gap-2.5 px-3 py-2 hover:bg-[#F8FAFF] transition-colors disabled:opacity-50">
+                    <div className="w-7 h-7 flex-shrink-0 flex items-center justify-center" style={{ background: s.bg, borderRadius: 8 }}>
+                      {saving ? <Loader2 size={12} className="animate-spin" style={{ color: s.color }} /> : <Icon size={13} style={{ color: s.color }} />}
+                    </div>
+                    <span className="text-xs font-semibold text-left" style={{ color: "#0A1629" }}>{s.label}</span>
+                  </button>
+                );
+              })}
+              <div className="my-1" style={{ borderTop: "1px solid #F4F9FD" }} />
+              <button onClick={() => { setHistoryOpen(true); closeAll(); }}
+                className="w-full flex items-center gap-2.5 px-3 py-2 hover:bg-[#F8FAFF] transition-colors">
+                <div className="w-7 h-7 flex-shrink-0 flex items-center justify-center" style={{ background: "rgba(255,140,66,0.12)", borderRadius: 8 }}>
+                  <History size={13} style={{ color: "#FF8C42" }} />
+                </div>
+                <span className="text-xs font-bold text-left" style={{ color: "#FF8C42" }}>Holat tarixi (ta&apos;til, bolnichniy...)</span>
+              </button>
+            </>
           ) : (
             <div className="px-3 py-3">
               <button onClick={() => setPending(null)} className="flex items-center gap-1 mb-2.5 text-[11px] font-bold" style={{ color: "#91929E" }}>
@@ -133,6 +146,9 @@ export default function StatusMenu({ empId, status, onChanged }: {
             </div>
           )}
         </div>
+      )}
+      {historyOpen && (
+        <StatusHistoryModal empId={empId} empName={empName ?? ""} onClose={() => setHistoryOpen(false)} />
       )}
     </div>
   );

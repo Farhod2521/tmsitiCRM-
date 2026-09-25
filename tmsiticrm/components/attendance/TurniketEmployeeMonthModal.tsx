@@ -17,6 +17,7 @@ const STATUS_CFG: Record<string, { color: string; bg: string }> = {
   kelgan:    { color: "#00A578", bg: "rgba(0,196,140,0.1)" },
   kelmagan:  { color: "#FF5C5C", bg: "rgba(255,92,92,0.1)" },
   dam_olish: { color: "#B8C2D6", bg: "#F4F9FD" },
+  bayram:    { color: "#E0457B", bg: "rgba(224,69,123,0.1)" },
   kelajak:   { color: "#D9E3F0", bg: "#FFFFFF" },
   "status_MT": { color: "#B4780C", bg: "rgba(255,189,33,0.15)" },
   "status_O'": { color: "#6D5DD3", bg: "rgba(109,93,211,0.12)" },
@@ -160,7 +161,7 @@ export default function TurniketEmployeeMonthModal({
               ))}
 
               <div className="flex items-center gap-4 flex-wrap mt-3 pt-3" style={{ borderTop: "1px solid #F4F9FD" }}>
-                {[["kelgan", "Kelgan"], ["kelmagan", "Kelmagan"], ["dam_olish", "Dam olish kuni"]].map(([k, l]) => (
+                {[["kelgan", "Kelgan"], ["kelmagan", "Kelmagan"], ["dam_olish", "Dam olish kuni"], ["bayram", "Bayram"]].map(([k, l]) => (
                   <span key={k} className="flex items-center gap-1.5 text-[10px]" style={{ color: "#91929E" }}>
                     <span className="w-2.5 h-2.5 rounded-full" style={{ background: STATUS_CFG[k].color }} />
                     {l}

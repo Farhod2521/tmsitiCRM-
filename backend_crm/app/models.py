@@ -533,6 +533,34 @@ class EmployeeFile(Base):
     employee = relationship("Employee", foreign_keys=[employee_id])
 
 
+class EmployeeStatusPeriod(Base):
+    """Xodimning muddatli holatlari tarixi (mehnat ta'tili, bolnichniy, safar...).
+    Employee.status faqat JORIY holatni saqlaydi va muddat tugagach "faol"ga
+    qaytariladi — tabel o'tgan oylar uchun shu jadvaldan o'qiydi."""
+    __tablename__ = "employee_status_periods"
+
+    id          = Column(Integer, primary_key=True, index=True)
+    employee_id = Column(Integer, ForeignKey("employees.id"), nullable=False, index=True)
+    status      = Column(SAEnum(EmployeeStatusEnum, name="employee_status_enum"), nullable=False)
+    date_from   = Column(String(10), nullable=False)   # "2026-08-10"
+    date_to     = Column(String(10), nullable=False)   # "2026-09-14"
+    source      = Column(String(20), default="kadr", nullable=False)  # "kadr" | "tabel" (eski tabeldan tiklangan) | "joriy"
+    created_by  = Column(Integer, ForeignKey("employees.id"), nullable=True)
+    created_at  = Column(DateTime, default=datetime.utcnow)
+
+
+class Holiday(Base):
+    """Kadr belgilagan bayram (dam olish) kuni — tabel, davomat hisobi va
+    09:00 telegram eslatmasida ish kuni hisoblanmaydi."""
+    __tablename__ = "holidays"
+
+    id         = Column(Integer, primary_key=True, index=True)
+    date       = Column(String(10), unique=True, nullable=False, index=True)  # "2026-09-01"
+    name       = Column(String(200), nullable=False)                          # "Mustaqillik kuni"
+    created_by = Column(Integer, ForeignKey("employees.id"), nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+
 class LocationSetting(Base):
     """Ish joyi turi (vazirlik / labaratoriya) uchun geolokatsiya markazi va radiusi."""
     __tablename__ = "location_settings"

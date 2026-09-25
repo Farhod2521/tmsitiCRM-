@@ -12,15 +12,53 @@ import '../services/location_service.dart';
 import '../theme/app_colors.dart';
 import 'face_verify_screen.dart';
 
-class DavomatScreen extends StatelessWidget {
+/// Ariza oynasini ochadi (Davomat bo'limi va "+" tezkor amallar uchun umumiy).
+Future<AttendanceNote?> showAttendanceNoteSheet(BuildContext context) {
+  return showModalBottomSheet<AttendanceNote>(
+    context: context,
+    isScrollControlled: true,
+    backgroundColor: Colors.transparent,
+    builder: (_) => const _NoteSheet(),
+  );
+}
+
+class DavomatScreen extends StatefulWidget {
   final AuthUser user;
   const DavomatScreen({super.key, required this.user});
 
   @override
+  State<DavomatScreen> createState() => DavomatScreenState();
+}
+
+class DavomatScreenState extends State<DavomatScreen>
+    with SingleTickerProviderStateMixin {
+  late final TabController _tabs = TabController(length: 2, vsync: this);
+  final _myTabKey = GlobalKey<_MyAttendanceTabState>();
+
+  @override
+  void dispose() {
+    _tabs.dispose();
+    super.dispose();
+  }
+
+  /// "+" -> "Ishga keldim": "Mening davomatim" yorlig'iga o'tib, darhol
+  /// yuz/joylashuv tekshiruvini boshlaydi (bugun belgilangan bo'lmasa).
+  Future<void> startCheckIn() async {
+    _tabs.animateTo(1);
+    // TabBarView yorliqni o'tish animatsiyasidan keyin quradi
+    await Future.delayed(const Duration(milliseconds: 400));
+    await _myTabKey.currentState?.checkInIfNeeded();
+  }
+
+  /// "+" -> "Ariza qoldirish": ariza yuborilgach "Mening davomatim"ni yangilaydi.
+  void onNoteCreated(AttendanceNote note) {
+    _myTabKey.currentState?.setNote(note);
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return DefaultTabController(
-      length: 2,
-      child: Scaffold(
+    final user = widget.user;
+    return Scaffold(
         backgroundColor: AppColors.surface,
         body: SafeArea(
           child: Column(
@@ -49,7 +87,8 @@ class DavomatScreen extends StatelessWidget {
                   color: AppColors.card,
                   borderRadius: BorderRadius.circular(14),
                 ),
-                child: const TabBar(
+                child: TabBar(
+                  controller: _tabs,
                   indicator: BoxDecoration(
                     color: AppColors.primary,
                     borderRadius: BorderRadius.all(Radius.circular(10)),
@@ -68,7 +107,7 @@ class DavomatScreen extends StatelessWidget {
                     fontSize: 13.5,
                   ),
                   splashBorderRadius: BorderRadius.all(Radius.circular(10)),
-                  tabs: [
+                  tabs: const [
                     Tab(height: 42, text: 'Kelganlar'),
                     Tab(height: 42, text: 'Mening davomatim'),
                   ],
@@ -76,16 +115,16 @@ class DavomatScreen extends StatelessWidget {
               ),
               Expanded(
                 child: TabBarView(
+                  controller: _tabs,
                   children: [
                     const _ArrivedTodayTab(),
-                    _MyAttendanceTab(user: user),
+                    _MyAttendanceTab(key: _myTabKey, user: user),
                   ],
                 ),
               ),
             ],
           ),
         ),
-      ),
     );
   }
 }
@@ -428,7 +467,7 @@ class _ArrivedTodayTabState extends State<_ArrivedTodayTab>
 
 class _MyAttendanceTab extends StatefulWidget {
   final AuthUser user;
-  const _MyAttendanceTab({required this.user});
+  const _MyAttendanceTab({super.key, required this.user});
 
   @override
   State<_MyAttendanceTab> createState() => _MyAttendanceTabState();
@@ -441,16 +480,31 @@ class _MyAttendanceTabState extends State<_MyAttendanceTab>
   AttendanceRecord? _today;
   OfficeInfo? _office;
   List<AttendanceRecord> _month = [];
+  Map<int, String> _holidays = {};
   AttendanceNote? _myNote;
   String? _error;
 
   @override
   bool get wantKeepAlive => true;
 
+  Future<void>? _loadFuture;
+
   @override
   void initState() {
     super.initState();
-    _load();
+    _loadFuture = _load();
+  }
+
+  /// "+" tezkor amalidan: ma'lumot yuklanishini kutib, bugun hali
+  /// belgilanmagan bo'lsa "Ishga keldim" jarayonini boshlaydi.
+  Future<void> checkInIfNeeded() async {
+    await _loadFuture;
+    if (!mounted || _checkingIn || _today != null) return;
+    await _handleCheckIn();
+  }
+
+  void setNote(AttendanceNote note) {
+    if (mounted) setState(() => _myNote = note);
   }
 
   Future<void> _load() async {
@@ -470,6 +524,9 @@ class _MyAttendanceTabState extends State<_MyAttendanceTab>
         _month = results[2] as List<AttendanceRecord>;
         _myNote = results[3] as AttendanceNote?;
       });
+      // Bayramlar alohida — server hali yangilanmagan bo'lsa ham ekran ishlasin
+      final hs = await ApiService.holidays(now.year, now.month);
+      if (mounted) setState(() => _holidays = hs);
     } catch (_) {
       // jim — pastda "Ishga keldim" tugmasi baribir ishlayveradi
     } finally {
@@ -478,12 +535,7 @@ class _MyAttendanceTabState extends State<_MyAttendanceTab>
   }
 
   Future<void> _openNoteSheet() async {
-    final result = await showModalBottomSheet<AttendanceNote>(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (_) => const _NoteSheet(),
-    );
+    final result = await showAttendanceNoteSheet(context);
     if (result != null && mounted) setState(() => _myNote = result);
   }
 
@@ -540,9 +592,11 @@ class _MyAttendanceTabState extends State<_MyAttendanceTab>
                 ),
                 const SizedBox(height: 16),
 
-                _today != null
-                    ? _buildCheckedInCard(_today!)
-                    : _buildCheckInButton(),
+                if (_today == null) ...[
+                  _buildCheckInButton(),
+                  const SizedBox(height: 14),
+                ],
+                _TimeAnalysisCard(month: _month, today: _today, holidays: _holidays),
 
                 const SizedBox(height: 14),
                 _buildNoteSection(),
@@ -673,75 +727,6 @@ class _MyAttendanceTabState extends State<_MyAttendanceTab>
             ),
           ],
         ),
-      ),
-    );
-  }
-
-  Widget _buildCheckedInCard(AttendanceRecord rec) {
-    final late = rec.lateMinutes;
-    final Color statusColor = late <= 0
-        ? AppColors.success
-        : (late <= 15 ? AppColors.lateAmber : AppColors.danger);
-    final String statusText = late <= 0
-        ? 'Vaqtida keldingiz'
-        : "$late daqiqa kech qoldingiz";
-
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(24),
-      decoration: BoxDecoration(
-        color: AppColors.card,
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: const [
-          BoxShadow(
-            color: AppColors.cardShadow,
-            blurRadius: 30,
-            offset: Offset(0, 6),
-          ),
-        ],
-      ),
-      child: Column(
-        children: [
-          Container(
-            width: 64,
-            height: 64,
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              color: AppColors.success.withValues(alpha: 0.12),
-              shape: BoxShape.circle,
-            ),
-            child: const Icon(
-              Icons.check_circle,
-              color: AppColors.success,
-              size: 34,
-            ),
-          ),
-          const SizedBox(height: 14),
-          Text(
-            'Bugun soat ${rec.checkInLocal ?? '--:--'} da keldingiz',
-            style: const TextStyle(
-              fontSize: 17,
-              fontWeight: FontWeight.w800,
-              color: AppColors.ink,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-            decoration: BoxDecoration(
-              color: statusColor.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(20),
-            ),
-            child: Text(
-              statusText,
-              style: TextStyle(
-                color: statusColor,
-                fontWeight: FontWeight.w800,
-                fontSize: 12.5,
-              ),
-            ),
-          ),
-        ],
       ),
     );
   }
@@ -1480,4 +1465,361 @@ class _NoteSheetState extends State<_NoteSheet> {
       ),
     );
   }
+}
+
+/// "Mening davomatim" tepasidagi "Ishlash vaqti tahlili" kartochkasi — veb'dagi
+/// oylik hisobot (reports/monthly) bilan bir xil hisob, `my-month` ma'lumotidan:
+/// jami ish soati = kelgan kunlar * 8 soat, samarali = jami - kechikishlar,
+/// halqa maxraji = shu oyning barcha ish kunlari * 8 soat.
+/// Kadr tasdiqlagan arizali kechikish hisobga olinmaydi (tabel bilan bir xil).
+class _TimeAnalysisCard extends StatelessWidget {
+  final List<AttendanceRecord> month;
+  final AttendanceRecord? today;
+  final Map<int, String> holidays; // bayram kunlari ish kuni hisoblanmaydi
+
+  const _TimeAnalysisCard({
+    required this.month,
+    required this.today,
+    this.holidays = const {},
+  });
+
+  static const int _workdayMin = 8 * 60;
+  static const Color _lateOrange = Color(0xFFFF8C42);
+
+  static String _fmtHM(int min) =>
+      '${min ~/ 60}:${(min % 60).toString().padLeft(2, '0')}';
+
+  @override
+  Widget build(BuildContext context) {
+    final now = DateTime.now();
+    final daysInMonth = DateTime(now.year, now.month + 1, 0).day;
+
+    int workdaysTotal = 0; // oydagi barcha ish kunlari (Du–Ju, bayramlarsiz)
+    int workdaysSoFar = 0; // bugungacha o'tgan ish kunlari
+    for (var d = 1; d <= daysInMonth; d++) {
+      if (DateTime(now.year, now.month, d).weekday <= 5 &&
+          !holidays.containsKey(d)) {
+        workdaysTotal++;
+        if (d <= now.day) workdaysSoFar++;
+      }
+    }
+
+    int kechikkan = 0, lateMin = 0;
+    for (final r in month) {
+      final late = r.lateExcused ? 0 : r.lateMinutes;
+      if (late > 0) {
+        kechikkan++;
+        lateMin += late;
+      }
+    }
+    final attended = month.length;
+    final kelmagan = math.max(0, workdaysSoFar - attended);
+    final jamiMin = attended * _workdayMin;
+    final totalMin = workdaysTotal * _workdayMin;
+    final kechikishMin = math.min(lateMin, jamiMin);
+    final samaraliMin = jamiMin - kechikishMin;
+    double pct(int part) =>
+        totalMin == 0 ? 0 : (part / totalMin * 1000).round() / 10;
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: AppColors.card,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: const [
+          BoxShadow(
+            color: AppColors.cardShadow,
+            blurRadius: 30,
+            offset: Offset(0, 6),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Expanded(
+                child: Text(
+                  'ISHLASH VAQTI TAHLILI',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w800,
+                    color: AppColors.muted,
+                    letterSpacing: 0.5,
+                  ),
+                ),
+              ),
+              if (today != null) _todayChip(today!),
+            ],
+          ),
+          const SizedBox(height: 14),
+          Row(
+            children: [
+              _stat(Icons.schedule, AppColors.primary, _fmtHM(jamiMin), 'soat',
+                  'Jami ish\nsoati'),
+              const SizedBox(width: 8),
+              _stat(Icons.check_circle_outline, AppColors.success, '$attended',
+                  'kun', 'Kelgan\nkunlar'),
+              const SizedBox(width: 8),
+              _stat(Icons.schedule, AppColors.warning, '$kechikkan', 'kun',
+                  'Kechikishlar\n'),
+              const SizedBox(width: 8),
+              _stat(Icons.highlight_off, AppColors.danger, '$kelmagan', 'kun',
+                  'Kelmagan\nkunlar'),
+            ],
+          ),
+          const SizedBox(height: 16),
+          const Divider(height: 1, color: AppColors.divider),
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              SizedBox(
+                width: 118,
+                height: 118,
+                child: CustomPaint(
+                  painter: _DonutPainter(
+                    total: totalMin,
+                    parts: [
+                      (samaraliMin, AppColors.success),
+                      (kechikishMin, _lateOrange),
+                    ],
+                  ),
+                  child: Center(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          _fmtHM(totalMin),
+                          style: const TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w800,
+                            color: AppColors.ink,
+                          ),
+                        ),
+                        const Text(
+                          'soat',
+                          style: TextStyle(fontSize: 11, color: AppColors.muted),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text.rich(
+                      TextSpan(
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: AppColors.muted,
+                          height: 1.35,
+                        ),
+                        children: [
+                          const TextSpan(text: 'Bu oyda '),
+                          TextSpan(
+                            text: '$workdaysTotal',
+                            style: const TextStyle(
+                              fontWeight: FontWeight.w800,
+                              color: AppColors.ink,
+                            ),
+                          ),
+                          const TextSpan(text: ' ish kuni ('),
+                          TextSpan(
+                            text: _fmtHM(totalMin),
+                            style: const TextStyle(
+                              fontWeight: FontWeight.w800,
+                              color: AppColors.ink,
+                            ),
+                          ),
+                          const TextSpan(text: ' soat ishlash kerak)'),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    _legend(AppColors.success, 'Samarali ish vaqti',
+                        _fmtHM(samaraliMin), pct(samaraliMin)),
+                    const SizedBox(height: 8),
+                    _legend(_lateOrange, 'Kechikishlar', _fmtHM(kechikishMin),
+                        pct(kechikishMin)),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _todayChip(AttendanceRecord rec) {
+    final late = rec.lateExcused ? 0 : rec.lateMinutes;
+    final color = late <= 0
+        ? AppColors.success
+        : (late <= 10 ? AppColors.lateAmber : AppColors.danger);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.check_circle, size: 13, color: color),
+          const SizedBox(width: 4),
+          Text(
+            'Bugun ${rec.checkInLocal ?? '--:--'}',
+            style: TextStyle(
+              fontSize: 11.5,
+              fontWeight: FontWeight.w800,
+              color: color,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _stat(
+    IconData icon,
+    Color color,
+    String value,
+    String suffix,
+    String label,
+  ) {
+    return Expanded(
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 4),
+        decoration: BoxDecoration(
+          color: const Color(0xFFFAFCFF),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: const Color(0xFFF0F3F8)),
+        ),
+        child: Column(
+          children: [
+            Icon(icon, size: 17, color: color),
+            const SizedBox(height: 4),
+            FittedBox(
+              child: Text(
+                value,
+                style: const TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w800,
+                  color: AppColors.ink,
+                ),
+              ),
+            ),
+            Text(
+              suffix,
+              style: const TextStyle(fontSize: 10, color: AppColors.muted),
+            ),
+            const SizedBox(height: 2),
+            Text(
+              label,
+              textAlign: TextAlign.center,
+              maxLines: 2,
+              style: const TextStyle(
+                fontSize: 9.5,
+                color: Color(0xFFA8B0BD),
+                height: 1.2,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _legend(Color color, String label, String value, double pct) {
+    return Row(
+      children: [
+        Container(
+          width: 10,
+          height: 10,
+          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+        ),
+        const SizedBox(width: 6),
+        Expanded(
+          child: Text(
+            label,
+            style: const TextStyle(fontSize: 12, color: Color(0xFF3D4557)),
+          ),
+        ),
+        Text.rich(
+          TextSpan(
+            children: [
+              TextSpan(
+                text: value,
+                style: const TextStyle(
+                  fontWeight: FontWeight.w800,
+                  color: AppColors.ink,
+                ),
+              ),
+              TextSpan(
+                text: ' (${pct.toStringAsFixed(1)}%)',
+                style: const TextStyle(color: AppColors.muted),
+              ),
+            ],
+          ),
+          style: const TextStyle(fontSize: 12),
+        ),
+      ],
+    );
+  }
+}
+
+/// Halqa diagramma: har bir qism `total`ga nisbatan chiziladi, qolgani — kulrang.
+class _DonutPainter extends CustomPainter {
+  final int total;
+  final List<(int, Color)> parts;
+
+  _DonutPainter({required this.total, required this.parts});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    const stroke = 16.0;
+    final rect = Rect.fromLTWH(
+      stroke / 2,
+      stroke / 2,
+      size.width - stroke,
+      size.height - stroke,
+    );
+    canvas.drawArc(
+      rect,
+      0,
+      2 * math.pi,
+      false,
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = stroke
+        ..color = const Color(0xFFEEF2F7),
+    );
+    if (total <= 0) return;
+
+    var start = -math.pi / 2;
+    for (final (value, color) in parts) {
+      if (value <= 0) continue;
+      final sweep = 2 * math.pi * (value / total).clamp(0.0, 1.0);
+      canvas.drawArc(
+        rect,
+        start,
+        sweep,
+        false,
+        Paint()
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = stroke
+          ..color = color,
+      );
+      start += sweep;
+    }
+  }
+
+  @override
+  bool shouldRepaint(_DonutPainter old) =>
+      old.total != total || old.parts != parts;
 }

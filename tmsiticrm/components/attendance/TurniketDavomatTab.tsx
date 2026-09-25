@@ -24,6 +24,7 @@ interface TabelData {
   days_in_month: number;
   working_days: number;
   rows: TabelRow[];
+  holidays?: Record<string, string>;  // {kun: bayram nomi}
 }
 
 interface PreviewRow {
@@ -57,6 +58,7 @@ const CODE_CFG: Record<string, { color: string; bg: string }> = {
   "K":  { color: "#3F8CFF", bg: "rgba(63,140,255,0.12)" },
   "B":  { color: "#FF5C5C", bg: "rgba(255,92,92,0.12)" },
   "Д":  { color: "#91929E", bg: "rgba(145,146,158,0.12)" },
+  "BY": { color: "#E0457B", bg: "rgba(224,69,123,0.1)" },   // bayram (kadr kalendari)
 };
 
 function weekdayOf(year: number, month: number, day: number): number {
@@ -224,7 +226,8 @@ export default function TurniketDavomatTab() {
                 <th className="text-left px-3 py-2 text-xs font-bold sticky left-0" style={{ color: "#91929E", background: "#FAFCFF", minWidth: 190, left: 32, zIndex: 1 }}>Ism familiyasi</th>
                 {days.map(d => (
                   <th key={d} className="px-1 py-2 text-center" style={{ minWidth: 40, background: "#FAFCFF" }}>
-                    <div className="text-[10px] font-bold" style={{ color: "#0A1629" }}>{d}</div>
+                    <div className="text-[10px] font-bold" style={{ color: data.holidays?.[String(d)] ? "#E0457B" : "#0A1629" }}
+                      title={data.holidays?.[String(d)]}>{d}</div>
                     <div className="text-[8px]" style={{ color: "#B8C2D6" }}>{WEEK_DAYS[weekdayOf(year, month, d)]}</div>
                   </th>
                 ))}
@@ -266,7 +269,7 @@ export default function TurniketDavomatTab() {
       )}
 
       <div className="flex items-center gap-4 flex-wrap px-6 py-4" style={{ borderTop: "1px solid #F4F9FD" }}>
-        {[["8", "Kelgan"], ["X", "Dam olish kuni"], ["MT", "Mehnat ta'tili"], ["O'", "O'quv ta'tili"], ["K", "Xizmat safari"], ["B", "Bolnichniy"]].map(([code, label]) => (
+        {[["8", "Kelgan"], ["X", "Dam olish kuni"], ["MT", "Mehnat ta'tili"], ["O'", "O'quv ta'tili"], ["K", "Xizmat safari"], ["B", "Bolnichniy"], ["BY", "Bayram"]].map(([code, label]) => (
           <span key={code} className="flex items-center gap-1.5 text-[11px]" style={{ color: "#91929E" }}>
             <span className="inline-flex items-center justify-center text-[9px] font-bold px-1" style={{ minWidth: 20, height: 16, borderRadius: 4, color: CODE_CFG[code]?.color, background: CODE_CFG[code]?.bg }}>
               {code}

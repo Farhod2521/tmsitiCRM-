@@ -14,7 +14,8 @@ from ..schemas import (
 from ..auth import get_password_hash, encrypt_password, decrypt_password
 from ..deps import get_current_employee, require_superadmin
 from ..telegram import send_telegram_message_to
-from .. import models
+from .. import models, schemas
+from ..status_periods import on_status_change, STATUS_CODE
 
 router = APIRouter(prefix="/employees", tags=["Employees"])
 
@@ -331,7 +332,7 @@ def set_employee_status(
     emp_id: int,
     data: SetStatusIn,
     db: Session = Depends(get_db),
-    _: models.Employee = Depends(_require_status_editor),
+    editor: models.Employee = Depends(_require_status_editor),
 ):
     """Xodim holatini belgilash (superadmin yoki kadr). Ba'zi statuslar (mehnat ta'tili, xizmat
     safari, o'quv ta'tili, bolnichniy, online) muddatli bo'ladi — sanadan/sanagacha talab qilinadi
@@ -347,6 +348,16 @@ def set_employee_status(
             raise HTTPException(status_code=400, detail="Sanadan va sanagacha kiritish shart")
         if data.date_to < data.date_from:
             raise HTTPException(status_code=400, detail="Sanagacha sanadan oldin bo'lishi mumkin emas")
+
+    # Tarix (tabel o'tgan oylar uchun shundan o'qiydi) — joriy maydonlar o'zgarishidan oldin
+    on_status_change(
+        db, emp, data.status,
+        data.date_from if data.status in STATUS_WITH_RANGE else None,
+        data.date_to if data.status in STATUS_WITH_RANGE else None,
+        editor.id,
+    )
+
+    if data.status in STATUS_WITH_RANGE:
         emp.status_date_from = data.date_from
         emp.status_date_to = data.date_to
     else:
@@ -364,6 +375,73 @@ def set_employee_status(
     db.commit()
     db.refresh(emp)
     return emp
+
+
+# ── Holatlar tarixi (tabel o'tgan kunlar uchun shundan o'qiydi) ─────────────────
+
+@router.get("/{emp_id}/status-periods", response_model=List[schemas.StatusPeriodOut])
+def list_status_periods(
+    emp_id: int,
+    db: Session = Depends(get_db),
+    _: models.Employee = Depends(_require_status_editor),
+):
+    return (
+        db.query(models.EmployeeStatusPeriod)
+        .filter(models.EmployeeStatusPeriod.employee_id == emp_id)
+        .order_by(models.EmployeeStatusPeriod.date_from.desc())
+        .all()
+    )
+
+
+@router.post("/{emp_id}/status-periods", response_model=schemas.StatusPeriodOut)
+def add_status_period(
+    emp_id: int,
+    data: schemas.StatusPeriodIn,
+    db: Session = Depends(get_db),
+    editor: models.Employee = Depends(_require_status_editor),
+):
+    """O'tgan (yoki kelgusi) davrni tarixga qo'lda qo'shish — masalan, o'chib
+    ketgan mehnat ta'tilini tiklash. Joriy holat o'zgarmaydi."""
+    if not db.query(models.Employee.id).filter(models.Employee.id == emp_id).first():
+        raise HTTPException(status_code=404, detail="Xodim topilmadi")
+    if data.status not in STATUS_CODE:
+        raise HTTPException(status_code=400, detail="Bu holat tabelda muddat bilan belgilanmaydi")
+    if data.date_to < data.date_from:
+        raise HTTPException(status_code=400, detail="Sanagacha sanadan oldin bo'lishi mumkin emas")
+    p = models.EmployeeStatusPeriod(
+        employee_id=emp_id, status=data.status, date_from=data.date_from,
+        date_to=data.date_to, source="kadr", created_by=editor.id,
+    )
+    db.add(p)
+    db.commit()
+    db.refresh(p)
+    return p
+
+
+@router.delete("/{emp_id}/status-periods/{period_id}")
+def delete_status_period(
+    emp_id: int,
+    period_id: int,
+    db: Session = Depends(get_db),
+    _: models.Employee = Depends(_require_status_editor),
+):
+    p = (
+        db.query(models.EmployeeStatusPeriod)
+        .filter(models.EmployeeStatusPeriod.id == period_id, models.EmployeeStatusPeriod.employee_id == emp_id)
+        .first()
+    )
+    if not p:
+        raise HTTPException(status_code=404, detail="Topilmadi")
+    emp = db.query(models.Employee).filter(models.Employee.id == emp_id).first()
+    # Joriy holatning o'zi o'chirilsa — xodim "faol"ga qaytadi
+    if emp and emp.status == p.status and emp.status_date_from == p.date_from and emp.status_date_to == p.date_to:
+        emp.status = models.EmployeeStatusEnum.faol
+        emp.status_date_from = None
+        emp.status_date_to = None
+        emp.is_active = True
+    db.delete(p)
+    db.commit()
+    return {"ok": True}
 
 
 def _require_hr_access(current: models.Employee) -> None:

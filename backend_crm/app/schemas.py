@@ -87,6 +87,34 @@ class EmployeeFileOut(BaseModel):
     model_config = {"from_attributes": True}
 
 
+# ── Xodim holatlari tarixi ───────────────────────────────────────────────────
+class StatusPeriodIn(BaseModel):
+    status:    EmployeeStatusEnum
+    date_from: str   # "2026-08-10"
+    date_to:   str   # "2026-09-14"
+
+class StatusPeriodOut(BaseModel):
+    id:        int
+    status:    EmployeeStatusEnum
+    date_from: str
+    date_to:   str
+    source:    str   # "kadr" | "tabel" | "joriy"
+    model_config = {"from_attributes": True}
+
+
+# ── Bayram kunlari (kadr kalendari) ──────────────────────────────────────────
+class HolidayIn(BaseModel):
+    date_from: str                 # "2026-09-01"
+    date_to:   Optional[str] = None  # bir necha kunlik bayram uchun (masalan, Navro'z)
+    name:      str
+
+class HolidayOut(BaseModel):
+    id:   int
+    date: str
+    name: str
+    model_config = {"from_attributes": True}
+
+
 # ── Lokatsiya sozlamalari ────────────────────────────────────────────────────
 class LocationSettingOut(BaseModel):
     location_type: WorkLocationEnum
@@ -205,8 +233,9 @@ class AutoTabelRow(BaseModel):
 
 class AutoTabelOut(BaseModel):
     days_in_month: int
-    working_days: int      # shu oyning ish kunlari soni (dush-juma)
+    working_days: int      # shu oyning ish kunlari soni (dush-juma, bayramlarsiz)
     rows: List[AutoTabelRow]
+    holidays: dict = {}    # {kun: bayram nomi}, masalan {"1": "Mustaqillik kuni"}
 
 
 # ── Turniket davomat (xlsx import) ─────────────────────────────────────────────
@@ -235,7 +264,7 @@ class TurniketCommitOut(BaseModel):
 class TurniketDayDetail(BaseModel):
     day: int
     weekday: int   # 0=Dushanba ... 6=Yakshanba
-    status: str    # "kelgan" | "kelmagan" | "dam_olish" | "kelajak" | "status_MT"/"status_O'"/"status_K"/"status_B"
+    status: str    # "kelgan" | "kelmagan" | "dam_olish" | "bayram" | "kelajak" | "status_MT"/"status_O'"/"status_K"/"status_B"
     check_in: Optional[str] = None
     check_out: Optional[str] = None
     worked_minutes: Optional[int] = None
@@ -509,7 +538,7 @@ class MonthlyReportSummary(BaseModel):
 class MonthlyReportCalendarDay(BaseModel):
     day: int
     weekday: int    # 0=Dushanba .. 6=Yakshanba
-    status: Literal["kelgan", "kechikkan", "kelmagan", "dam_olish", "kelajak"]
+    status: Literal["kelgan", "kechikkan", "kelmagan", "dam_olish", "bayram", "kelajak"]
     time: Optional[str] = None   # "kelgan"/"kechikkan" uchun kelish vaqti, "09:03"
 
 class MonthlyReportWeekRow(BaseModel):

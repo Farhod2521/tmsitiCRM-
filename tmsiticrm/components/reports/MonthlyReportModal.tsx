@@ -3,13 +3,13 @@
 import { useState, useEffect } from "react";
 import {
   X, Loader2, Clock, CheckCircle2, XCircle, FileText, Download,
-  Building2, Phone, IdCard, MessageSquareWarning, Check,
+  Building2, Phone, IdCard, MessageSquareWarning, Check, PartyPopper,
 } from "lucide-react";
 import { apiFetch } from "@/lib/api";
 
 const WEEK_DAYS = ["Du", "Se", "Ch", "Pa", "Ju", "Sh", "Ya"];
 
-type DayStatus = "kelgan" | "kechikkan" | "kelmagan" | "dam_olish" | "kelajak";
+type DayStatus = "kelgan" | "kechikkan" | "kelmagan" | "dam_olish" | "bayram" | "kelajak";
 type ReviewStatus = "kutilmoqda" | "kadr_tasdiqladi" | "sababli" | "sababsiz";
 type NoteType = "kechikish" | "kelmaslik" | "obyektda" | "ruxsat";
 
@@ -88,6 +88,7 @@ const DAY_CFG: Record<DayStatus, { icon: typeof CheckCircle2 | null; color: stri
   kechikkan:  { icon: Clock,        color: "#FFBD21", bg: "rgba(255,189,33,0.12)" },
   kelmagan:   { icon: XCircle,      color: "#FF5C5C", bg: "rgba(255,92,92,0.1)" },
   dam_olish:  { icon: null,         color: "#C4CBD6", bg: "#F4F9FD" },
+  bayram:     { icon: PartyPopper,  color: "#E0457B", bg: "rgba(224,69,123,0.1)" },
   kelajak:    { icon: null,         color: "#D9E3F0", bg: "#FFFFFF" },
 };
 
@@ -481,7 +482,7 @@ export default function MonthlyReportModal({
                     </div>
                   ))}
                   <div className="flex items-center gap-3 flex-wrap mt-3 pt-3" style={{ borderTop: "1px solid #F4F9FD" }}>
-                    {([["kelgan", "Kelgan"], ["kechikkan", "Kechikkan"], ["kelmagan", "Kelmagan"], ["dam_olish", "Dam olish kuni"]] as [DayStatus, string][]).map(([k, l]) => (
+                    {([["kelgan", "Kelgan"], ["kechikkan", "Kechikkan"], ["kelmagan", "Kelmagan"], ["dam_olish", "Dam olish kuni"], ["bayram", "Bayram"]] as [DayStatus, string][]).map(([k, l]) => (
                       <span key={k} className="flex items-center gap-1.5 text-[10px]" style={{ color: "#91929E" }}>
                         <span className="w-2.5 h-2.5 rounded-full" style={{ background: DAY_CFG[k].icon ? DAY_CFG[k].color : "#D9E3F0" }} />
                         {l}

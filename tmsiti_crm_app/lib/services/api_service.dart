@@ -137,6 +137,19 @@ class ApiService {
         .toList();
   }
 
+  /// Kadr kalendarida belgilangan bayram kunlari: {kun: bayram nomi}.
+  static Future<Map<int, String>> holidays(int year, int month) async {
+    final res = await http.get(
+      Uri.parse('$baseUrl/holidays?year=$year&month=$month'),
+      headers: _headers(),
+    );
+    final data = await _handle(res);
+    return {
+      for (final h in data as List)
+        int.parse((h['date'] as String).substring(8)): h['name'] as String,
+    };
+  }
+
   static Future<List<ArrivedRow>> todayList() async {
     final res = await http.get(
       Uri.parse('$baseUrl/attendance/today-list'),

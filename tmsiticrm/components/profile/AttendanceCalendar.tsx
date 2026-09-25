@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
-import { MapPin, CheckCircle2, Clock, Calendar as CalIcon, Loader2, Footprints, Map as MapIcon, X, Crosshair, XCircle, Fingerprint, ArrowRight, Check, MessageSquareWarning, DoorOpen } from "lucide-react";
+import { MapPin, CheckCircle2, Clock, Calendar as CalIcon, Loader2, Footprints, Map as MapIcon, X, Crosshair, XCircle, Fingerprint, ArrowRight, Check, MessageSquareWarning, DoorOpen, PartyPopper } from "lucide-react";
 import { apiFetch } from "@/lib/api";
 import FaceVerifyModal from "@/components/profile/FaceVerifyModal";
 
@@ -220,15 +220,20 @@ export default function AttendanceCalendar() {
     setNoteError(null);
   }
 
+  // Kadr kalendarida belgilangan bayram kunlari: {kun: nomi}
+  const [holidays, setHolidays] = useState<Map<number, string>>(new Map());
+
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const [recs, t] = await Promise.all([
+      const [recs, t, hs] = await Promise.all([
         apiFetch<Attendance[]>(`/attendance/my-month?year=${year}&month=${month}`),
         apiFetch<Attendance | null>(`/attendance/today`),
+        apiFetch<{ date: string; name: string }[]>(`/holidays?year=${year}&month=${month}`).catch(() => []),
       ]);
       setRecords(recs);
       setTodayRec(t);
+      setHolidays(new Map(hs.map(h => [Number(h.date.slice(-2)), h.name])));
     } catch (e) {
       console.error("Davomat yuklanmadi:", e);
     } finally {
@@ -486,13 +491,14 @@ export default function AttendanceCalendar() {
 
                   const dotColor = rec ? lateColor(effLate(rec)) : "#00A578";
                   const timeStr = rec?.check_in_local ?? (rec ? fmtTime(rec.check_in) : null);
+                  const holiday = holidays.get(d);
                   return (
                     <div key={d}
-                      title={rec ? `Soat ${timeStr ?? ""} — ${lateLabel(rec)}` : undefined}
+                      title={rec ? `Soat ${timeStr ?? ""} — ${lateLabel(rec)}` : holiday ? `Bayram: ${holiday}` : undefined}
                       className="flex flex-col items-center justify-center relative"
                       style={{
                         minHeight: 66,
-                        background: "#FFFFFF",
+                        background: holiday ? "rgba(224,69,123,0.08)" : "#FFFFFF",
                         borderRadius: 12,
                         border: isToday ? "2px solid #3F8CFF" : "1px solid #F0F3F8",
                       }}>
@@ -503,9 +509,18 @@ export default function AttendanceCalendar() {
                         </span>
                       )}
                       <span className="text-base font-bold leading-none"
-                        style={{ color: isWeekend ? "#FF8C8C" : "#0A1629" }}>
+                        style={{ color: holiday ? "#E0457B" : isWeekend ? "#FF8C8C" : "#0A1629" }}>
                         {d}
                       </span>
+                      {holiday && !present && (
+                        <span className="flex items-center gap-0.5 mt-1.5 px-1.5 py-0.5 max-w-full"
+                          style={{ background: "rgba(224,69,123,0.12)", borderRadius: 6 }}>
+                          <PartyPopper size={9} className="flex-shrink-0" style={{ color: "#E0457B" }} />
+                          <span className="text-[10px] font-bold leading-none truncate" style={{ color: "#E0457B" }}>
+                            Bayram
+                          </span>
+                        </span>
+                      )}
                       {present && timeStr && (
                         <span className="flex items-center gap-0.5 mt-1.5 px-1.5 py-0.5"
                           style={{ background: `${dotColor}1A`, borderRadius: 6 }}>
@@ -537,6 +552,10 @@ export default function AttendanceCalendar() {
                 <div className="flex items-center gap-1.5">
                   <span className="w-3 h-3 rounded-full" style={{ background: "#3F8CFF" }} />
                   <span className="text-xs" style={{ color: "#91929E" }}>Bugun</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className="w-3 h-3 rounded-full" style={{ background: "#E0457B" }} />
+                  <span className="text-xs" style={{ color: "#91929E" }}>Bayram</span>
                 </div>
               </div>
             </>
