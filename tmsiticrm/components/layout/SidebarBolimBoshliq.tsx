@@ -6,6 +6,8 @@ import { useState } from "react";
 import { Target, User, LogOut, ClipboardList, ClipboardCheck, CalendarCheck, X } from "lucide-react";
 import LottiePlayer from "@/components/ui/LottiePlayer";
 import MobileTopBar from "@/components/layout/MobileTopBar";
+import NavCount from "@/components/layout/NavCount";
+import { useNotifications, countForHref } from "@/lib/notifications";
 import { clearAuth } from "@/lib/auth";
 
 const navItems = [
@@ -18,6 +20,7 @@ const navItems = [
 
 export default function SidebarBolimBoshliq() {
   const pathname = usePathname();
+  const notif = useNotifications();
   const router   = useRouter();
   const [mobileOpen, setMobileOpen] = useState(false);
   const isActive = (href: string) => pathname.startsWith(href);
@@ -75,6 +78,7 @@ export default function SidebarBolimBoshliq() {
                   }}>
                   <Icon size={20} style={{ color: active ? "#3F8CFF" : "#7D8592" }} />
                   {label}
+                  <NavCount n={countForHref(notif, href)} />
                 </Link>
                 {active && (
                   <span className="absolute right-0 top-2 bottom-2"

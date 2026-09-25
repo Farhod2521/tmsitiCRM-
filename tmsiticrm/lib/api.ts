@@ -52,6 +52,12 @@ export async function apiFetch<T>(
     throw new Error(err.detail || "Server xatosi");
   }
 
+  // Ma'lumot o'zgardi (tasdiqlash, rad etish...) — bildirishnoma sonlari yangilansin
+  const method = (options.method || "GET").toUpperCase();
+  if (method !== "GET" && typeof window !== "undefined") {
+    window.dispatchEvent(new Event("crm:mutated"));
+  }
+
   if (res.status === 204) {
     return undefined as T;
   }

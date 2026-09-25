@@ -7,6 +7,8 @@ import { clearAuth, getUser } from "@/lib/auth";
 import { Target, User, LogOut, Star, CalendarCheck, ClipboardCheck, MessageSquareWarning, Users, X, CalendarDays } from "lucide-react";
 import LottiePlayer from "@/components/ui/LottiePlayer";
 import MobileTopBar from "@/components/layout/MobileTopBar";
+import NavCount from "@/components/layout/NavCount";
+import { useNotifications, countForHref } from "@/lib/notifications";
 
 const ROLE_LABEL: Record<string, string> = {
   kadr: "Kadrlar bo'limi vakili",
@@ -20,6 +22,7 @@ const BALL_ROLES = ["kadr", "ijro"];
 
 export default function SidebarXodim() {
   const pathname = usePathname();
+  const notif = useNotifications();
   const router   = useRouter();
   const [role, setRole] = useState("");
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -106,6 +109,7 @@ export default function SidebarXodim() {
                   }}>
                   <Icon size={20} style={{ color: active ? accent : "#7D8592" }}/>
                   {label}
+                  <NavCount n={countForHref(notif, href)} />
                 </Link>
                 {active && (
                   <span className="absolute right-0 top-2 bottom-2"

@@ -87,6 +87,19 @@ class EmployeeFileOut(BaseModel):
     model_config = {"from_attributes": True}
 
 
+# ── Bildirishnomalar (header qo'ng'iroqchasi) ────────────────────────────────
+class NotificationItem(BaseModel):
+    key:     str
+    section: str   # "izohlar" | "hujjatlar" | "ijro" — menyudagi son uchun
+    title:   str
+    count:   int
+    href:    str   # frontend sahifasi
+
+class NotificationsOut(BaseModel):
+    total: int
+    items: List[NotificationItem]
+
+
 # ── Xodim holatlari tarixi ───────────────────────────────────────────────────
 class StatusPeriodIn(BaseModel):
     status:    EmployeeStatusEnum

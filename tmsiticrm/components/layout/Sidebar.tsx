@@ -27,6 +27,8 @@ import {
 } from "lucide-react";
 import LottiePlayer from "@/components/ui/LottiePlayer";
 import MobileTopBar from "@/components/layout/MobileTopBar";
+import NavCount from "@/components/layout/NavCount";
+import { useNotifications, countForHref } from "@/lib/notifications";
 
 const navItems = [
   { href: "/superadmin",              icon: LayoutDashboard, label: "Dashboard",   enabled: true  },
@@ -62,6 +64,7 @@ const direktorNavItems = [
 
 export default function Sidebar() {
   const pathname = usePathname();
+  const notif = useNotifications();
   const router   = useRouter();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [role, setRole] = useState<string | null>(null);
@@ -170,6 +173,7 @@ export default function Sidebar() {
                     style={{ color: active ? "#3F8CFF" : "#7D8592" }}
                   />
                   {label}
+                  <NavCount n={countForHref(notif, href)} />
                 </Link>
                 {active && (
                   <span
