@@ -26,7 +26,7 @@ def _href(role, section: str) -> str:
     if p == "/xodim":
         return "/xodim/izohlar" if section == "izohlar" else "/xodim/ijro-nazorati"
     if p == "/bolimboshliq" and section == "izohlar":
-        return "/bolimboshliq/davomat"
+        return "/bolimboshliq/izohlar"
     return f"{p}/nazorat"
 
 
