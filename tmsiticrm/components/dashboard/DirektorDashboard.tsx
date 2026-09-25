@@ -225,11 +225,6 @@ export default function DirektorDashboard() {
                 </div>
               )}
 
-              <div className="flex justify-center mt-5">
-                <a href="/superadmin/bolimlar" className="flex items-center gap-1.5 text-sm font-bold" style={{ color: "#3F8CFF" }}>
-                  Barcha bo'limlarni ko'rish <ArrowRight size={14} />
-                </a>
-              </div>
             </div>
 
             {/* Right column: donut + active tasks */}

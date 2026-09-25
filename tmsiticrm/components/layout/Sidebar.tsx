@@ -51,7 +51,6 @@ const navItems = [
 // boshqaruv (xodimlar, ball berish, sozlamalar va h.k.) qismlariga kirmaydi.
 const direktorNavItems = [
   { href: "/superadmin",              icon: LayoutDashboard, label: "Dashboard",     enabled: true },
-  { href: "/superadmin/bolimlar",     icon: Building2,       label: "Bo'limlar",     enabled: true },
   { href: "/superadmin/hisobotlar",   icon: BarChart3,       label: "Hisobotlar",    enabled: true },
   { href: "/superadmin/oylik-hisobot",icon: FileBarChart2,   label: "Oylik hisobot", enabled: true },
   { href: "/superadmin/nazorat",      icon: FileCheck,       label: "Ijro nazorati", enabled: true },

@@ -3,14 +3,11 @@
 import { useState, useEffect } from "react";
 import Header from "@/components/layout/Header";
 import AttendanceCalendar from "@/components/profile/AttendanceCalendar";
-import AutoTabelTable from "@/components/attendance/AutoTabelTable";
-import TurniketDavomatTab from "@/components/attendance/TurniketDavomatTab";
+import DavomatTabs from "@/components/attendance/DavomatTabs";
 import { getUser } from "@/lib/auth";
-import { Users, User, DoorOpen } from "lucide-react";
 
 export default function XodimDavomatPage() {
   const [isKadr, setIsKadr] = useState(false);
-  const [tab, setTab] = useState<"xodimlar" | "turniket" | "ozim">("xodimlar");
 
   useEffect(() => { setIsKadr(getUser()?.role === "kadr"); }, []);
 
@@ -26,27 +23,7 @@ export default function XodimDavomatPage() {
   return (
     <div>
       <Header title="Davomat" subtitle="Xodimlar davomatini kuzating va o'zingizning davomatingizni belgilang" />
-
-      <div className="flex items-center gap-1 mb-5 p-1"
-        style={{ background: "#FFFFFF", borderRadius: 14, display: "inline-flex", boxShadow: "0px 6px 58px rgba(196,203,214,0.103611)" }}>
-        <button onClick={() => setTab("xodimlar")}
-          className="flex items-center gap-2 px-5 py-2.5 text-sm font-bold transition-all"
-          style={{ borderRadius: 10, background: tab === "xodimlar" ? "#3F8CFF" : "transparent", color: tab === "xodimlar" ? "#FFFFFF" : "#7D8592" }}>
-          <Users size={16} /> Xodimlar davomati
-        </button>
-        <button onClick={() => setTab("turniket")}
-          className="flex items-center gap-2 px-5 py-2.5 text-sm font-bold transition-all"
-          style={{ borderRadius: 10, background: tab === "turniket" ? "#3F8CFF" : "transparent", color: tab === "turniket" ? "#FFFFFF" : "#7D8592" }}>
-          <DoorOpen size={16} /> Turniket davomat
-        </button>
-        <button onClick={() => setTab("ozim")}
-          className="flex items-center gap-2 px-5 py-2.5 text-sm font-bold transition-all"
-          style={{ borderRadius: 10, background: tab === "ozim" ? "#3F8CFF" : "transparent", color: tab === "ozim" ? "#FFFFFF" : "#7D8592" }}>
-          <User size={16} /> O'zim
-        </button>
-      </div>
-
-      {tab === "xodimlar" ? <AutoTabelTable /> : tab === "turniket" ? <TurniketDavomatTab /> : <AttendanceCalendar />}
+      <DavomatTabs />
     </div>
   );
 }

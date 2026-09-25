@@ -71,7 +71,7 @@ function fmtHM(totalMin: number): string {
   return `${h}:${String(m).padStart(2, "0")}`;
 }
 
-export default function TurniketDavomatTab() {
+export default function TurniketDavomatTab({ canImport = true }: { canImport?: boolean }) {
   const now = new Date();
   const [year, setYear] = useState(now.getFullYear());
   const [month, setMonth] = useState(now.getMonth() + 1);
@@ -181,13 +181,17 @@ export default function TurniketDavomatTab() {
           <p className="text-xs mt-0.5" style={{ color: "#91929E" }}>Turniket (badge-reader) xlsx eksportidan yuklangan haqiqiy kirish/chiqish vaqtlari</p>
         </div>
         <div className="flex items-center gap-3 flex-wrap">
-          <input ref={fileInputRef} type="file" accept=".xlsx" onChange={handleFilePicked} className="hidden" id="turniket-file-input" />
-          <button onClick={() => fileInputRef.current?.click()} disabled={uploading}
-            className="flex items-center gap-2 px-4 py-2.5 text-sm font-bold text-white disabled:opacity-60 hover:opacity-90 transition-opacity"
-            style={{ background: "#3F8CFF", borderRadius: 12, boxShadow: "0px 6px 12px rgba(63,140,255,0.3)" }}>
-            {uploading ? <Loader2 size={15} className="animate-spin" /> : <Upload size={15} />}
-            Xlsx yuklash
-          </button>
+          {canImport && (
+            <>
+              <input ref={fileInputRef} type="file" accept=".xlsx" onChange={handleFilePicked} className="hidden" id="turniket-file-input" />
+              <button onClick={() => fileInputRef.current?.click()} disabled={uploading}
+                className="flex items-center gap-2 px-4 py-2.5 text-sm font-bold text-white disabled:opacity-60 hover:opacity-90 transition-opacity"
+                style={{ background: "#3F8CFF", borderRadius: 12, boxShadow: "0px 6px 12px rgba(63,140,255,0.3)" }}>
+                {uploading ? <Loader2 size={15} className="animate-spin" /> : <Upload size={15} />}
+                Xlsx yuklash
+              </button>
+            </>
+          )}
           <div className="flex items-center gap-1 p-1" style={{ background: "#F4F9FD", borderRadius: 12 }}>
             <button onClick={() => chMonth(-1)} className="w-8 h-8 flex items-center justify-center rounded hover:bg-white transition-colors">
               <ChevronLeft size={15} style={{ color: "#3F8CFF" }} />
