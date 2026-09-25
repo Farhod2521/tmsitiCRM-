@@ -12,12 +12,15 @@ bosqichning barcha xabarlari tahrirlanadi: tugmalar olib tashlanib, kim va
 qanday qaror qilgani yoziladi, keyingi bosqich ko'rib chiquvchilariga yangi
 xabar yuboriladi. Yakuniy natija ariza muallifiga ham yuboriladi.
 """
+import logging
 from datetime import datetime, timedelta, timezone
 from html import escape as _escape
 from sqlalchemy.orm import Session
 from . import models
 from .database import SessionLocal
 from .telegram import telegram_api
+
+log = logging.getLogger("note_flow")
 
 R = models.RoleEnum
 HEAD_ROLES = {R.bolim_boshligi, R.boshqarma_boshligi}
@@ -66,11 +69,15 @@ def dept_heads(db: Session, emp: models.Employee) -> list[models.Employee]:
 
 
 def initial_status(db: Session, author: models.Employee) -> str:
-    """Oddiy xodim (bo'limida boshliq bo'lsa) — avval bo'lim boshlig'iga;
-    bo'lim boshlig'i, kadr va rahbariyat — to'g'ridan-to'g'ri kadrga."""
-    if author.role in HEAD_ROLES | ADMIN_REVIEW_ROLES | {R.kadr}:
+    """Bo'lim boshlig'idan boshqa har kim yozsa — avval o'z bo'limi boshlig'iga;
+    bo'lim boshlig'i yozsa (yoki bo'limida faol boshliq bo'lmasa) — to'g'ridan-to'g'ri kadrga."""
+    if author.role in HEAD_ROLES:
         return "kutilmoqda"
-    return "bolim_kutilmoqda" if dept_heads(db, author) else "kutilmoqda"
+    if dept_heads(db, author):
+        return "bolim_kutilmoqda"
+    log.warning("Ariza kadrga yo'naltirildi: %s (id=%s, department_id=%s) bo'limida faol bo'lim boshlig'i topilmadi",
+                author.full_name, author.id, author.department_id)
+    return "kutilmoqda"
 
 
 def can_review(actor: models.Employee, note: models.AttendanceNote) -> bool:
@@ -204,8 +211,13 @@ def _keyboard(note: models.AttendanceNote) -> dict:
 
 
 def _notify_stage(db: Session, note: models.AttendanceNote) -> None:
-    for emp in stage_reviewers(db, note):
+    reviewers = stage_reviewers(db, note)
+    if not reviewers:
+        log.warning("Ariza #%s (%s): ko'rib chiquvchi topilmadi", note.id, note.review_status)
+    for emp in reviewers:
         if not emp.telegram_id:
+            log.warning("Ariza #%s (%s): %s Telegram'ga bog'lanmagan — xabar yuborilmadi",
+                        note.id, note.review_status, emp.full_name)
             continue
         res = telegram_api("sendMessage", {
             "chat_id": emp.telegram_id,
@@ -214,7 +226,10 @@ def _notify_stage(db: Session, note: models.AttendanceNote) -> None:
             "disable_web_page_preview": True,
             "reply_markup": _keyboard(note),
         })
-        if res and res.get("message_id"):
+        if not res or not res.get("message_id"):
+            log.warning("Ariza #%s: %s ga Telegram xabari yuborilmadi", note.id, emp.full_name)
+        else:
+            log.info("Ariza #%s (%s): %s ga Telegram xabari yuborildi", note.id, note.review_status, emp.full_name)
             db.add(models.AttendanceNoteTgMessage(
                 note_id=note.id, stage=note.review_status, employee_id=emp.id,
                 chat_id=emp.telegram_id, message_id=res["message_id"],

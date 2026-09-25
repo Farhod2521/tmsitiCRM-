@@ -1,5 +1,9 @@
 import os
+import logging
 from dotenv import load_dotenv
+
+# Ilova loglari (note_flow, telegram) — `docker logs crm_backend` da ko'rinadi
+logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
 
 load_dotenv(os.path.join(os.path.dirname(__file__), "..", ".env"))
 

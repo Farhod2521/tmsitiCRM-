@@ -3,7 +3,8 @@
 import { useState, useEffect, useCallback } from "react";
 import Header from "@/components/layout/Header";
 import { apiFetch } from "@/lib/api";
-import { MessageSquareWarning, AlarmClock, UserX, MapPinned, DoorOpen, Loader2, Check, X as XIcon } from "lucide-react";
+import { waitingFor } from "@/components/attendance/noteStages";
+import { MessageSquareWarning, AlarmClock, UserX, MapPinned, DoorOpen, Loader2, Check, X as XIcon, Clock } from "lucide-react";
 
 type ReviewStatus = "bolim_kutilmoqda" | "kutilmoqda" | "kadr_tasdiqladi" | "sababli" | "sababsiz";
 type NoteType = "kechikish" | "kelmaslik" | "obyektda" | "ruxsat";
@@ -159,7 +160,9 @@ export default function DirektorIzohlarPage() {
                   const tc = NOTE_TYPE_CFG[n.note_type];
                   const TypeIcon = tc.icon;
                   return (
-                  <tr key={n.id} className="hover:bg-[#FAFCFF] transition-colors" style={{ borderBottom: "1px solid #F4F9FD" }}>
+                  <tr key={n.id} className="hover:bg-[#FAFCFF] transition-colors"
+                    style={{ borderBottom: "1px solid #F4F9FD", opacity: waitingFor(n.review_status, "kadr_tasdiqladi") ? 0.55 : 1 }}
+                    title={waitingFor(n.review_status, "kadr_tasdiqladi") ?? undefined}>
                     <td className="py-4 text-sm font-bold" style={{ color: "#91929E", paddingRight: 16 }}>{i + 1}</td>
 
                     <td className="py-4" style={{ paddingRight: 16 }}>
@@ -238,19 +241,24 @@ export default function DirektorIzohlarPage() {
                         <div className="flex items-center gap-1.5">
                           <button onClick={() => handleReview(n.id, "sababli")} disabled={reviewingId === n.id}
                             title="Tasdiqlash"
-                            className="flex items-center gap-1.5 px-3 py-2 text-xs font-bold text-white disabled:opacity-50 hover:opacity-90"
+                            className="flex items-center gap-1.5 px-3 py-2 text-xs font-bold text-white whitespace-nowrap disabled:opacity-50 hover:opacity-90"
                             style={{ background: "#00C48C", borderRadius: 8 }}>
                             {reviewingId === n.id ? <Loader2 size={12} className="animate-spin" /> : <Check size={12} />}
                             Tasdiqlash
                           </button>
                           <button onClick={() => handleReview(n.id, "sababsiz")} disabled={reviewingId === n.id}
                             title="Rad etish"
-                            className="flex items-center gap-1.5 px-3 py-2 text-xs font-bold disabled:opacity-50 hover:opacity-90"
+                            className="flex items-center gap-1.5 px-3 py-2 text-xs font-bold whitespace-nowrap disabled:opacity-50 hover:opacity-90"
                             style={{ background: "#FFFFFF", border: "1.5px solid #FF5C5C", color: "#FF5C5C", borderRadius: 8 }}>
                             <XIcon size={12} />
                             Rad etish
                           </button>
                         </div>
+                      ) : waitingFor(n.review_status, "kadr_tasdiqladi") ? (
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-[11px] font-bold whitespace-nowrap"
+                          style={{ background: "#F4F9FD", color: "#91929E", borderRadius: 8 }}>
+                          <Clock size={12} /> {waitingFor(n.review_status, "kadr_tasdiqladi")}
+                        </span>
                       ) : (
                         <span className="text-xs" style={{ color: "#D0D9E8" }}>—</span>
                       )}

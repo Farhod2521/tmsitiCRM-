@@ -1,8 +1,12 @@
 """Telegram bot orqali guruhga xabar yuborish — qo'shimcha kutubxonasiz (urllib)."""
 import os
 import json
+import logging
+import urllib.error
 import urllib.request
 import urllib.parse
+
+_log = logging.getLogger("telegram")
 
 
 def send_telegram_message(text: str) -> bool:
@@ -86,6 +90,7 @@ def telegram_api(method: str, payload: dict, timeout: int = 10) -> dict | None:
     Xato bo'lsa None qaytaradi — asosiy jarayon to'xtamasligi kerak."""
     token = os.getenv("TELEGRAM_BOT_TOKEN")
     if not token:
+        _log.warning("TELEGRAM_BOT_TOKEN sozlanmagan — %s yuborilmadi", method)
         return None
     req = urllib.request.Request(
         f"https://api.telegram.org/bot{token}/{method}",
@@ -97,5 +102,15 @@ def telegram_api(method: str, payload: dict, timeout: int = 10) -> dict | None:
         with urllib.request.urlopen(req, timeout=timeout) as resp:
             result = json.loads(resp.read().decode("utf-8"))
         return result.get("result") if result.get("ok") else None
-    except Exception:
+    except urllib.error.HTTPError as e:
+        # Telegram sababni tanada qaytaradi (masalan: "bot was blocked by the user",
+        # "chat not found" — xodim botga /start bosmagan)
+        try:
+            detail = json.loads(e.read().decode("utf-8")).get("description")
+        except Exception:
+            detail = str(e)
+        _log.warning("Telegram %s xatosi (chat_id=%s): %s", method, payload.get("chat_id"), detail)
+        return None
+    except Exception as e:
+        _log.warning("Telegram %s xatosi (chat_id=%s): %s", method, payload.get("chat_id"), e)
         return None
