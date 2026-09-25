@@ -29,8 +29,10 @@ def link_account(data: schemas.BotLinkIn, db: Session = Depends(get_db)):
         return schemas.BotLinkOut(ok=False, detail="Havola muddati o'tgan yoki ishlatilgan. CRM profilingizdagi tugmani qaytadan bosing.")
 
     emp = db.query(models.Employee).filter(models.Employee.id == link.employee_id).first()
-    if not emp or not emp.is_active:
-        return schemas.BotLinkOut(ok=False, detail="Hisob topilmadi yoki bloklangan")
+    # is_active bu yerda TEKSHIRILMAYDI: u "ball/statistikada hisoblanadi" belgisi
+    # (ta'til, bolnichniy, safarda false) — hisob bloklangani emas.
+    if not emp:
+        return schemas.BotLinkOut(ok=False, detail="Hisob topilmadi. CRM profilingizdagi tugmani qaytadan bosing.")
 
     # Bu telegram_id boshqa xodimga bog'langan bo'lsa, avval bo'shatamiz
     # (masalan, xodim eski akkauntini qayta bog'laganda).

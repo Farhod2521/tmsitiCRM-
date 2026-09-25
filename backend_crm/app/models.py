@@ -586,6 +586,25 @@ class TabelOverride(Base):
     updated_at  = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
 
+class WorkExperience(Base):
+    """Xodimning ish staji — kadr yuklagan xlsx'dagi "asos oy" (masalan, avgust 2026)
+    holatida. Keyingi oylar uchun har oyga +1 oy qo'shib hisoblanadi (work_experience.py)."""
+    __tablename__ = "work_experience"
+
+    id          = Column(Integer, primary_key=True, index=True)
+    order_num   = Column(Integer, nullable=True)                 # xlsx'dagi "Tr"
+    employee_id = Column(Integer, ForeignKey("employees.id"), nullable=True)  # CRM'dan topilmasa — None
+    full_name   = Column(String(200), nullable=False)            # xlsx'dagi "FISh"
+    position    = Column(String(300), nullable=True)             # xlsx'dagi "Lavozimi"
+    base_year   = Column(Integer, nullable=False)                # asos oy (staj shu oy holatida)
+    base_month  = Column(Integer, nullable=False)
+    base_total_months = Column(Integer, nullable=False, default=0)  # yil*12 + oy
+    updated_by  = Column(Integer, ForeignKey("employees.id"), nullable=True)
+    updated_at  = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    employee    = relationship("Employee", foreign_keys=[employee_id])
+
+
 class Holiday(Base):
     """Kadr belgilagan bayram (dam olish) kuni — tabel, davomat hisobi va
     09:00 telegram eslatmasida ish kuni hisoblanmaydi."""
