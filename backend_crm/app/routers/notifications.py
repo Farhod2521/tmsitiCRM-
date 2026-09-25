@@ -4,6 +4,7 @@ from sqlalchemy.orm import Session
 from .. import models, schemas, note_flow
 from ..database import get_db
 from ..deps import get_current_employee
+from .employees import revert_expired_statuses
 
 router = APIRouter(prefix="/notifications", tags=["Bildirishnomalar"])
 
@@ -47,6 +48,8 @@ def my_notifications(
                                                   count=count, href=_href(role, section)))
 
     Note = models.AttendanceNote
+    # Rejalashtirilgan holatlar (sanasi kelgan ta'til va h.k.) — har daqiqalik so'rovda yangilanadi
+    revert_expired_statuses(db)
     # Bo'lim boshlig'isiz kadrga tushib qolgan arizalar — boshliqqa qaytariladi
     moved = note_flow.reroute_to_heads(db)
     if moved:

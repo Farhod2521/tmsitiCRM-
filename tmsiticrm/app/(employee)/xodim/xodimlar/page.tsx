@@ -4,6 +4,8 @@ import { useState, useEffect, useCallback } from "react";
 import Header from "@/components/layout/Header";
 import { Users, Search, Loader2, Paperclip } from "lucide-react";
 import { apiFetch } from "@/lib/api";
+import PlannedStatusNote from "@/components/employees/PlannedStatusNote";
+import { applyStatusResult, type StatusResult } from "@/lib/employeeStatus";
 import EmployeeFilesModal from "@/components/employees/EmployeeFilesModal";
 import StatusMenu from "@/components/employees/StatusMenu";
 
@@ -13,6 +15,9 @@ interface ApiEmp {
   department_id: number | null; status: string; role: string;
   status_date_from?: string | null;
   status_date_to?: string | null;
+  planned_status?: string | null;   // kelajakdagi holat (masalan, 05.10 dan mehnat ta'tili)
+  planned_from?: string | null;
+  planned_to?: string | null;
   department?: ApiDept | null;
 }
 
@@ -45,10 +50,10 @@ export default function KadrXodimlarPage() {
 
   useEffect(() => { load(); }, [load]);
 
-  function handleStatusChange(id: number, status: string, dateFrom: string | null, dateTo: string | null) {
-    setEmployees(prev => prev.map(e => e.id === id
-      ? { ...e, status, status_date_from: dateFrom, status_date_to: dateTo }
-      : e));
+  function handleStatusChange(id: number, status: string, dateFrom: string | null, dateTo: string | null, res?: StatusResult) {
+    setEmployees(prev => prev.map(e => e.id !== id ? e
+      : res ? applyStatusResult(e, res)
+      : { ...e, status, status_date_from: dateFrom, status_date_to: dateTo }));
   }
 
   const filtered = employees.filter(e =>
@@ -123,9 +128,10 @@ export default function KadrXodimlarPage() {
                       <p className="text-xs font-bold whitespace-nowrap" style={{ color: "#0A1629" }}>
                         {fmtDateUz(emp.status_date_from)} — {fmtDateUz(emp.status_date_to)}
                       </p>
-                    ) : (
+                    ) : !emp.planned_status ? (
                       <span className="text-xs" style={{ color: "#D9E3F0" }}>—</span>
-                    )}
+                    ) : null}
+                    <PlannedStatusNote emp={emp} />
                   </td>
                   <td className="py-4">
                     <button onClick={() => setFilesFor(emp)}

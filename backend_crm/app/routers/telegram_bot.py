@@ -65,7 +65,7 @@ def bot_review_note(data: schemas.BotNoteReviewIn, background: BackgroundTasks, 
     chaqiradi. Saytdagi tasdiqlash bilan bir xil mantiq (note_flow.apply_review);
     xabarlarni tahrirlash va keyingi bosqichga yuborish — fonda."""
     actor = db.query(models.Employee).filter(models.Employee.telegram_id == data.telegram_id).first()
-    if not actor or not actor.is_active:
+    if not actor:
         return schemas.BotNoteReviewOut(ok=False, message="Telegram hisobingiz CRM'ga bog'lanmagan")
     note = db.query(models.AttendanceNote).filter(models.AttendanceNote.id == data.note_id).first()
     if not note:

@@ -15,7 +15,9 @@ from ..auth import get_password_hash, encrypt_password, decrypt_password
 from ..deps import get_current_employee, require_superadmin
 from ..telegram import send_telegram_message_to
 from .. import models, schemas
-from ..status_periods import on_status_change, STATUS_CODE
+from ..status_periods import (
+    on_status_change, STATUS_CODE, activate_due_periods, attach_planned, is_future, defer_premature_statuses,
+)
 
 router = APIRouter(prefix="/employees", tags=["Employees"])
 
@@ -33,7 +35,10 @@ STATUS_WITH_RANGE = {
 
 
 def revert_expired_statuses(db: Session) -> None:
-    """Muddati (status_date_to) o'tib ketgan xodimlarni avtomatik "faol" holatga qaytaradi."""
+    """Muddati (status_date_to) o'tib ketgan xodimlarni avtomatik "faol" holatga qaytaradi,
+    boshlanish kuni kelgan rejalashtirilgan holatlarni esa joriy holatga aylantiradi."""
+    defer_premature_statuses(db)
+    activate_due_periods(db)
     today_str = date.today().isoformat()
     expired = (
         db.query(models.Employee)
@@ -62,21 +67,21 @@ def list_employees(
     # Superadmin / Direktor / Zamdirektor / Kadr / Ijro — barchani ko'radi
     if current.role in {models.RoleEnum.superadmin, models.RoleEnum.direktor, models.RoleEnum.zamdirektor,
                         models.RoleEnum.kadr, models.RoleEnum.ijro}:
-        return db.query(models.Employee).order_by(models.Employee.id).all()
+        return attach_planned(db, db.query(models.Employee).order_by(models.Employee.id).all())
 
     # Bo'lim/boshqarma boshlig'i — faqat o'z bo'limini
     if current.role in {models.RoleEnum.bolim_boshligi, models.RoleEnum.boshqarma_boshligi}:
         if current.department_id is None:
             return []
-        return (
+        return attach_planned(db, (
             db.query(models.Employee)
             .filter(models.Employee.department_id == current.department_id)
             .order_by(models.Employee.id)
             .all()
-        )
+        ))
 
     # Oddiy xodim — faqat o'zini
-    return [current]
+    return attach_planned(db, [current])
 
 
 @router.get("/count")
@@ -357,6 +362,16 @@ def set_employee_status(
         editor.id,
     )
 
+    # Boshlanish sanasi kelajakda — hozircha faqat rejalashtiriladi: xodim joriy
+    # holatida (odatda "faol") qoladi, sanasi kelganda avtomatik o'tadi
+    # (activate_due_periods). Hozirgi muddatli holat esa yangisidan bir kun oldin tugaydi.
+    if data.status in STATUS_WITH_RANGE and is_future(data.date_from):
+        if emp.status_date_to and emp.status_date_to >= data.date_from:
+            emp.status_date_to = (datetime.strptime(data.date_from, "%Y-%m-%d").date() - timedelta(days=1)).isoformat()
+        db.commit()
+        db.refresh(emp)
+        return attach_planned(db, [emp])[0]
+
     if data.status in STATUS_WITH_RANGE:
         emp.status_date_from = data.date_from
         emp.status_date_to = data.date_to
@@ -374,7 +389,7 @@ def set_employee_status(
         emp.is_active = data.status in {models.EmployeeStatusEnum.faol, models.EmployeeStatusEnum.online}
     db.commit()
     db.refresh(emp)
-    return emp
+    return attach_planned(db, [emp])[0]
 
 
 # ── Holatlar tarixi (tabel o'tgan kunlar uchun shundan o'qiydi) ─────────────────

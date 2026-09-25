@@ -10,6 +10,7 @@ import {
   Palmtree, Baby, UserCheck, Car, Plane, GraduationCap, Stethoscope, ArrowLeft, Laptop,
 } from "lucide-react";
 import { apiFetch } from "@/lib/api";
+import { isFutureDate, applyStatusResult, type StatusResult } from "@/lib/employeeStatus";
 
 /* ── Types ── */
 interface ApiDept { id:number; name:string; dept_type:string; order_num:number; }
@@ -18,6 +19,7 @@ interface ApiEmp  {
   department_id:number|null; work_rate:number; phone:string;
   role:string; status:string; is_active:boolean;
   status_date_from?:string|null; status_date_to?:string|null;
+  planned_status?:string|null; planned_from?:string|null; planned_to?:string|null;
 }
 
 /* ── Helpers ── */
@@ -79,7 +81,7 @@ const STATUS_MENU: { status:string; icon:typeof UserCheck; label:string; color:s
 /* ── Dropdown Menu ── */
 function EmpMenu({ emp, color, onRoleChange, onStatusChange }: {
   emp:ApiEmp; color:string; onRoleChange:(id:number,role:string)=>void;
-  onStatusChange:(id:number,status:string,dateFrom:string|null,dateTo:string|null)=>void;
+  onStatusChange:(id:number,status:string,dateFrom:string|null,dateTo:string|null,res?:StatusResult)=>void;
 }) {
   const [open, setOpen] = useState(false);
   const [saving, setSaving] = useState<string|null>(null);
@@ -109,8 +111,8 @@ function EmpMenu({ emp, color, onRoleChange, onStatusChange }: {
   async function assignStatus(status:string, df:string|null, dt:string|null){
     setSaving("status:"+status);
     try{
-      await apiFetch(`/employees/${emp.id}/set-status`,{method:"PATCH",body:JSON.stringify({status,date_from:df,date_to:dt})});
-      onStatusChange(emp.id,status,df,dt);
+      const res = await apiFetch<StatusResult>(`/employees/${emp.id}/set-status`,{method:"PATCH",body:JSON.stringify({status,date_from:df,date_to:dt})});
+      onStatusChange(emp.id,res.status,res.status_date_from,res.status_date_to,res);
       closeAll();
     }catch(e){ alert(e instanceof Error?e.message:"Xato"); }
     finally{setSaving(null);}
@@ -156,6 +158,11 @@ function EmpMenu({ emp, color, onRoleChange, onStatusChange }: {
               <input type="date" value={dateTo} min={dateFrom||undefined} onChange={e=>setDateTo(e.target.value)}
                 className="w-full mb-3 px-2.5 py-2 text-xs font-bold outline-none"
                 style={{background:"#F4F9FD",borderRadius:8,border:"1px solid #EEF2FF",color:"#0A1629"}}/>
+              {isFutureDate(dateFrom) && (
+                <p className="text-[11px] mb-2.5 leading-snug font-semibold" style={{ color: "#B4780C" }}>
+                  📅 Boshlanish sanasi kelajakda — xodim hozircha joriy holatida qoladi, shu sanadan avtomatik o&apos;tadi.
+                </p>
+              )}
               <div className="flex gap-2">
                 <button onClick={closeAll} className="flex-1 py-2 text-xs font-bold" style={{background:"#F4F9FD",color:"#7D8592",borderRadius:8}}>
                   Bekor qilish
@@ -272,10 +279,10 @@ export default function BolimlarPage() {
     setAllEmps(prev=>prev.map(e=>e.id===empId?{...e,role}:e));
   }
 
-  function handleStatusChange(empId:number, status:string, dateFrom:string|null, dateTo:string|null){
-    setAllEmps(prev=>prev.map(e=>e.id===empId
-      ?{...e,status,is_active:status==="faol"||e.role==="superadmin",status_date_from:dateFrom,status_date_to:dateTo}
-      :e));
+  function handleStatusChange(empId:number, status:string, dateFrom:string|null, dateTo:string|null, res?:StatusResult){
+    setAllEmps(prev=>prev.map(e=>e.id!==empId ? e
+      : res ? applyStatusResult(e,res)
+      : {...e,status,is_active:status==="faol"||e.role==="superadmin",status_date_from:dateFrom,status_date_to:dateTo}));
   }
 
   const selected   = depts.find(d=>d.id===selectedId);

@@ -54,6 +54,9 @@ class ReviewError(Exception):
 # ── Kim ko'rib chiqadi ────────────────────────────────────────────────────────
 
 def dept_heads(db: Session, emp: models.Employee) -> list[models.Employee]:
+    """Xodim bo'limining boshlig'i(lari). is_active BU YERDA TEKSHIRILMAYDI —
+    u "ball/statistikada hisoblanadi" belgisi (ta'til, bolnichniyda false),
+    hisob faolligi emas; boshliq tizimga kiradi va arizani tasdiqlay oladi."""
     if not emp.department_id:
         return []
     return (
@@ -61,7 +64,6 @@ def dept_heads(db: Session, emp: models.Employee) -> list[models.Employee]:
         .filter(
             models.Employee.department_id == emp.department_id,
             models.Employee.role.in_(list(HEAD_ROLES)),
-            models.Employee.is_active.is_(True),
             models.Employee.id != emp.id,
         )
         .all()
@@ -100,7 +102,7 @@ def stage_reviewers(db: Session, note: models.AttendanceNote) -> list[models.Emp
     st = note.review_status
     if st == "bolim_kutilmoqda":
         return dept_heads(db, note.employee) if note.employee else []
-    q = db.query(models.Employee).filter(models.Employee.is_active.is_(True), models.Employee.id != note.employee_id)
+    q = db.query(models.Employee).filter(models.Employee.id != note.employee_id)
     if st == "kutilmoqda":
         return q.filter(models.Employee.role == R.kadr).all()
     if st == "kadr_tasdiqladi":

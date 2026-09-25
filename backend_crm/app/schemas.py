@@ -49,6 +49,10 @@ class EmployeeOut(BaseModel):
     status: EmployeeStatusEnum
     status_date_from: Optional[str] = None
     status_date_to: Optional[str] = None
+    # Kelajakdagi (hali boshlanmagan) holat — masalan, 05.10 dan mehnat ta'tili
+    planned_status: Optional[EmployeeStatusEnum] = None
+    planned_from: Optional[str] = None
+    planned_to: Optional[str] = None
     is_active: bool
     department: Optional[DepartmentOut] = None
     telegram_id: Optional[int] = None

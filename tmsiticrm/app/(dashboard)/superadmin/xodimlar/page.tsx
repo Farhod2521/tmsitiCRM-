@@ -10,6 +10,8 @@ import {
   ArrowLeft, Laptop, Paperclip,
 } from "lucide-react";
 import { apiFetch } from "@/lib/api";
+import PlannedStatusNote from "@/components/employees/PlannedStatusNote";
+import { isFutureDate, applyStatusResult, type StatusResult } from "@/lib/employeeStatus";
 import EmployeeFilesModal from "@/components/employees/EmployeeFilesModal";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -21,6 +23,9 @@ interface ApiEmp {
   role: string; status: string; is_active: boolean;
   status_date_from?: string | null;
   status_date_to?: string | null;
+  planned_status?: string | null;   // kelajakdagi holat (masalan, 05.10 dan mehnat ta'tili)
+  planned_from?: string | null;
+  planned_to?: string | null;
   department?: ApiDept | null;
   work_location: string;
   has_photo?: boolean;
@@ -89,7 +94,7 @@ function mkAvatar(n: string) {
 
 function StatusMenu({ emp, onChanged }: {
   emp: ApiEmp;
-  onChanged: (id: number, status: string, dateFrom: string | null, dateTo: string | null) => void;
+  onChanged: (id: number, status: string, dateFrom: string | null, dateTo: string | null, res?: StatusResult) => void;
 }) {
   const [open,    setOpen]    = useState(false);
   const [saving,  setSaving]  = useState(false);
@@ -114,11 +119,11 @@ function StatusMenu({ emp, onChanged }: {
   async function assign(status: string, df: string | null, dt: string | null) {
     setSaving(true);
     try {
-      await apiFetch(`/employees/${emp.id}/set-status`, {
+      const res = await apiFetch<StatusResult>(`/employees/${emp.id}/set-status`, {
         method: "PATCH",
         body: JSON.stringify({ status, date_from: df, date_to: dt }),
       });
-      onChanged(emp.id, status, df, dt);
+      onChanged(emp.id, res.status, res.status_date_from, res.status_date_to, res);
       closeAll();
     } catch (err) {
       alert(err instanceof Error ? err.message : "Xatolik yuz berdi");
@@ -167,6 +172,11 @@ function StatusMenu({ emp, onChanged }: {
               <input type="date" value={dateTo} min={dateFrom || undefined} onChange={e => setDateTo(e.target.value)}
                 className="w-full mb-3 px-2.5 py-2 text-xs font-bold outline-none"
                 style={{ background: "#F4F9FD", borderRadius: 8, border: "1px solid #EEF2FF", color: "#0A1629" }} />
+              {isFutureDate(dateFrom) && (
+                <p className="text-[11px] mb-2.5 leading-snug font-semibold" style={{ color: "#B4780C" }}>
+                  📅 Boshlanish sanasi kelajakda — xodim hozircha joriy holatida qoladi, shu sanadan avtomatik o&apos;tadi.
+                </p>
+              )}
               <div className="flex gap-2">
                 <button onClick={closeAll} className="flex-1 py-2 text-xs font-bold" style={{ background: "#F4F9FD", color: "#7D8592", borderRadius: 8 }}>
                   Bekor qilish
@@ -477,10 +487,10 @@ export default function XodimlarPage() {
     }
   }
 
-  function handleStatusChange(id: number, status: string, dateFrom: string | null, dateTo: string | null) {
-    setEmployees(prev => prev.map(e => e.id === id
-      ? { ...e, status, is_active: status === "faol" || e.role === "superadmin", status_date_from: dateFrom, status_date_to: dateTo }
-      : e));
+  function handleStatusChange(id: number, status: string, dateFrom: string | null, dateTo: string | null, res?: StatusResult) {
+    setEmployees(prev => prev.map(e => e.id !== id ? e
+      : res ? applyStatusResult(e, res)
+      : { ...e, status, is_active: status === "faol" || e.role === "superadmin", status_date_from: dateFrom, status_date_to: dateTo }));
   }
 
   function handleWorkLocationChange(id: number, work_location: string) {
@@ -719,9 +729,10 @@ export default function XodimlarPage() {
                             : "Bugun ishga chiqadi"}
                         </p>
                       </div>
-                    ) : (
+                    ) : !emp.planned_status ? (
                       <span className="text-xs" style={{ color: "#D9E3F0" }}>—</span>
-                    )}
+                    ) : null}
+                    <PlannedStatusNote emp={emp} />
                   </td>
                   <td className="py-4" style={{ paddingRight: 16 }}>
                     <button onClick={() => setFilesFor(emp)}

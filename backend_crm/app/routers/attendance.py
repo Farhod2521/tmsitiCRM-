@@ -330,8 +330,11 @@ def get_absent_employees(db: Session, date: str) -> List[models.Employee]:
     avtomatik kunlik) funksiyalari uchun umumiy. Bayram kuni — bo'sh ro'yxat
     (bot eslatma yubormaydi)."""
     from .holidays import is_holiday
+    from .employees import revert_expired_statuses
     if is_holiday(db, date):
         return []
+    # Bugun boshlangan/tugagan ta'til va h.k. — eslatmadan oldin holatlarni yangilaymiz
+    revert_expired_statuses(db)
     employees = (
         db.query(models.Employee)
         .join(models.Department, models.Employee.department_id == models.Department.id, isouter=True)

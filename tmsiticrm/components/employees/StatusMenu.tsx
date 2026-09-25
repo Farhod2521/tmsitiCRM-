@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import Badge from "@/components/ui/Badge";
 import { apiFetch } from "@/lib/api";
+import { isFutureDate, type StatusResult } from "@/lib/employeeStatus";
 import StatusHistoryModal from "@/components/employees/StatusHistoryModal";
 import {
   Loader2, ArrowLeft, Palmtree, Baby, UserCheck,
@@ -42,7 +43,7 @@ export default function StatusMenu({ empId, empName, status, onChanged }: {
   empId: number;
   empName?: string;
   status: string;
-  onChanged: (id: number, status: string, dateFrom: string | null, dateTo: string | null) => void;
+  onChanged: (id: number, status: string, dateFrom: string | null, dateTo: string | null, res?: StatusResult) => void;
 }) {
   const [open,    setOpen]    = useState(false);
   const [saving,  setSaving]  = useState(false);
@@ -68,11 +69,11 @@ export default function StatusMenu({ empId, empName, status, onChanged }: {
   async function assign(newStatus: string, df: string | null, dt: string | null) {
     setSaving(true);
     try {
-      await apiFetch(`/employees/${empId}/set-status`, {
+      const res = await apiFetch<StatusResult>(`/employees/${empId}/set-status`, {
         method: "PATCH",
         body: JSON.stringify({ status: newStatus, date_from: df, date_to: dt }),
       });
-      onChanged(empId, newStatus, df, dt);
+      onChanged(empId, res.status, res.status_date_from, res.status_date_to, res);
       closeAll();
     } catch (err) {
       alert(err instanceof Error ? err.message : "Xatolik yuz berdi");
@@ -131,6 +132,11 @@ export default function StatusMenu({ empId, empName, status, onChanged }: {
               <input type="date" value={dateTo} min={dateFrom || undefined} onChange={e => setDateTo(e.target.value)}
                 className="w-full mb-3 px-2.5 py-2 text-xs font-bold outline-none"
                 style={{ background: "#F4F9FD", borderRadius: 8, border: "1px solid #EEF2FF", color: "#0A1629" }} />
+              {isFutureDate(dateFrom) && (
+                <p className="text-[11px] mb-2.5 leading-snug font-semibold" style={{ color: "#B4780C" }}>
+                  📅 Boshlanish sanasi kelajakda — xodim hozircha joriy holatida qoladi, shu sanadan avtomatik o&apos;tadi.
+                </p>
+              )}
               <div className="flex gap-2">
                 <button onClick={closeAll} className="flex-1 py-2 text-xs font-bold" style={{ background: "#F4F9FD", color: "#7D8592", borderRadius: 8 }}>
                   Bekor qilish

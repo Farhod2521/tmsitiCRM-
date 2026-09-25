@@ -18,6 +18,9 @@ STATUS_CODE = {
     S.mehnatga_layoqatsiz: "B",
 }
 
+# Muddatli (sanadan-sanagacha) holatlar — tarixga yoziladi, kelajakdagisi "rejalashtirilgan"
+RANGE_STATUSES = set(STATUS_CODE) | {S.online}
+
 # Bo'lim boshlig'i qo'lda to'ldirgan tabel kodlari -> holat (eski tarixni tiklash uchun)
 _MANUAL_TABEL_CODE = {
     "М/Т": S.otpuska, "MT": S.otpuska,
@@ -85,7 +88,7 @@ def on_status_change(db: Session, emp: models.Employee, new_status, new_from: st
             )
             .first()
         )
-        if prev is None and emp.status in STATUS_CODE:
+        if prev is None and emp.status in RANGE_STATUSES:
             prev = models.EmployeeStatusPeriod(
                 employee_id=emp.id, status=emp.status, date_from=emp.status_date_from,
                 date_to=emp.status_date_to, source="joriy", created_by=actor_id,
@@ -98,11 +101,102 @@ def on_status_change(db: Session, emp: models.Employee, new_status, new_from: st
             elif cut < _d(prev.date_to):
                 prev.date_to = cut.isoformat()
 
-    if new_status in STATUS_CODE and new_from and new_to:
+    if new_status in RANGE_STATUSES and new_from and new_to:
         db.add(models.EmployeeStatusPeriod(
             employee_id=emp.id, status=new_status, date_from=new_from, date_to=new_to,
             source="kadr", created_by=actor_id,
         ))
+
+
+def is_future(date_from: str | None) -> bool:
+    return bool(date_from) and _d(date_from) > date.today()
+
+
+def defer_premature_statuses(db: Session) -> int:
+    """Boshlanish sanasi hali kelmagan joriy holat (eski kod kelajakdagi ta'tilni
+    darhol qo'ygan: masalan, bugun 25.09, holat "05.10–25.10 mehnat ta'tilida") —
+    rejalashtirilganga aylantiriladi: tarixda saqlanadi, xodim hozircha "faol"."""
+    today = date.today().isoformat()
+    emps = (
+        db.query(models.Employee)
+        .filter(models.Employee.status.in_(list(RANGE_STATUSES)),
+                models.Employee.status_date_from > today,
+                models.Employee.status_date_to.isnot(None))
+        .all()
+    )
+    for e in emps:
+        exists = db.query(models.EmployeeStatusPeriod.id).filter(
+            models.EmployeeStatusPeriod.employee_id == e.id,
+            models.EmployeeStatusPeriod.status == e.status,
+            models.EmployeeStatusPeriod.date_from == e.status_date_from,
+            models.EmployeeStatusPeriod.date_to == e.status_date_to,
+        ).first()
+        if not exists:
+            db.add(models.EmployeeStatusPeriod(
+                employee_id=e.id, status=e.status, date_from=e.status_date_from,
+                date_to=e.status_date_to, source="joriy",
+            ))
+        e.status = S.faol
+        e.status_date_from = None
+        e.status_date_to = None
+        e.is_active = True
+    if emps:
+        db.commit()
+    return len(emps)
+
+
+def activate_due_periods(db: Session) -> int:
+    """Rejalashtirilgan holat (masalan, 05.10 dan mehnat ta'tili) boshlanish kuni
+    kelganda xodimning joriy holatiga aylantiradi. Faqat hozir "faol" (yoki
+    avvalgi muddati tugagan) xodimga qo'llanadi — dekret, texnik xodim va
+    davom etayotgan boshqa holatga tegmaydi. Qo'llanganlar sonini qaytaradi."""
+    today = date.today().isoformat()
+    periods = (
+        db.query(models.EmployeeStatusPeriod)
+        .filter(models.EmployeeStatusPeriod.date_from <= today,
+                models.EmployeeStatusPeriod.date_to >= today,
+                models.EmployeeStatusPeriod.status.in_(list(RANGE_STATUSES)))
+        .order_by(models.EmployeeStatusPeriod.created_at)
+        .all()
+    )
+    changed = 0
+    for p in periods:
+        e = db.get(models.Employee, p.employee_id)
+        if not e or (e.status, e.status_date_from, e.status_date_to) == (p.status, p.date_from, p.date_to):
+            continue
+        current_expired = e.status_date_to is not None and e.status_date_to < today
+        if e.status != S.faol and not current_expired:
+            continue
+        e.status = p.status
+        e.status_date_from = p.date_from
+        e.status_date_to = p.date_to
+        e.is_active = e.role == models.RoleEnum.superadmin or p.status == S.online
+        changed += 1
+    if changed:
+        db.commit()
+    return changed
+
+
+def attach_planned(db: Session, employees: list) -> list:
+    """Har bir xodimga eng yaqin rejalashtirilgan (boshlanmagan) holatni
+    qo'shadi: planned_status / planned_from / planned_to (EmployeeOut uchun)."""
+    ids = [e.id for e in employees]
+    today = date.today().isoformat()
+    nearest: dict[int, models.EmployeeStatusPeriod] = {}
+    if ids:
+        for p in (db.query(models.EmployeeStatusPeriod)
+                  .filter(models.EmployeeStatusPeriod.employee_id.in_(ids),
+                          models.EmployeeStatusPeriod.date_from > today,
+                          models.EmployeeStatusPeriod.status.in_(list(RANGE_STATUSES)))
+                  .order_by(models.EmployeeStatusPeriod.date_from.desc())
+                  .all()):
+            nearest[p.employee_id] = p   # oxirida eng yaqini qoladi
+    for e in employees:
+        p = nearest.get(e.id)
+        e.planned_status = p.status if p else None
+        e.planned_from = p.date_from if p else None
+        e.planned_to = p.date_to if p else None
+    return employees
 
 
 def backfill_status_periods(db: Session) -> int:
