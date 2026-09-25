@@ -1,8 +1,11 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { ChevronLeft, ChevronRight, Loader2, Users, Download } from "lucide-react";
+import { ChevronLeft, ChevronRight, Loader2, Users, Download, PencilLine } from "lucide-react";
 import { apiFetch } from "@/lib/api";
+import { getUser } from "@/lib/auth";
+import { CODE_CFG, OVERRIDE_COLOR } from "@/components/attendance/tabelCodes";
+import TabelEditModal from "@/components/attendance/TabelEditModal";
 
 const MON_NAMES = [
   "Yanvar", "Fevral", "Mart", "Aprel", "May", "Iyun",
@@ -16,7 +19,8 @@ interface DayNote {
   status: string;
 }
 interface DayInfo {
-  check_in: string;
+  check_in: string | null;
+  override?: boolean;   // kadr qo'lda "8" qo'ygan
   late_min: number;
   excused: boolean;
   note: DayNote | null;
@@ -31,6 +35,8 @@ interface AutoTabelRow {
   worked_min: number;
   late_min: number;
   excused_min?: number;
+  auto_cells?: Record<string, string>;
+  overridden?: number[];   // kadr qo'lda tuzatgan kunlar
 }
 interface AutoTabelData {
   days_in_month: number;
@@ -45,16 +51,6 @@ function fmtHM(totalMin: number): string {
   return `${h}:${String(m).padStart(2, "0")}`;
 }
 
-const CODE_CFG: Record<string, { color: string; bg: string }> = {
-  "8":  { color: "#00A578", bg: "rgba(0,196,140,0.1)" },
-  "X":  { color: "#B8C2D6", bg: "#F4F9FD" },
-  "MT": { color: "#B4780C", bg: "rgba(255,189,33,0.15)" },
-  "O'": { color: "#6D5DD3", bg: "rgba(109,93,211,0.12)" },
-  "K":  { color: "#3F8CFF", bg: "rgba(63,140,255,0.12)" },
-  "B":  { color: "#FF5C5C", bg: "rgba(255,92,92,0.12)" },
-  "Д":  { color: "#91929E", bg: "rgba(145,146,158,0.12)" },
-  "BY": { color: "#E0457B", bg: "rgba(224,69,123,0.1)" },   // bayram (kadr kalendari)
-};
 
 // Kelgan kun ("8") rangi: vaqtida — yashil, 10 daqiqagacha — sariq, undan ko'p — qizil.
 // Kadr arizani tasdiqlagan bo'lsa — yashil (ko'k nuqta bilan).
@@ -102,6 +98,10 @@ export default function AutoTabelTable() {
   const [loading, setLoading] = useState(true);
   const [downloading, setDownloading] = useState(false);
   const [openCell, setOpenCell] = useState<OpenCell | null>(null);
+  const [editRow, setEditRow] = useState<AutoTabelRow | null>(null);
+  // Qo'lda tuzatish — faqat kadr va superadmin (backendda ham shunday)
+  const [canEdit, setCanEdit] = useState(false);
+  useEffect(() => { setCanEdit(["kadr", "superadmin"].includes(getUser()?.role ?? "")); }, []);
 
   // Tashqariga bosilganda yoki sahifa aylantirilganda oyna yopiladi
   useEffect(() => {
@@ -235,13 +235,20 @@ export default function AutoTabelTable() {
                     {ri + 1}
                   </td>
                   <td className="px-3 py-2 text-xs font-bold sticky whitespace-nowrap" style={{ color: "#0A1629", background: ri % 2 ? "#FFFFFF" : "#FAFCFF", left: 32 }}>
-                    {r.full_name}
+                    {canEdit ? (
+                      <button onClick={() => setEditRow(r)} title="Davomatni tuzatish"
+                        className="group flex items-center gap-1.5 font-bold hover:text-[#3F8CFF] transition-colors">
+                        {r.full_name}
+                        <PencilLine size={12} className="opacity-0 group-hover:opacity-100 transition-opacity" style={{ color: "#3F8CFF" }} />
+                      </button>
+                    ) : r.full_name}
                   </td>
                   {days.map(d => {
                     const code = r.cells[String(d)] || "";
                     const info = r.day_info?.[String(d)];
                     const cfg = info ? presentCfg(info) : CODE_CFG[code];
                     const isOpen = openCell?.row.employee_id === r.employee_id && openCell.day === d;
+                    const isOverride = r.overridden?.includes(d);
                     return (
                       <td key={d} className="text-center py-2" style={{ background: ri % 2 ? "#FFFFFF" : "#FAFCFF" }}>
                         {code ? (
@@ -262,7 +269,13 @@ export default function AutoTabelTable() {
                             {(info?.excused || info?.note) && (
                               <span className="absolute" style={{ top: -2, right: -2, width: 6, height: 6, borderRadius: 3, background: info.excused ? "#3F8CFF" : "#FFBD21", border: "1px solid #FFFFFF" }} />
                             )}
+                            {isOverride && (
+                              <span className="absolute" title="Kadr tuzatgan" style={{ bottom: -2, left: -2, width: 6, height: 6, borderRadius: 3, background: OVERRIDE_COLOR, border: "1px solid #FFFFFF" }} />
+                            )}
                           </span>
+                        ) : isOverride ? (
+                          <span className="inline-block" title="Kadr tuzatgan: bo'sh"
+                            style={{ width: 22, height: 20, borderRadius: 5, border: `1px dashed ${OVERRIDE_COLOR}` }} />
                         ) : null}
                       </td>
                     );
@@ -305,13 +318,29 @@ export default function AutoTabelTable() {
           Izoh bor
         </span>
         <span className="flex items-center gap-1.5 text-[11px]" style={{ color: "#91929E" }}>
+          <span style={{ width: 7, height: 7, borderRadius: 4, background: OVERRIDE_COLOR }} />
+          Kadr tuzatgan
+        </span>
+        <span className="flex items-center gap-1.5 text-[11px]" style={{ color: "#91929E" }}>
           <span style={{ width: 7, height: 7, borderRadius: 4, background: "#3F8CFF" }} />
           Ariza tasdiqlangan — vaqt qo'shildi
         </span>
         <span className="text-[11px]" style={{ color: "#B8C2D6" }}>
-          Kelgan kun ustiga bosing — kelgan vaqti va izohi ko'rinadi
+          Kelgan kun ustiga bosing — kelgan vaqti va izohi ko'rinadi{canEdit ? "; xodim ismini bosing — kunlarni tuzatish" : ""}
         </span>
       </div>
+
+      {editRow && data && (
+        <TabelEditModal
+          row={editRow}
+          year={year}
+          month={month}
+          daysInMonth={data.days_in_month}
+          holidays={data.holidays}
+          onClose={() => setEditRow(null)}
+          onSaved={() => load(year, month)}
+        />
+      )}
 
       {openCell && (
         <div
@@ -332,7 +361,7 @@ export default function AutoTabelTable() {
           </p>
           <div className="mt-2.5 flex items-center justify-between text-xs">
             <span style={{ color: "#91929E" }}>Kelgan vaqti</span>
-            <span className="font-bold" style={{ color: presentCfg(openCell.info).color }}>{openCell.info.check_in}</span>
+            <span className="font-bold" style={{ color: presentCfg(openCell.info).color }}>{openCell.info.check_in ?? "—"}</span>
           </div>
           <div className="mt-1 flex items-center justify-between text-xs">
             <span style={{ color: "#91929E" }}>Kechikish</span>
@@ -341,6 +370,9 @@ export default function AutoTabelTable() {
               {openCell.info.excused && " (vaqt qo'shildi)"}
             </span>
           </div>
+          {openCell.info.override && (
+            <p className="mt-2 text-[11px] font-bold" style={{ color: OVERRIDE_COLOR }}>Kadr qo&apos;lda tuzatgan — 8 soat hisoblangan</p>
+          )}
           {openCell.info.note && (
             <div className="mt-2.5 pt-2.5" style={{ borderTop: "1px solid #F4F9FD" }}>
               <div className="flex items-center justify-between text-[11px]">

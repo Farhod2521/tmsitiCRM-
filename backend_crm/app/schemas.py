@@ -243,6 +243,15 @@ class AutoTabelRow(BaseModel):
     worked_min: int = 0    # ishlagan vaqt: har kun 8 soat - sababsiz kechikish, daqiqada
     late_min: int = 0      # shu oydagi jami sababsiz kechikish, daqiqada
     excused_min: int = 0   # tasdiqlangan ariza bilan qo'shib berilgan vaqt, daqiqada
+    auto_cells: dict = {}  # kadr tuzatishisiz avtomatik hisoblangan kodlar
+    overridden: List[int] = []  # kadr qo'lda tuzatgan kunlar
+
+class TabelOverrideIn(BaseModel):
+    employee_id: int
+    year: int
+    month: int
+    # {kun: kod} — kod None bo'lsa tuzatish olib tashlanadi (avtomatik hisobga qaytadi)
+    changes: Dict[str, Optional[str]]
 
 class AutoTabelOut(BaseModel):
     days_in_month: int

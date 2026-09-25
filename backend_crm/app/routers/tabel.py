@@ -149,6 +149,38 @@ def _notes_by_day(db: Session, emp_ids: list[int], date_from: str, date_to: str)
     return result
 
 
+def _auto_day(emp, d: date, day: int, holidays, last_day_to_count, status_codes, att, excused, notes):
+    """Bitta kun uchun avtomatik hisob: (kod, ishlagan, sababsiz kechikish,
+    sababli kechikish, day_info) — daqiqalarda."""
+    if d.weekday() >= 5:
+        return "X", 0, 0, 0, None
+    if day in holidays:
+        return HOLIDAY_CODE, 0, 0, 0, None
+    if day > last_day_to_count:
+        return "", 0, 0, 0, None
+    status_code = status_codes.get((emp.id, d.isoformat()))
+    if status_code:
+        return status_code, 0, 0, 0, None
+    if att is None:
+        return "", 0, 0, 0, None
+
+    ci_local = att.check_in.astimezone(TZ_UZ) if att.check_in.tzinfo is not None else att.check_in
+    work_start = ci_local.replace(hour=WORK_START_HOUR, minute=WORK_START_MIN, second=0, microsecond=0)
+    late = min(STANDARD_WORKDAY_MIN, max(0, int(round((ci_local - work_start).total_seconds() / 60.0))))
+    is_excused = late > 0 and (emp.id, d.isoformat()) in excused
+    info = {
+        "check_in": ci_local.strftime("%H:%M"),
+        "late_min": late,
+        "excused": is_excused,
+        "note": notes.get((emp.id, d.isoformat())),
+    }
+    # Sababsiz kechikish ish vaqtidan ayiriladi; kadr arizani tasdiqlasa —
+    # kechikkan vaqt qo'shib beriladi (to'liq 8 soat). Katakda har doim "8".
+    if is_excused:
+        return "8", STANDARD_WORKDAY_MIN, 0, late, info
+    return "8", STANDARD_WORKDAY_MIN - late, late, 0, info
+
+
 def _build_auto_tabel(db: Session, year: int, month: int) -> schemas.AutoTabelOut:
     days_in_month = monthrange(year, month)[1]
     today = datetime.now(TZ_UZ).date()
@@ -187,6 +219,13 @@ def _build_auto_tabel(db: Session, year: int, month: int) -> schemas.AutoTabelOu
     # Mehnat ta'tili/bolnichniy/safar — tarixdan (muddat tugagan bo'lsa ham saqlanadi)
     status_codes = status_code_map(db, employees, f"{month_prefix}01", f"{month_prefix}{days_in_month:02d}")
     notes = _notes_by_day(db, emp_ids, f"{month_prefix}01", f"{month_prefix}{days_in_month:02d}")
+    overrides: dict[int, dict[str, str]] = {}
+    for o in db.query(models.TabelOverride).filter(
+        models.TabelOverride.employee_id.in_(emp_ids),
+        models.TabelOverride.date >= f"{month_prefix}01",
+        models.TabelOverride.date <= f"{month_prefix}{days_in_month:02d}",
+    ).all():
+        overrides.setdefault(o.employee_id, {})[str(int(o.date[-2:]))] = o.code
 
     rows = []
     for emp in employees:
@@ -196,45 +235,35 @@ def _build_auto_tabel(db: Session, year: int, month: int) -> schemas.AutoTabelOu
         worked_min = 0
         late_min = 0
         excused_min = 0
+        auto_cells: dict[str, str] = {}
+        emp_overrides = overrides.get(emp.id, {})
         for day in range(1, days_in_month + 1):
             d = date(year, month, day)
-            if d.weekday() >= 5:
-                cells[str(day)] = "X"
-                continue
-            if day in holidays:
-                cells[str(day)] = HOLIDAY_CODE
-                continue
-            if day > last_day_to_count:
-                cells[str(day)] = ""
-                continue
-
-            status_code = status_codes.get((emp.id, d.isoformat()))
-            att = emp_days.get(day)
-            if status_code:
-                cells[str(day)] = status_code
-            elif att is not None:
-                ci_local = att.check_in.astimezone(TZ_UZ) if att.check_in.tzinfo is not None else att.check_in
-                work_start = ci_local.replace(hour=WORK_START_HOUR, minute=WORK_START_MIN, second=0, microsecond=0)
-                late = min(STANDARD_WORKDAY_MIN, max(0, int(round((ci_local - work_start).total_seconds() / 60.0))))
-                is_excused = late > 0 and (emp.id, d.isoformat()) in excused
-                # Sababsiz kechikish ish vaqtidan ayiriladi; kadr arizani
-                # tasdiqlasa — kechikkan vaqt qo'shib beriladi (to'liq 8 soat).
-                if is_excused:
-                    worked = STANDARD_WORKDAY_MIN
-                    excused_min += late
+            key = str(day)
+            code, worked, late, exc, info = _auto_day(
+                emp, d, day, holidays, last_day_to_count, status_codes, emp_days.get(day), excused, notes,
+            )
+            auto_cells[key] = code
+            # Kadr qo'lda tuzatgan kun — avtomatik hisob o'rniga shu kod
+            if key in emp_overrides:
+                code = emp_overrides[key]
+                late = exc = 0
+                worked = STANDARD_WORKDAY_MIN if code == "8" else 0
+                if code == "8":
+                    info = {
+                        "check_in": info["check_in"] if info else None,
+                        "late_min": 0, "excused": False,
+                        "note": info["note"] if info else notes.get((emp.id, d.isoformat())),
+                        "override": True,
+                    }
                 else:
-                    worked = STANDARD_WORKDAY_MIN - late
-                    late_min += late
-                worked_min += worked
-                cells[str(day)] = "8"   # kelgan kun — har doim "8"; kechikish rangda ko'rinadi
-                day_info[str(day)] = {
-                    "check_in": ci_local.strftime("%H:%M"),
-                    "late_min": late,
-                    "excused": is_excused,
-                    "note": notes.get((emp.id, d.isoformat())),
-                }
-            else:
-                cells[str(day)] = ""
+                    info = None
+            cells[key] = code
+            if info:
+                day_info[key] = info
+            worked_min += worked
+            late_min += late
+            excused_min += exc
 
         rows.append(schemas.AutoTabelRow(
             employee_id=emp.id,
@@ -243,6 +272,8 @@ def _build_auto_tabel(db: Session, year: int, month: int) -> schemas.AutoTabelOu
             department_name=dept_map.get(emp.department_id),
             cells=cells,
             day_info=day_info,
+            auto_cells=auto_cells,
+            overridden=sorted(int(k) for k in emp_overrides),
             worked_min=worked_min,
             late_min=late_min,
             excused_min=excused_min,
@@ -277,6 +308,54 @@ def get_auto_tabel(
     if current.role not in _AUTO_TABEL_VIEW_ROLES:
         raise HTTPException(status_code=403, detail="Ruxsat yo'q")
     return _build_auto_tabel(db, year, month)
+
+
+_OVERRIDE_CODES = {"8", "MT", "O'", "K", "B", "Д", "X", HOLIDAY_CODE, ""}
+_OVERRIDE_EDIT_ROLES = {models.RoleEnum.kadr, models.RoleEnum.superadmin}
+
+
+@router.put("/auto/overrides")
+def save_tabel_overrides(
+    data: schemas.TabelOverrideIn,
+    db: Session = Depends(get_db),
+    current: models.Employee = Depends(get_current_employee),
+):
+    """Kadr bitta xodimning kunlarini qo'lda tuzatadi. changes: {kun: kod};
+    kod null — tuzatishni olib tashlash (kun yana avtomatik hisoblanadi)."""
+    if current.role not in _OVERRIDE_EDIT_ROLES:
+        raise HTTPException(status_code=403, detail="Ruxsat yo'q")
+    if not db.query(models.Employee.id).filter(models.Employee.id == data.employee_id).first():
+        raise HTTPException(status_code=404, detail="Xodim topilmadi")
+    days_in_month = monthrange(data.year, data.month)[1]
+
+    existing = {
+        o.date: o for o in db.query(models.TabelOverride).filter(
+            models.TabelOverride.employee_id == data.employee_id,
+            models.TabelOverride.date >= f"{data.year:04d}-{data.month:02d}-01",
+            models.TabelOverride.date <= f"{data.year:04d}-{data.month:02d}-{days_in_month:02d}",
+        ).all()
+    }
+    for day_s, code in data.changes.items():
+        try:
+            day = int(day_s)
+        except ValueError:
+            raise HTTPException(status_code=400, detail=f"Noto'g'ri kun: {day_s}")
+        if not 1 <= day <= days_in_month:
+            raise HTTPException(status_code=400, detail=f"Noto'g'ri kun: {day}")
+        if code is not None and code not in _OVERRIDE_CODES:
+            raise HTTPException(status_code=400, detail=f"Noto'g'ri kod: {code}")
+        key = f"{data.year:04d}-{data.month:02d}-{day:02d}"
+        o = existing.get(key)
+        if code is None:
+            if o:
+                db.delete(o)
+        elif o:
+            o.code = code
+            o.updated_by = current.id
+        else:
+            db.add(models.TabelOverride(employee_id=data.employee_id, date=key, code=code, updated_by=current.id))
+    db.commit()
+    return {"ok": True}
 
 
 @router.get("/auto-xlsx")

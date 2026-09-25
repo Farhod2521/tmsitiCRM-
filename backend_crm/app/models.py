@@ -549,6 +549,21 @@ class EmployeeStatusPeriod(Base):
     created_at  = Column(DateTime, default=datetime.utcnow)
 
 
+class TabelOverride(Base):
+    """Kadr "Xodimlar davomati" jadvalida qo'lda tuzatgan kun (adashib
+    belgilangan 8/MT/B va h.k.). Avtomatik hisob ustidan qo'llanadi;
+    o'chirilsa — kun yana avtomatik hisoblanadi."""
+    __tablename__ = "tabel_overrides"
+    __table_args__ = (UniqueConstraint("employee_id", "date", name="uq_tabel_override_day"),)
+
+    id          = Column(Integer, primary_key=True, index=True)
+    employee_id = Column(Integer, ForeignKey("employees.id"), nullable=False, index=True)
+    date        = Column(String(10), nullable=False)   # "2026-09-07"
+    code        = Column(String(5), nullable=False)    # "8","MT","B","K","O'","Д","X","BY",""
+    updated_by  = Column(Integer, ForeignKey("employees.id"), nullable=True)
+    updated_at  = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
 class Holiday(Base):
     """Kadr belgilagan bayram (dam olish) kuni — tabel, davomat hisobi va
     09:00 telegram eslatmasida ish kuni hisoblanmaydi."""
