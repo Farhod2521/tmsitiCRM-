@@ -6,11 +6,9 @@ import Badge from "@/components/ui/Badge";
 import {
   ChevronRight, List, LayoutGrid, Table2, Search,
   Phone, MoreHorizontal, Loader2, Building2, Users,
-  ClipboardList, Activity, Crown, RotateCcw, X,
-  Palmtree, Baby, UserCheck, Car, Plane, GraduationCap, Stethoscope, ArrowLeft, Laptop,
+  ClipboardList, Activity, Crown, X, User, Briefcase,
 } from "lucide-react";
 import { apiFetch } from "@/lib/api";
-import { isFutureDate, applyStatusResult, type StatusResult } from "@/lib/employeeStatus";
 
 /* ── Types ── */
 interface ApiDept { id:number; name:string; dept_type:string; order_num:number; }
@@ -44,12 +42,15 @@ const ROLE_BADGE: Record<string,"primary"|"warning"|"success"|"gray"> = {
 function isHead(role:string){ return ["bolim_boshligi","boshqarma_boshligi","direktor","zamdirektor"].includes(role); }
 type ViewMode = "list"|"table"|"card";
 
-/* ── Role menu config ── */
-const ROLE_MENU = [
-  { role:"kadr",     icon:ClipboardList, label:"KADR sifatida belgilash",     color:"#FF8C42", bg:"rgba(255,140,66,0.1)"  },
-  { role:"ijro",     icon:Activity,      label:"IJRO sifatida belgilash",      color:"#00C48C", bg:"rgba(0,196,140,0.1)"   },
-  { role:"direktor", icon:Crown,         label:"DIREKTOR sifatida belgilash",  color:"#6D5DD3", bg:"rgba(109,93,211,0.1)"  },
-  { role:"xodim",    icon:RotateCcw,     label:"Rolni tiklash (Xodim)",        color:"#91929E", bg:"rgba(145,146,158,0.1)" },
+/* ── Rol tanlash (superadmin) ── */
+const ROLE_MENU: { role:string; icon:typeof User; label:string; hint:string; color:string; bg:string }[] = [
+  { role:"xodim",              icon:User,          label:"Xodim",               hint:"Mutaxassis, oddiy xodim",        color:"#7D8592", bg:"rgba(125,133,146,0.1)" },
+  { role:"bolim_boshligi",     icon:Users,         label:"Bo'lim boshlig'i",    hint:"Bo'lim xodimlari arizalarini tasdiqlaydi", color:"#3F8CFF", bg:"rgba(63,140,255,0.1)" },
+  { role:"boshqarma_boshligi", icon:Building2,     label:"Boshqarma boshlig'i", hint:"Boshqarma xodimlari uchun",      color:"#15C0E6", bg:"rgba(21,192,230,0.1)" },
+  { role:"kadr",               icon:ClipboardList, label:"Kadr vakili",         hint:"Davomat, xodimlar, ish staji",   color:"#FF8C42", bg:"rgba(255,140,66,0.1)" },
+  { role:"ijro",               icon:Activity,      label:"Ijro vakili",         hint:"Ijro nazorati",                  color:"#00C48C", bg:"rgba(0,196,140,0.1)" },
+  { role:"zamdirektor",        icon:Briefcase,     label:"Zamdirektor",         hint:"Direktor o'rinbosari",           color:"#6D5DD3", bg:"rgba(109,93,211,0.1)" },
+  { role:"direktor",           icon:Crown,         label:"Direktor",            hint:"Rahbar",                         color:"#E0457B", bg:"rgba(224,69,123,0.1)" },
 ];
 
 /* ── Xodim holati (status) config ── */
@@ -67,39 +68,46 @@ const STATUS_BADGE: Record<string,"success"|"warning"|"purple"|"gray"> = {
   faol:"success", otpuska:"warning", dekret:"purple", shafyor_farrosh:"gray",
   xizmat_safarida:"gray", oquv_tatilida:"gray", mehnatga_layoqatsiz:"gray", online:"gray",
 };
-const STATUS_MENU: { status:string; icon:typeof UserCheck; label:string; color:string; bg:string; needsRange:boolean }[] = [
-  { status:"otpuska",              icon:Palmtree,      label:"Mehnat ta'tiliga chiqarish",        color:"#FFBD21", bg:"rgba(255,189,33,0.1)",  needsRange:true  },
-  { status:"dekret",               icon:Baby,          label:"Dekretga chiqarish",                 color:"#6D5DD3", bg:"rgba(109,93,211,0.1)",  needsRange:false },
-  { status:"xizmat_safarida",      icon:Plane,         label:"Xizmat safariga yuborish",           color:"#3F8CFF", bg:"rgba(63,140,255,0.1)",  needsRange:true  },
-  { status:"oquv_tatilida",        icon:GraduationCap, label:"O'quv ta'tiliga chiqarish",          color:"#6D5DD3", bg:"rgba(109,93,211,0.1)",  needsRange:true  },
-  { status:"online",               icon:Laptop,        label:"Online ishlashga o'tkazish",         color:"#15C0E6", bg:"rgba(21,192,230,0.1)",  needsRange:true  },
-  { status:"mehnatga_layoqatsiz",  icon:Stethoscope,   label:"Mehnatga layoqatsiz (bolnichniy)",   color:"#FF5C5C", bg:"rgba(255,92,92,0.1)",   needsRange:true  },
-  { status:"shafyor_farrosh",      icon:Car,           label:"Texnik xodimlarga o'tkazish",        color:"#7D8592", bg:"rgba(125,133,146,0.1)", needsRange:false },
-  { status:"faol",                 icon:UserCheck,     label:"Faol holatga qaytarish",             color:"#00C48C", bg:"rgba(0,196,140,0.1)",   needsRange:false },
-];
-
-/* ── Dropdown Menu ── */
-function EmpMenu({ emp, color, onRoleChange, onStatusChange }: {
+/* ── Dropdown Menu: faqat rol tanlash ── */
+function EmpMenu({ emp, color, onRoleChange }: {
   emp:ApiEmp; color:string; onRoleChange:(id:number,role:string)=>void;
-  onStatusChange:(id:number,status:string,dateFrom:string|null,dateTo:string|null,res?:StatusResult)=>void;
 }) {
   const [open, setOpen] = useState(false);
   const [saving, setSaving] = useState<string|null>(null);
-  const [pendingStatus, setPendingStatus] = useState<null|{status:string;label:string}>(null);
-  const [dateFrom, setDateFrom] = useState("");
-  const [dateTo,   setDateTo]   = useState("");
+  // Menyu sahifa ustida (fixed) ochiladi — ro'yxat kartochkasi uni kesib qo'ymasin;
+  // pastda joy yetmasa yuqoriga qarab ochiladi.
+  const [pos, setPos] = useState<{right:number; top?:number; bottom?:number}>({right:0});
   const ref = useRef<HTMLDivElement>(null);
 
-  function closeAll(){ setOpen(false); setPendingStatus(null); setDateFrom(""); setDateTo(""); }
-
   useEffect(()=>{
-    function click(e:MouseEvent){ if(ref.current && !ref.current.contains(e.target as Node)) closeAll(); }
+    if(!open) return;
+    function click(e:MouseEvent){ if(ref.current && !ref.current.contains(e.target as Node)) setOpen(false); }
+    function close(){ setOpen(false); }
     document.addEventListener("mousedown",click);
-    return ()=>document.removeEventListener("mousedown",click);
-  },[]);
+    window.addEventListener("scroll",close,true);
+    window.addEventListener("resize",close);
+    return ()=>{
+      document.removeEventListener("mousedown",click);
+      window.removeEventListener("scroll",close,true);
+      window.removeEventListener("resize",close);
+    };
+  },[open]);
+
+  function toggle(e:React.MouseEvent<HTMLButtonElement>){
+    if(open){ setOpen(false); return; }
+    const r = e.currentTarget.getBoundingClientRect();
+    const MENU_H = 520;
+    const right = Math.max(8, window.innerWidth - r.right);
+    setPos(window.innerHeight - r.bottom >= MENU_H || r.top < MENU_H
+      ? { right, top: r.bottom + 6 }
+      : { right, bottom: window.innerHeight - r.top + 6 });
+    setOpen(true);
+  }
 
   async function assign(role:string){
-    setSaving("role:"+role);
+    const label = ROLE_LABEL[role] || role;
+    if(!confirm(`${emp.full_name} — rolini "${label}" ga o'zgartirasizmi?`)) return;
+    setSaving(role);
     try{
       await apiFetch(`/employees/${emp.id}/set-role`,{method:"PATCH",body:JSON.stringify({role})});
       onRoleChange(emp.id,role);
@@ -108,142 +116,61 @@ function EmpMenu({ emp, color, onRoleChange, onStatusChange }: {
     finally{setSaving(null);}
   }
 
-  async function assignStatus(status:string, df:string|null, dt:string|null){
-    setSaving("status:"+status);
-    try{
-      const res = await apiFetch<StatusResult>(`/employees/${emp.id}/set-status`,{method:"PATCH",body:JSON.stringify({status,date_from:df,date_to:dt})});
-      onStatusChange(emp.id,res.status,res.status_date_from,res.status_date_to,res);
-      closeAll();
-    }catch(e){ alert(e instanceof Error?e.message:"Xato"); }
-    finally{setSaving(null);}
-  }
-
-  function pickStatus(item: typeof STATUS_MENU[number]){
-    if(item.needsRange) setPendingStatus({status:item.status,label:item.label});
-    else assignStatus(item.status, null, null);
-  }
-
   return (
     <div ref={ref} className="relative">
-      <button onClick={()=>setOpen(v=>!v)}
+      <button onClick={toggle} title="Rolni o'zgartirish"
         className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-gray-100 transition-colors"
         style={{color:"#91929E"}}>
         <MoreHorizontal size={16}/>
       </button>
       {open && (
-        <div className="absolute right-0 top-10 z-50 w-[270px] overflow-hidden"
-          style={{background:"#FFFFFF",borderRadius:18,boxShadow:"0px 12px 40px rgba(10,22,41,0.16)",border:"1px solid #F4F9FD"}}>
+        <div className="fixed z-50 w-[290px] overflow-y-auto"
+          style={{...pos,maxHeight:"calc(100vh - 16px)",background:"#FFFFFF",borderRadius:18,boxShadow:"0px 12px 40px rgba(10,22,41,0.16)",border:"1px solid #F4F9FD"}}>
 
           {/* Header */}
           <div className="flex items-center gap-2.5 px-4 py-3.5" style={{background:"#FAFCFF",borderBottom:"1px solid #F4F9FD"}}>
             <div className="w-8 h-8 flex-shrink-0 flex items-center justify-center font-bold text-white text-xs"
               style={{background:color,borderRadius:9}}>{mkAvatar(emp.full_name)}</div>
-            <div className="min-w-0">
+            <div className="min-w-0 flex-1">
               <p className="text-sm font-bold truncate" style={{color:"#0A1629"}}>{emp.full_name}</p>
               <p className="text-xs truncate" style={{color:"#91929E"}}>{emp.position}</p>
             </div>
+            <button onClick={()=>setOpen(false)} className="w-7 h-7 flex-shrink-0 flex items-center justify-center rounded-lg hover:bg-white">
+              <X size={14} style={{color:"#91929E"}}/>
+            </button>
           </div>
 
-          {pendingStatus ? (
-            <div className="px-4 py-3.5">
-              <button onClick={()=>setPendingStatus(null)} className="flex items-center gap-1 mb-2.5 text-[11px] font-bold" style={{color:"#91929E"}}>
-                <ArrowLeft size={12}/> Orqaga
-              </button>
-              <p className="text-[13px] font-bold mb-2.5" style={{color:"#0A1629"}}>{pendingStatus.label}</p>
-              <label className="text-[11px] font-bold block mb-1" style={{color:"#91929E"}}>Sanadan</label>
-              <input type="date" value={dateFrom} onChange={e=>setDateFrom(e.target.value)}
-                className="w-full mb-2.5 px-2.5 py-2 text-xs font-bold outline-none"
-                style={{background:"#F4F9FD",borderRadius:8,border:"1px solid #EEF2FF",color:"#0A1629"}}/>
-              <label className="text-[11px] font-bold block mb-1" style={{color:"#91929E"}}>Sanagacha</label>
-              <input type="date" value={dateTo} min={dateFrom||undefined} onChange={e=>setDateTo(e.target.value)}
-                className="w-full mb-3 px-2.5 py-2 text-xs font-bold outline-none"
-                style={{background:"#F4F9FD",borderRadius:8,border:"1px solid #EEF2FF",color:"#0A1629"}}/>
-              {isFutureDate(dateFrom) && (
-                <p className="text-[11px] mb-2.5 leading-snug font-semibold" style={{ color: "#B4780C" }}>
-                  📅 Boshlanish sanasi kelajakda — xodim hozircha joriy holatida qoladi, shu sanadan avtomatik o&apos;tadi.
-                </p>
-              )}
-              <div className="flex gap-2">
-                <button onClick={closeAll} className="flex-1 py-2 text-xs font-bold" style={{background:"#F4F9FD",color:"#7D8592",borderRadius:8}}>
-                  Bekor qilish
-                </button>
-                <button
-                  onClick={()=>dateFrom && dateTo && assignStatus(pendingStatus.status, dateFrom, dateTo)}
-                  disabled={!dateFrom || !dateTo || saving==="status:"+pendingStatus.status}
-                  className="flex-1 flex items-center justify-center py-2 text-xs font-bold text-white disabled:opacity-50"
-                  style={{background:"#3F8CFF",borderRadius:8}}>
-                  {saving==="status:"+pendingStatus.status ? <Loader2 size={13} className="animate-spin"/> : "Tasdiqlash"}
-                </button>
-              </div>
-            </div>
-          ) : (
-            <>
-              {/* Rol belgilash */}
-              <div className="px-4 pt-3 pb-1">
-                <p className="text-[10px] font-bold uppercase" style={{color:"#B0B8C8",letterSpacing:"0.06em"}}>Rol belgilash</p>
-              </div>
-              <div className="px-2 pb-1.5 flex flex-col gap-0.5">
-                {ROLE_MENU.map(item=>{
-                  const Icon = item.icon;
-                  const isCurrent = emp.role === item.role;
-                  return (
-                    <button key={item.role}
-                      onClick={()=>!isCurrent && assign(item.role)}
-                      disabled={isCurrent || saving==="role:"+item.role}
-                      className="w-full flex items-center gap-2.5 px-2.5 py-2 rounded-xl hover:bg-[#F8FAFF] transition-colors disabled:cursor-default"
-                      style={{background:isCurrent?"#F8FAFF":"transparent"}}>
-                      <div className="w-7 h-7 flex-shrink-0 flex items-center justify-center"
-                        style={{background:item.bg,borderRadius:9}}>
-                        {saving==="role:"+item.role
-                          ? <Loader2 size={12} className="animate-spin" style={{color:item.color}}/>
-                          : <Icon size={13} style={{color:item.color}}/>}
-                      </div>
-                      <span className="text-[13px] font-semibold flex-1 text-left truncate" style={{color:"#0A1629"}}>{item.label}</span>
-                      {isCurrent && (
-                        <span className="flex-shrink-0 text-[10px] font-bold px-1.5 py-0.5"
-                          style={{background:`${item.color}18`,color:item.color,borderRadius:6}}>Joriy</span>
-                      )}
-                    </button>
-                  );
-                })}
-              </div>
-
-              {/* Xodim holati */}
-              <div className="px-4 pt-2.5 pb-1" style={{borderTop:"1px solid #F4F9FD"}}>
-                <p className="text-[10px] font-bold uppercase" style={{color:"#B0B8C8",letterSpacing:"0.06em"}}>Xodim holati</p>
-              </div>
-              <div className="px-2 pb-1.5 flex flex-col gap-0.5">
-                {STATUS_MENU.filter(item=>item.status!==emp.status).map(item=>{
-                  const Icon = item.icon;
-                  return (
-                    <button key={item.status}
-                      onClick={()=>pickStatus(item)}
-                      disabled={saving==="status:"+item.status}
-                      className="w-full flex items-center gap-2.5 px-2.5 py-2 rounded-xl hover:bg-[#F8FAFF] transition-colors">
-                      <div className="w-7 h-7 flex-shrink-0 flex items-center justify-center"
-                        style={{background:item.bg,borderRadius:9}}>
-                        {saving==="status:"+item.status
-                          ? <Loader2 size={12} className="animate-spin" style={{color:item.color}}/>
-                          : <Icon size={13} style={{color:item.color}}/>}
-                      </div>
-                      <span className="text-[13px] font-semibold flex-1 text-left truncate" style={{color:"#0A1629"}}>{item.label}</span>
-                    </button>
-                  );
-                })}
-              </div>
-
-              {/* Yopish */}
-              <div className="px-2 py-1.5" style={{borderTop:"1px solid #F4F9FD"}}>
-                <button onClick={closeAll}
-                  className="w-full flex items-center gap-2.5 px-2.5 py-2 rounded-xl hover:bg-[#F8FAFF] transition-colors">
-                  <div className="w-7 h-7 flex-shrink-0 flex items-center justify-center" style={{background:"#F4F9FD",borderRadius:9}}>
-                    <X size={13} style={{color:"#91929E"}}/>
+          <div className="px-4 pt-3 pb-1">
+            <p className="text-[10px] font-bold uppercase" style={{color:"#B0B8C8",letterSpacing:"0.06em"}}>Rolni tanlang</p>
+          </div>
+          <div className="px-2 pb-2 flex flex-col gap-0.5" role="radiogroup" aria-label="Rol">
+            {ROLE_MENU.map(item=>{
+              const Icon = item.icon;
+              const isCurrent = emp.role === item.role;
+              return (
+                <button key={item.role} role="radio" aria-checked={isCurrent}
+                  onClick={()=>!isCurrent && assign(item.role)}
+                  disabled={isCurrent || saving!==null}
+                  className="w-full flex items-center gap-2.5 px-2.5 py-2 rounded-xl hover:bg-[#F8FAFF] transition-colors disabled:cursor-default"
+                  style={{background:isCurrent?`${item.color}12`:"transparent",border:isCurrent?`1px solid ${item.color}40`:"1px solid transparent"}}>
+                  <div className="w-7 h-7 flex-shrink-0 flex items-center justify-center"
+                    style={{background:item.bg,borderRadius:9}}>
+                    {saving===item.role
+                      ? <Loader2 size={12} className="animate-spin" style={{color:item.color}}/>
+                      : <Icon size={13} style={{color:item.color}}/>}
                   </div>
-                  <span className="text-[13px] font-semibold" style={{color:"#91929E"}}>Yopish</span>
+                  <span className="flex-1 min-w-0 text-left">
+                    <span className="block text-[13px] font-semibold truncate" style={{color:"#0A1629"}}>{item.label}</span>
+                    <span className="block text-[10.5px] truncate" style={{color:"#A8B0BD"}}>{item.hint}</span>
+                  </span>
+                  <span className="w-4 h-4 flex-shrink-0 flex items-center justify-center rounded-full"
+                    style={{border:`2px solid ${isCurrent?item.color:"#D9E3F0"}`}}>
+                    {isCurrent && <span className="w-2 h-2 rounded-full" style={{background:item.color}}/>}
+                  </span>
                 </button>
-              </div>
-            </>
-          )}
+              );
+            })}
+          </div>
         </div>
       )}
     </div>
@@ -279,11 +206,7 @@ export default function BolimlarPage() {
     setAllEmps(prev=>prev.map(e=>e.id===empId?{...e,role}:e));
   }
 
-  function handleStatusChange(empId:number, status:string, dateFrom:string|null, dateTo:string|null, res?:StatusResult){
-    setAllEmps(prev=>prev.map(e=>e.id!==empId ? e
-      : res ? applyStatusResult(e,res)
-      : {...e,status,is_active:status==="faol"||e.role==="superadmin",status_date_from:dateFrom,status_date_to:dateTo}));
-  }
+
 
   const selected   = depts.find(d=>d.id===selectedId);
   const deptEmps   = allEmps.filter(e=>e.department_id===selectedId);
@@ -415,7 +338,7 @@ export default function BolimlarPage() {
                         <p className="text-sm truncate" style={{color:"#7D8592"}}>{emp.position}</p>
                         <p className="text-xs" style={{color:"#7D8592"}}>{emp.work_rate} st.</p>
                         <Badge label={ROLE_LABEL[emp.role]||emp.role} variant={ROLE_BADGE[emp.role]||"gray"}/>
-                        <EmpMenu emp={emp} color={color} onRoleChange={handleRoleChange} onStatusChange={handleStatusChange}/>
+                        <EmpMenu emp={emp} color={color} onRoleChange={handleRoleChange}/>
                       </div>
                     ))}
                     {inactive.length>0&&(
@@ -432,7 +355,7 @@ export default function BolimlarPage() {
                             <p className="text-sm" style={{color:"#7D8592"}}>{emp.position}</p>
                             <p className="text-xs" style={{color:"#7D8592"}}>{emp.phone}</p>
                             <Badge label={STATUS_LABEL[emp.status]||"Nofaol"} variant={STATUS_BADGE[emp.status]||"danger"}/>
-                            <EmpMenu emp={emp} color={color} onRoleChange={handleRoleChange} onStatusChange={handleStatusChange}/>
+                            <EmpMenu emp={emp} color={color} onRoleChange={handleRoleChange}/>
                           </div>
                         ))}
                       </>
@@ -480,7 +403,7 @@ export default function BolimlarPage() {
                                 : <span className="text-xs" style={{color:"#D9E3F0"}}>—</span>}
                             </td>
                             <td className="py-3">
-                              <EmpMenu emp={emp} color={color} onRoleChange={handleRoleChange} onStatusChange={handleStatusChange}/>
+                              <EmpMenu emp={emp} color={color} onRoleChange={handleRoleChange}/>
                             </td>
                           </tr>
                         ))}
@@ -501,7 +424,7 @@ export default function BolimlarPage() {
                           <div className="flex items-start justify-between mb-3">
                             <div className="w-11 h-11 flex items-center justify-center font-bold text-white"
                               style={{background:color,borderRadius:12}}>{mkAvatar(emp.full_name)}</div>
-                            <EmpMenu emp={emp} color={color} onRoleChange={handleRoleChange} onStatusChange={handleStatusChange}/>
+                            <EmpMenu emp={emp} color={color} onRoleChange={handleRoleChange}/>
                           </div>
                           <div className="flex items-center gap-2 flex-wrap">
                             <p className="font-bold text-sm" style={{color:"#0A1629"}}>{emp.full_name}</p>
