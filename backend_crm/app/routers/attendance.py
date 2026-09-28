@@ -23,6 +23,21 @@ TZ_UZ = timezone(timedelta(hours=5))
 WORK_START_HOUR = 9
 WORK_START_MIN  = 0
 
+# Kechikish uchun imtiyozli vaqt: 09:10 gacha kelgan xodim kechikkan hisoblanmaydi,
+# undan keyin — 09:10 dan boshlab sanaladi (09:12 da kelsa — 2 daqiqa kechikkan).
+LATE_GRACE_MIN = 10
+
+
+def late_from_minutes(minutes_after_start: int) -> int:
+    """Ish boshlanishidan keyin o'tgan daqiqalar -> kechikish (imtiyozni ayirib)."""
+    return max(0, minutes_after_start - LATE_GRACE_MIN)
+
+
+def late_minutes_for(ci_local: datetime) -> int:
+    """Mahalliy (UTC+5) kelish vaqti -> kechikish daqiqalari (09:00 + 10 daq imtiyoz)."""
+    work_start = ci_local.replace(hour=WORK_START_HOUR, minute=WORK_START_MIN, second=0, microsecond=0)
+    return late_from_minutes(int(round((ci_local - work_start).total_seconds() / 60.0)))
+
 
 def haversine_m(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
     """Ikki nuqta orasidagi masofa (metrda)."""
@@ -85,9 +100,7 @@ def _to_out(rec: models.Attendance, excused: bool = False) -> schemas.Attendance
     else:
         ci_local = ci  # allaqachon UTC+5 (naive)
 
-    work_start = ci_local.replace(hour=WORK_START_HOUR, minute=WORK_START_MIN, second=0, microsecond=0)
-    diff = (ci_local - work_start).total_seconds() / 60.0
-    late = max(0, int(round(diff)))   # 09:00 dan oldin kelsa 0
+    late = late_minutes_for(ci_local)   # 09:10 gacha kelsa 0
 
     return schemas.AttendanceOut(
         id=rec.id,
@@ -541,5 +554,6 @@ def office_info(
         "longitude": loc_lng,
         "radius_m": loc_radius,
         "work_start": f"{WORK_START_HOUR:02d}:{WORK_START_MIN:02d}",
+        "late_grace_min": LATE_GRACE_MIN,
         "work_location": current.work_location,
     }

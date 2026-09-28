@@ -11,7 +11,7 @@ from openpyxl.utils import get_column_letter
 from .. import models, schemas
 from ..database import get_db
 from ..deps import get_current_employee
-from .attendance import TZ_UZ, WORK_START_HOUR, WORK_START_MIN, excused_days
+from .attendance import TZ_UZ, WORK_START_HOUR, WORK_START_MIN, excused_days, late_minutes_for
 from .holidays import month_holidays
 from ..status_periods import status_code_map
 
@@ -165,8 +165,7 @@ def _auto_day(emp, d: date, day: int, holidays, last_day_to_count, status_codes,
         return "", 0, 0, 0, None
 
     ci_local = att.check_in.astimezone(TZ_UZ) if att.check_in.tzinfo is not None else att.check_in
-    work_start = ci_local.replace(hour=WORK_START_HOUR, minute=WORK_START_MIN, second=0, microsecond=0)
-    late = min(STANDARD_WORKDAY_MIN, max(0, int(round((ci_local - work_start).total_seconds() / 60.0))))
+    late = min(STANDARD_WORKDAY_MIN, late_minutes_for(ci_local))   # 09:10 gacha — 0
     is_excused = late > 0 and (emp.id, d.isoformat()) in excused
     info = {
         "check_in": ci_local.strftime("%H:%M"),

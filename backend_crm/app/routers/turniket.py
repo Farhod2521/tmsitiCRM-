@@ -22,7 +22,7 @@ from .. import models, schemas
 from ..database import get_db
 from ..deps import get_current_employee
 from ..name_match import match_employee, normalize
-from .attendance import WORK_START_HOUR, WORK_START_MIN
+from .attendance import WORK_START_HOUR, WORK_START_MIN, late_from_minutes
 from .holidays import month_holidays
 from .tabel import HOLIDAY_CODE
 from ..status_periods import status_code_map
@@ -299,7 +299,7 @@ def _build_turniket_tabel(db: Session, year: int, month: int) -> schemas.AutoTab
                 cells[str(day)] = "8"
                 worked_min += rec.worked_minutes or 0
                 h, m = map(int, rec.check_in.split(":"))
-                late_min += max(0, (h * 60 + m) - (WORK_START_HOUR * 60 + WORK_START_MIN))
+                late_min += late_from_minutes((h * 60 + m) - (WORK_START_HOUR * 60 + WORK_START_MIN))
             else:
                 cells[str(day)] = ""
 

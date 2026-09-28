@@ -13,7 +13,7 @@ from ..database import get_db
 from ..deps import get_current_employee
 from ..utils_weeks import get_month_weeks, weekly_max, is_current_week, today_uz
 from ..telegram import send_telegram_message
-from .attendance import WORK_START_HOUR, WORK_START_MIN, TZ_UZ as TZ_UZ_ATTENDANCE, _note_out
+from .attendance import WORK_START_HOUR, WORK_START_MIN, TZ_UZ as TZ_UZ_ATTENDANCE, _note_out, late_minutes_for
 from .holidays import month_holidays
 
 router = APIRouter(prefix="/reports", tags=["Haftalik hisobot"])
@@ -809,8 +809,7 @@ def monthly_report(
             # check_in DB'da odatda mahalliy (UTC+5) vaqt sifatida saqlanadi (naive) — attendance.py'dagi
             # _to_out bilan bir xil mantiq (tzinfo mavjud bo'lsa ham to'g'ri ishlaydi).
             ci_local = att.check_in.astimezone(TZ_UZ_ATTENDANCE) if att.check_in.tzinfo is not None else att.check_in
-            work_start = ci_local.replace(hour=WORK_START_HOUR, minute=WORK_START_MIN, second=0, microsecond=0)
-            late = max(0, int(round((ci_local - work_start).total_seconds() / 60.0)))
+            late = late_minutes_for(ci_local)
             status = "kechikkan" if late > 0 else "kelgan"
             if status == "kechikkan":
                 kechikkan += 1
@@ -942,8 +941,7 @@ def _employee_month_days(
         att = att_by_day.get(day)
         if att:
             ci_local = att.check_in.astimezone(TZ_UZ_ATTENDANCE) if att.check_in.tzinfo is not None else att.check_in
-            work_start = ci_local.replace(hour=WORK_START_HOUR, minute=WORK_START_MIN, second=0, microsecond=0)
-            late = max(0, int(round((ci_local - work_start).total_seconds() / 60.0)))
+            late = late_minutes_for(ci_local)
             status = "kechikkan" if late > 0 else "kelgan"
             if status == "kechikkan":
                 kechikkan += 1
