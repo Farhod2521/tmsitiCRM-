@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { ChevronLeft, ChevronRight, Loader2, Users, Download, PencilLine } from "lucide-react";
+import { ChevronLeft, ChevronRight, Loader2, Users, Download, PencilLine, CircleAlert, X } from "lucide-react";
 import { apiFetch } from "@/lib/api";
 import { getUser } from "@/lib/auth";
 import { CODE_CFG, OVERRIDE_COLOR } from "@/components/attendance/tabelCodes";
@@ -102,6 +102,93 @@ function ballColor(b: number): { color: string; bg: string } {
   return { color: "#FF5C5C", bg: "rgba(255,92,92,0.12)" };
 }
 
+// Davomat mezoni qoidasi (hujjatdagi matn)
+const BALL_STEPS: { range: string; pct: number }[] = [
+  { range: "60 daqiqagacha",         pct: 100 },
+  { range: "≥ 61 va ≤ 90 daqiqa",    pct: 80 },
+  { range: "≥ 91 va ≤ 120 daqiqa",   pct: 60 },
+  { range: "≥ 121 va ≤ 150 daqiqa",  pct: 40 },
+  { range: "≥ 151 va ≤ 180 daqiqa",  pct: 20 },
+  { range: "181 daqiqa va undan ko'p", pct: 0 },
+];
+
+function BallInfoModal({ onClose }: { onClose: () => void }) {
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
+  return (
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4" style={{ background: "rgba(10,22,41,0.5)" }} onClick={onClose}>
+      <div className="w-full max-w-md" onClick={e => e.stopPropagation()}
+        style={{ background: "#FFFFFF", borderRadius: 20, boxShadow: "0 24px 60px rgba(10,22,41,0.25)" }}
+        role="dialog" aria-modal="true" aria-labelledby="ball-info-title">
+        <div className="flex items-start justify-between gap-3 px-6 pt-5 pb-4" style={{ borderBottom: "1px solid #F4F9FD" }}>
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 flex items-center justify-center flex-shrink-0" style={{ background: "rgba(255,140,66,0.12)", borderRadius: 12 }}>
+              <CircleAlert size={19} style={{ color: "#FF8C42" }} />
+            </div>
+            <div>
+              <p id="ball-info-title" className="font-bold" style={{ color: "#0A1629" }}>Davomat mezoni — ball</p>
+              <p className="text-xs" style={{ color: "#91929E" }}>Maksimal: {MAX_BALL} ball</p>
+            </div>
+          </div>
+          <button onClick={onClose} className="w-8 h-8 flex items-center justify-center" style={{ background: "#F4F9FD", borderRadius: 8 }}>
+            <X size={15} style={{ color: "#7D8592" }} />
+          </button>
+        </div>
+
+        <div className="px-6 py-4">
+          <p className="text-sm leading-relaxed" style={{ color: "#3D4557" }}>
+            Ball xodimning oy davomida <b>ishda bo&apos;lmagan vaqti</b>{" "}(sababsiz kechikishlar yig&apos;indisi —
+            &quot;Kechikkan vaqti&quot; ustuni) bo&apos;yicha hisoblanadi:
+          </p>
+
+          <table className="w-full mt-3 text-sm" style={{ borderCollapse: "collapse" }}>
+            <thead>
+              <tr style={{ background: "#FAFCFF" }}>
+                <th className="text-left px-3 py-2 text-xs font-bold" style={{ color: "#91929E" }}>Ishda bo&apos;lmagan vaqt</th>
+                <th className="text-center px-3 py-2 text-xs font-bold" style={{ color: "#91929E" }}>Foiz</th>
+                <th className="text-center px-3 py-2 text-xs font-bold" style={{ color: "#91929E" }}>Ball</th>
+              </tr>
+            </thead>
+            <tbody>
+              {BALL_STEPS.map(st => {
+                const b = MAX_BALL * st.pct / 100;
+                const c = ballColor(b);
+                return (
+                  <tr key={st.range} style={{ borderTop: "1px solid #F4F9FD" }}>
+                    <td className="px-3 py-2" style={{ color: "#0A1629" }}>{st.range}</td>
+                    <td className="px-3 py-2 text-center font-semibold" style={{ color: "#7D8592" }}>{st.pct}%</td>
+                    <td className="px-3 py-2 text-center">
+                      <span className="inline-block px-2 py-0.5 text-xs font-bold" style={{ color: c.color, background: c.bg, borderRadius: 6 }}>
+                        {b}/{MAX_BALL}
+                      </span>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+
+          <ul className="mt-4 flex flex-col gap-1.5 text-xs" style={{ color: "#7D8592" }}>
+            <li>• 09:10 gacha kelish kechikish hisoblanmaydi (09:12 da kelsa — 2 daqiqa).</li>
+            <li>• Kadr tasdiqlagan ariza bilan kechikkan vaqt hisobga kirmaydi.</li>
+            <li>• Joriy oy uchun ball shu kungacha bo&apos;lgan kechikishlardan hisoblanadi.</li>
+          </ul>
+        </div>
+
+        <div className="px-6 pb-5">
+          <button onClick={onClose} className="w-full py-2.5 text-sm font-bold text-white" style={{ background: "#3F8CFF", borderRadius: 12 }}>
+            Tushunarli
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function weekdayOf(year: number, month: number, day: number): number {
   // 0 = Dushanba ... 6 = Yakshanba
   const js = new Date(year, month - 1, day).getDay(); // 0=Yak
@@ -117,6 +204,7 @@ export default function AutoTabelTable() {
   const [downloading, setDownloading] = useState(false);
   const [openCell, setOpenCell] = useState<OpenCell | null>(null);
   const [editRow, setEditRow] = useState<AutoTabelRow | null>(null);
+  const [ballInfoOpen, setBallInfoOpen] = useState(false);
   // Qo'lda tuzatish — faqat kadr va superadmin (backendda ham shunday)
   const [canEdit, setCanEdit] = useState(false);
   useEffect(() => { setCanEdit(["kadr", "superadmin"].includes(getUser()?.role ?? "")); }, []);
@@ -244,9 +332,12 @@ export default function AutoTabelTable() {
                 <th className="px-3 py-2 text-center text-[10px] font-bold" style={{ minWidth: 90, background: "#FAFCFF", color: "#91929E" }}>
                   Kechikkan vaqti
                 </th>
-                <th className="px-3 py-2 text-center text-[10px] font-bold" style={{ minWidth: 70, background: "#FAFCFF", color: "#91929E" }}
-                  title="Davomat mezoni: ishda bo'lmagan vaqt 60 daq gacha — 25, 61–90 — 20, 91–120 — 15, 121–150 — 10, 151–180 — 5, undan ko'p — 0">
-                  Ball
+                <th className="px-3 py-2 text-center text-[10px] font-bold" style={{ minWidth: 80, background: "#FAFCFF", color: "#91929E" }}>
+                  <button onClick={() => setBallInfoOpen(true)} title="Ball qanday hisoblanadi?"
+                    className="inline-flex items-center gap-1 font-bold hover:text-[#3F8CFF] transition-colors">
+                    <CircleAlert size={13} style={{ color: "#FF8C42" }} />
+                    Ball
+                  </button>
                 </th>
               </tr>
             </thead>
@@ -360,6 +451,8 @@ export default function AutoTabelTable() {
           Kelgan kun ustiga bosing — kelgan vaqti va izohi ko'rinadi{canEdit ? "; xodim ismini bosing — kunlarni tuzatish" : ""}
         </span>
       </div>
+
+      {ballInfoOpen && <BallInfoModal onClose={() => setBallInfoOpen(false)} />}
 
       {editRow && data && (
         <TabelEditModal
