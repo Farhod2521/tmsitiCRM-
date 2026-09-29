@@ -4,11 +4,13 @@ import { useState } from "react";
 import AttendanceCalendar from "@/components/profile/AttendanceCalendar";
 import AutoTabelTable from "@/components/attendance/AutoTabelTable";
 import TurniketDavomatTab from "@/components/attendance/TurniketDavomatTab";
-import { Users, User, DoorOpen } from "lucide-react";
+import BugunTab from "@/components/attendance/BugunTab";
+import { Users, User, DoorOpen, ListChecks } from "lucide-react";
 
-type Tab = "xodimlar" | "turniket" | "ozim";
+type Tab = "bugun" | "xodimlar" | "turniket" | "ozim";
 
 const TABS: { key: Tab; label: string; icon: typeof Users }[] = [
+  { key: "bugun",    label: "Bugun",             icon: ListChecks },
   { key: "xodimlar", label: "Xodimlar davomati", icon: Users },
   { key: "turniket", label: "Turniket davomat",  icon: DoorOpen },
   { key: "ozim",     label: "O'zim",             icon: User },
@@ -18,7 +20,7 @@ const TABS: { key: Tab; label: string; icon: typeof Users }[] = [
  *  xodimlar oylik jadvali, turniket davomati va o'z davomat kalendari.
  *  canImport — turniket xlsx yuklash (backendda faqat kadr/superadmin). */
 export default function DavomatTabs({ canImport = true }: { canImport?: boolean }) {
-  const [tab, setTab] = useState<Tab>("xodimlar");
+  const [tab, setTab] = useState<Tab>("bugun");
 
   return (
     <>
@@ -33,7 +35,7 @@ export default function DavomatTabs({ canImport = true }: { canImport?: boolean 
         ))}
       </div>
 
-      {tab === "xodimlar" ? <AutoTabelTable /> : tab === "turniket" ? <TurniketDavomatTab canImport={canImport} /> : <AttendanceCalendar />}
+      {tab === "bugun" ? <BugunTab /> : tab === "xodimlar" ? <AutoTabelTable /> : tab === "turniket" ? <TurniketDavomatTab canImport={canImport} /> : <AttendanceCalendar />}
     </>
   );
 }
