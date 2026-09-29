@@ -61,6 +61,8 @@ class DailyRow(BaseModel):
     status_label: str
     note: Optional[DailyNote] = None
     distance_m: Optional[float] = None
+    turniket_check_in: Optional[str] = None   # turniketdagi kirish vaqti (bo'lsa)
+    corrected: bool = False                    # kelish vaqti superadmin tomonidan tuzatilgan
 
 
 class DailyOut(BaseModel):
@@ -119,6 +121,10 @@ def _build(db: Session, day: str, with_avatars: bool = True) -> DailyOut:
               .filter(models.AttendanceNote.date_from <= day, models.AttendanceNote.date_to >= day)
               .order_by(models.AttendanceNote.created_at).all()):
         notes[n.employee_id] = n        # eng oxirgisi
+    turniket = {t.employee_id: t.check_in for t in db.query(models.TurniketAttendance)
+                .filter(models.TurniketAttendance.date == day).all() if t.check_in}
+    corrected_ids = {c.employee_id for c in db.query(models.AttendanceCorrection.employee_id)
+                     .filter(models.AttendanceCorrection.date == day).all()}
     holidays = holiday_map(db, day, day)
     day_off = holidays.get(day) or ("Dam olish kuni" if d.weekday() >= 5 else None)
 
@@ -165,6 +171,8 @@ def _build(db: Session, day: str, with_avatars: bool = True) -> DailyOut:
             note=DailyNote(type=note.note_type, label=NOTE_LABEL.get(note.note_type, note.note_type),
                            status=note.review_status, text=note.text) if note else None,
             distance_m=att.distance_m if att else None,
+            turniket_check_in=turniket.get(e.id),
+            corrected=e.id in corrected_ids,
         ))
 
     rows.sort(key=lambda r: (
@@ -189,6 +197,115 @@ def daily_list(
 ):
     _require(current)
     return _build(db, date or datetime.now(TZ_UZ).strftime("%Y-%m-%d"))
+
+
+# ── Kelish vaqtini tuzatish (faqat superadmin) ────────────────────────────────
+
+class CorrectionIn(BaseModel):
+    employee_id: int
+    date: str            # "2026-09-15"
+    time: str            # "08:47"
+    reason: Optional[str] = None
+    source: str = "qolda"   # "turniket" | "qolda"
+
+
+class CorrectionLog(BaseModel):
+    old_check_in: Optional[str] = None
+    new_check_in: str
+    source: str
+    reason: Optional[str] = None
+    corrected_by: Optional[str] = None
+    created_at: datetime
+
+
+class CorrectionInfo(BaseModel):
+    employee_id: int
+    full_name: str
+    date: str
+    current: Optional[str] = None      # tizimdagi kelish vaqti
+    turniket: Optional[str] = None     # turniketdagi kirish vaqti
+    history: List[CorrectionLog]
+
+
+def _require_superadmin(current: models.Employee) -> None:
+    if current.role != R.superadmin:
+        raise HTTPException(status_code=403, detail="Kelish vaqtini faqat superadmin tuzata oladi")
+
+
+def _hhmm(dt: datetime) -> str:
+    return (dt.astimezone(TZ_UZ) if dt.tzinfo is not None else dt).strftime("%H:%M")
+
+
+def _correction_info(db: Session, emp: models.Employee, day: str) -> CorrectionInfo:
+    att = db.query(models.Attendance).filter(models.Attendance.employee_id == emp.id, models.Attendance.date == day).first()
+    tur = db.query(models.TurniketAttendance).filter(models.TurniketAttendance.employee_id == emp.id,
+                                                     models.TurniketAttendance.date == day).first()
+    logs = (db.query(models.AttendanceCorrection)
+            .filter(models.AttendanceCorrection.employee_id == emp.id, models.AttendanceCorrection.date == day)
+            .order_by(models.AttendanceCorrection.created_at.desc()).all())
+    return CorrectionInfo(
+        employee_id=emp.id, full_name=emp.full_name, date=day,
+        current=_hhmm(att.check_in) if att else None,
+        turniket=tur.check_in if tur else None,
+        history=[CorrectionLog(old_check_in=l.old_check_in, new_check_in=l.new_check_in, source=l.source,
+                               reason=l.reason, corrected_by=l.corrector.full_name if l.corrector else None,
+                               created_at=l.created_at) for l in logs],
+    )
+
+
+@router.get("/correction", response_model=CorrectionInfo)
+def get_correction(
+    employee_id: int,
+    date: str,
+    db: Session = Depends(get_db),
+    current: models.Employee = Depends(get_current_employee),
+):
+    _require_superadmin(current)
+    emp = db.get(models.Employee, employee_id)
+    if not emp:
+        raise HTTPException(status_code=404, detail="Xodim topilmadi")
+    return _correction_info(db, emp, date)
+
+
+@router.put("/correction", response_model=CorrectionInfo)
+def set_correction(
+    data: CorrectionIn,
+    db: Session = Depends(get_db),
+    current: models.Employee = Depends(get_current_employee),
+):
+    """Kelish vaqtini o'rnatish/tuzatish. Yozuv bo'lmasa (xodim "Ishga keldim"ni
+    bosmagan) — yaratiladi. Har bir o'zgarish jurnalga yoziladi."""
+    _require_superadmin(current)
+    emp = db.get(models.Employee, data.employee_id)
+    if not emp:
+        raise HTTPException(status_code=404, detail="Xodim topilmadi")
+    try:
+        d = datetime.strptime(data.date, "%Y-%m-%d").date()
+        t = datetime.strptime(data.time.strip(), "%H:%M").time()
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Sana (YYYY-MM-DD) yoki vaqt (HH:MM) noto'g'ri")
+    if d > datetime.now(TZ_UZ).date():
+        raise HTTPException(status_code=400, detail="Kelajakdagi sana uchun vaqt qo'yib bo'lmaydi")
+    if data.source not in ("turniket", "qolda"):
+        raise HTTPException(status_code=400, detail="Noto'g'ri manba")
+
+    new_dt = datetime.combine(d, t)   # mahalliy (UTC+5) vaqt, naive — check_in bilan bir xil
+    att = db.query(models.Attendance).filter(models.Attendance.employee_id == emp.id,
+                                             models.Attendance.date == data.date).first()
+    old = _hhmm(att.check_in) if att else None
+    if old == t.strftime("%H:%M"):
+        return _correction_info(db, emp, data.date)
+    if att:
+        att.check_in = new_dt
+    else:
+        db.add(models.Attendance(employee_id=emp.id, date=data.date, check_in=new_dt,
+                                 latitude=0.0, longitude=0.0, distance_m=None))
+    db.add(models.AttendanceCorrection(
+        employee_id=emp.id, date=data.date, old_check_in=old, new_check_in=t.strftime("%H:%M"),
+        source=data.source, reason=(data.reason or "").strip() or None, corrected_by=current.id,
+    ))
+    db.commit()
+    return _correction_info(db, emp, data.date)
 
 
 @router.get("/xlsx")

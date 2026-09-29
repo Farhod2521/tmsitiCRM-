@@ -2,9 +2,11 @@
 
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { apiFetch } from "@/lib/api";
+import { getUser } from "@/lib/auth";
+import CheckInCorrectionModal from "@/components/attendance/CheckInCorrectionModal";
 import {
   ListChecks, Search, Download, Loader2, Check, Clock, Minus, Palmtree,
-  MoreVertical, CalendarDays, X,
+  MoreVertical, CalendarDays, X, Clock3, PencilLine,
 } from "lucide-react";
 
 interface DailyNote { type: string; label: string; status: string; text: string | null; }
@@ -22,6 +24,8 @@ interface DailyRow {
   status_label: string;
   note: DailyNote | null;
   distance_m: number | null;
+  turniket_check_in: string | null;
+  corrected: boolean;          // kelish vaqti superadmin tomonidan tuzatilgan
 }
 interface DailyOut { date: string; day_off: string | null; rows: DailyRow[]; }
 
@@ -88,6 +92,10 @@ export default function BugunTab() {
   const [holat, setHolat] = useState<"" | DailyRow["holat"]>("");
   const [downloading, setDownloading] = useState(false);
   const [menu, setMenu] = useState<{ row: DailyRow; x: number; y: number } | null>(null);
+  const [correcting, setCorrecting] = useState<DailyRow | null>(null);
+  // Kelish vaqtini tuzatish — faqat superadmin (backendda ham shunday)
+  const [isSuperadmin, setIsSuperadmin] = useState(false);
+  useEffect(() => { setIsSuperadmin(getUser()?.role === "superadmin"); }, []);
 
   const load = useCallback(async (d: string) => {
     setLoading(true);
@@ -232,7 +240,17 @@ export default function BugunTab() {
                       </div>
                     </td>
                     <td className="px-3 py-2 whitespace-nowrap" style={{ color: "#3D4557" }}>{r.department || "—"}</td>
-                    <td className="px-3 py-2 font-semibold" style={{ color: "#0A1629" }}>{r.check_in || "–"}</td>
+                    <td className="px-3 py-2" style={{ color: "#0A1629" }}>
+                      <span className="inline-flex items-center gap-1 font-semibold">
+                        {r.check_in || "–"}
+                        {r.corrected && <span title="Kelish vaqti superadmin tomonidan tuzatilgan"><PencilLine size={11} style={{ color: "#6D5DD3" }} /></span>}
+                      </span>
+                      {r.turniket_check_in && r.turniket_check_in !== r.check_in && (
+                        <span className="block text-[10px] font-semibold" style={{ color: "#91929E" }} title="Turniketdagi kirish vaqti">
+                          Turniket: {r.turniket_check_in}
+                        </span>
+                      )}
+                    </td>
                     <td className="px-3 py-2">
                       <Pill cfg={hc} label={r.holat_label} />
                     </td>
@@ -259,11 +277,16 @@ export default function BugunTab() {
         </div>
       )}
 
+      {correcting && (
+        <CheckInCorrectionModal employeeId={correcting.employee_id} date={date}
+          onClose={() => setCorrecting(null)} onSaved={() => load(date)} />
+      )}
+
       {/* Batafsil (⋮) */}
       {menu && (
         <div onClick={e => e.stopPropagation()} className="fixed z-50 p-4"
           style={{
-            left: Math.max(8, menu.x - 280), top: Math.min(menu.y + 6, window.innerHeight - 240), width: 280,
+            left: Math.max(8, menu.x - 280), top: Math.min(menu.y + 6, window.innerHeight - 340), width: 280,
             background: "#FFFFFF", borderRadius: 14, boxShadow: "0 12px 36px rgba(10,22,41,0.16)", border: "1px solid #F4F9FD",
           }}>
           <div className="flex items-start justify-between gap-2">
@@ -282,6 +305,16 @@ export default function BugunTab() {
               <div className="flex justify-between"><dt style={{ color: "#91929E" }}>Ofisgacha masofa</dt><dd className="font-bold">{Math.round(menu.row.distance_m)} m</dd></div>
             )}
           </dl>
+          {menu.row.turniket_check_in && (
+            <div className="flex justify-between text-xs mt-1.5"><span style={{ color: "#91929E" }}>Turniket</span><b>{menu.row.turniket_check_in}</b></div>
+          )}
+          {isSuperadmin && (
+            <button onClick={() => { setCorrecting(menu.row); setMenu(null); }}
+              className="w-full mt-3 flex items-center justify-center gap-1.5 py-2 text-xs font-bold text-white"
+              style={{ background: "#6D5DD3", borderRadius: 10 }}>
+              <Clock3 size={13} /> Kelish vaqtini tuzatish
+            </button>
+          )}
           {menu.row.note && (
             <div className="mt-3 pt-3 text-xs" style={{ borderTop: "1px solid #F4F9FD" }}>
               <div className="flex justify-between font-bold">

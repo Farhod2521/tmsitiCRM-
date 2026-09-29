@@ -605,6 +605,25 @@ class WorkExperience(Base):
     employee    = relationship("Employee", foreign_keys=[employee_id])
 
 
+class AttendanceCorrection(Base):
+    """Superadmin kelish vaqtini tuzatgani (masalan, xodim ishga kelgan, turniket
+    qayd etgan, lekin tizimda "Ishga keldim"ni bosishni unutgan). Har bir o'zgarish
+    alohida yoziladi — kim, qachon, eski va yangi vaqt, sabab."""
+    __tablename__ = "attendance_corrections"
+
+    id           = Column(Integer, primary_key=True, index=True)
+    employee_id  = Column(Integer, ForeignKey("employees.id"), nullable=False, index=True)
+    date         = Column(String(10), nullable=False)          # "2026-09-15"
+    old_check_in = Column(String(5), nullable=True)            # "09:58" yoki None (belgilanmagan edi)
+    new_check_in = Column(String(5), nullable=False)           # "08:47"
+    source       = Column(String(20), nullable=False, default="qolda")   # "turniket" | "qolda"
+    reason       = Column(Text, nullable=True)
+    corrected_by = Column(Integer, ForeignKey("employees.id"), nullable=True)
+    created_at   = Column(DateTime, default=datetime.utcnow)
+
+    corrector    = relationship("Employee", foreign_keys=[corrected_by])
+
+
 class Holiday(Base):
     """Kadr belgilagan bayram (dam olish) kuni — tabel, davomat hisobi va
     09:00 telegram eslatmasida ish kuni hisoblanmaydi."""
