@@ -1,6 +1,6 @@
 import enum
 from datetime import datetime
-from sqlalchemy import Column, Integer, String, Float, Boolean, ForeignKey, Enum as SAEnum, DateTime, UniqueConstraint, Text, BigInteger
+from sqlalchemy import Column, Integer, String, Float, Boolean, ForeignKey, Enum as SAEnum, DateTime, UniqueConstraint, Text, BigInteger, JSON
 from sqlalchemy.orm import relationship
 from .database import Base
 
@@ -603,6 +603,25 @@ class WorkExperience(Base):
     updated_at  = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     employee    = relationship("Employee", foreign_keys=[employee_id])
+
+
+class EnergyAudit(Base):
+    """Energoaudit hisoboti ("Energoaudit va energosamaradorlik ekspertizasi bo'limi"):
+    forma ma'lumotlari (data) va suratlar (photos) — shulardan docx to'ldiriladi."""
+    __tablename__ = "energy_audits"
+
+    id         = Column(Integer, primary_key=True, index=True)
+    template   = Column(String(30), nullable=False, default="uyjoy")
+    title      = Column(String(300), nullable=False)
+    data       = Column(JSON, nullable=False, default=dict)
+    photos     = Column(JSON, nullable=False, default=dict)   # {slot: "data:image/jpeg;base64,..."}
+    created_by = Column(Integer, ForeignKey("employees.id"), nullable=True)
+    updated_by = Column(Integer, ForeignKey("employees.id"), nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    creator    = relationship("Employee", foreign_keys=[created_by])
+    updater    = relationship("Employee", foreign_keys=[updated_by])
 
 
 class AttendanceCorrection(Base):

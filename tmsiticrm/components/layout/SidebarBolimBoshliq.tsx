@@ -2,15 +2,16 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useState } from "react";
-import { Target, User, LogOut, ClipboardList, ClipboardCheck, CalendarCheck, X, MessageSquareWarning } from "lucide-react";
+import { useEffect, useState } from "react";
+import { Target, User, LogOut, ClipboardList, ClipboardCheck, CalendarCheck, X, MessageSquareWarning, Zap } from "lucide-react";
+import { checkAuditAccess } from "@/components/energoaudit/api";
 import LottiePlayer from "@/components/ui/LottiePlayer";
 import MobileTopBar from "@/components/layout/MobileTopBar";
 import NavCount from "@/components/layout/NavCount";
 import { useNotifications, countForHref } from "@/lib/notifications";
 import { clearAuth } from "@/lib/auth";
 
-const navItems = [
+const BASE_NAV = [
   { href: "/bolimboshliq/nazorat", icon: ClipboardCheck, label: "Ijro nazorati" },
   { href: "/bolimboshliq/kpi",     icon: Target,         label: "KPI"           },
   { href: "/bolimboshliq/tabel",   icon: ClipboardList,  label: "Tabel"         },
@@ -24,6 +25,11 @@ export default function SidebarBolimBoshliq() {
   const notif = useNotifications();
   const router   = useRouter();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [auditAccess, setAuditAccess] = useState(false);   // Energoaudit bo'limi boshlig'i
+  useEffect(() => { checkAuditAccess().then(setAuditAccess); }, []);
+  const navItems = auditAccess
+    ? [...BASE_NAV.slice(0, 4), { href: "/bolimboshliq/energoaudit", icon: Zap, label: "Energiya audit" }, ...BASE_NAV.slice(4)]
+    : BASE_NAV;
   const isActive = (href: string) => pathname.startsWith(href);
 
   function handleLogout() {
