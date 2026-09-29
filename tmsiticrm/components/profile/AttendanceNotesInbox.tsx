@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { MessageSquareWarning, AlarmClock, UserX, MapPinned, DoorOpen, Loader2, Check, X as XIcon } from "lucide-react";
 import { apiFetch } from "@/lib/api";
+import { fmtDateTimeUz } from "@/lib/datetime";
 import { getUser } from "@/lib/auth";
 
 type ReviewStatus = "bolim_kutilmoqda" | "kutilmoqda" | "kadr_tasdiqladi" | "sababli" | "sababsiz";
@@ -49,7 +50,7 @@ const NOTE_TYPE_CFG: Record<NoteType, { label: string; icon: typeof AlarmClock; 
 };
 
 function fmtDt(d: string) {
-  return new Date(d).toLocaleString("uz-UZ", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
+  return fmtDateTimeUz(d);   // UTC -> O'zbekiston vaqti (UTC+5)
 }
 
 export default function AttendanceNotesInbox() {

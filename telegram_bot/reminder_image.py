@@ -86,7 +86,7 @@ def build_reminder_image(date_str: str, weekday: str, count: int, names: list[st
 
     # ── Vaqt katagi ──
     draw.text((934, 58), "Har kuni", font=_font(13, bold=False), fill=WHITE, anchor="mm")
-    draw.text((934, 89), "09:00 da", font=_font(21, bold=True), fill=WHITE, anchor="mm")
+    draw.text((934, 89), "09:01 da", font=_font(21, bold=True), fill=WHITE, anchor="mm")
 
     # ── Qizil banner sarlavhasi ──
     draw.text((225, 210), "\u2018ISHGA KELDIM\u2019 TUGMASINI", font=_font(30, bold=True), fill=WHITE, anchor="lm")

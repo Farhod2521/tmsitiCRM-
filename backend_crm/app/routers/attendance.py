@@ -1,6 +1,6 @@
 import math
 from calendar import monthrange
-from datetime import datetime, timezone, timedelta
+from datetime import date as date_cls, datetime, timezone, timedelta
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 from sqlalchemy.orm import Session
 from typing import List
@@ -23,20 +23,35 @@ TZ_UZ = timezone(timedelta(hours=5))
 WORK_START_HOUR = 9
 WORK_START_MIN  = 0
 
-# Kechikish uchun imtiyozli vaqt: 09:10 gacha kelgan xodim kechikkan hisoblanmaydi,
-# undan keyin — 09:10 dan boshlab sanaladi (09:12 da kelsa — 2 daqiqa kechikkan).
-LATE_GRACE_MIN = 10
+# Kechikish uchun imtiyozli vaqt (daqiqa) — sanaga qarab. Imtiyoz ichida kelgan
+# xodim kechikkan hisoblanmaydi, undan keyin — imtiyoz tugagan paytdan sanaladi.
+#   28.09.2026 gacha: 10 daqiqa (09:10 gacha — kechikmagan; 09:12 da kelsa — 2 daq)
+#   29.09.2026 dan:    1 daqiqa (09:01 gacha — kechikmagan; 09:05 da kelsa — 4 daq)
+# O'tgan kunlar eski qoida bo'yicha qoladi (qayta hisoblanmaydi).
+_LATE_GRACE_HISTORY = [
+    (date_cls(2026, 9, 29), 1),
+]
+_LATE_GRACE_DEFAULT = 10
 
 
-def late_from_minutes(minutes_after_start: int) -> int:
-    """Ish boshlanishidan keyin o'tgan daqiqalar -> kechikish (imtiyozni ayirib)."""
-    return max(0, minutes_after_start - LATE_GRACE_MIN)
+def late_grace_for(day: "date_cls | None" = None) -> int:
+    day = day or datetime.now(TZ_UZ).date()
+    grace = _LATE_GRACE_DEFAULT
+    for since, g in _LATE_GRACE_HISTORY:
+        if day >= since:
+            grace = g
+    return grace
+
+
+def late_from_minutes(minutes_after_start: int, day: "date_cls | None" = None) -> int:
+    """Ish boshlanishidan keyin o'tgan daqiqalar -> kechikish (shu kungi imtiyozni ayirib)."""
+    return max(0, minutes_after_start - late_grace_for(day))
 
 
 def late_minutes_for(ci_local: datetime) -> int:
-    """Mahalliy (UTC+5) kelish vaqti -> kechikish daqiqalari (09:00 + 10 daq imtiyoz)."""
+    """Mahalliy (UTC+5) kelish vaqti -> kechikish daqiqalari (09:00 + shu kungi imtiyoz)."""
     work_start = ci_local.replace(hour=WORK_START_HOUR, minute=WORK_START_MIN, second=0, microsecond=0)
-    return late_from_minutes(int(round((ci_local - work_start).total_seconds() / 60.0)))
+    return late_from_minutes(int(round((ci_local - work_start).total_seconds() / 60.0)), ci_local.date())
 
 
 def haversine_m(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
@@ -100,7 +115,7 @@ def _to_out(rec: models.Attendance, excused: bool = False) -> schemas.Attendance
     else:
         ci_local = ci  # allaqachon UTC+5 (naive)
 
-    late = late_minutes_for(ci_local)   # 09:10 gacha kelsa 0
+    late = late_minutes_for(ci_local)   # imtiyoz ichida kelsa 0
 
     return schemas.AttendanceOut(
         id=rec.id,
@@ -367,7 +382,7 @@ def get_absent_employees(db: Session, date: str) -> List[models.Employee]:
         .all()
     }
     # Ariza topshirganlar (kelmayman/kech qolaman/obyektga chiqdim — shu sanani
-    # qamrab oladigan) — 09:00 eslatmasida (guruh va shaxsiy) qayta so'ralmasin.
+    # qamrab oladigan) — 09:01 eslatmasida (guruh va shaxsiy) qayta so'ralmasin.
     noted_ids = {
         r.employee_id
         for r in db.query(models.AttendanceNote.employee_id)
@@ -554,6 +569,6 @@ def office_info(
         "longitude": loc_lng,
         "radius_m": loc_radius,
         "work_start": f"{WORK_START_HOUR:02d}:{WORK_START_MIN:02d}",
-        "late_grace_min": LATE_GRACE_MIN,
+        "late_grace_min": late_grace_for(),
         "work_location": current.work_location,
     }

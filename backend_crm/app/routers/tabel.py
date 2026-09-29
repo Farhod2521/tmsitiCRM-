@@ -179,7 +179,7 @@ def _auto_day(emp, d: date, day: int, holidays, last_day_to_count, status_codes,
         return "", 0, 0, 0, None
 
     ci_local = att.check_in.astimezone(TZ_UZ) if att.check_in.tzinfo is not None else att.check_in
-    late = min(STANDARD_WORKDAY_MIN, late_minutes_for(ci_local))   # 09:10 gacha — 0
+    late = min(STANDARD_WORKDAY_MIN, late_minutes_for(ci_local))   # imtiyoz ichida — 0
     is_excused = late > 0 and (emp.id, d.isoformat()) in excused
     info = {
         "check_in": ci_local.strftime("%H:%M"),

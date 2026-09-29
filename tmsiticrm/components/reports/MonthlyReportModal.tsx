@@ -6,6 +6,7 @@ import {
   Building2, Phone, IdCard, MessageSquareWarning, Check, PartyPopper,
 } from "lucide-react";
 import { apiFetch } from "@/lib/api";
+import { fmtDateTimeUz } from "@/lib/datetime";
 
 const WEEK_DAYS = ["Du", "Se", "Ch", "Pa", "Ju", "Sh", "Ya"];
 
@@ -67,7 +68,7 @@ function fmtHM(totalMin: number): string {
 }
 
 function fmtDt(d: string) {
-  return new Date(d).toLocaleString("uz-UZ", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" });
+  return fmtDateTimeUz(d, true);   // UTC -> O'zbekiston vaqti (UTC+5)
 }
 
 const NOTE_TYPE_LABEL: Record<NoteType, string> = {

@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import Header from "@/components/layout/Header";
 import { apiFetch } from "@/lib/api";
+import { fmtDateTimeUz } from "@/lib/datetime";
 import { waitingFor } from "@/components/attendance/noteStages";
 import { MessageSquareWarning, AlarmClock, UserX, MapPinned, DoorOpen, Loader2, Check, X as XIcon, Clock } from "lucide-react";
 
@@ -62,7 +63,7 @@ function fmt(d: string) {
   return new Date(d).toLocaleDateString("uz-UZ", { day: "2-digit", month: "2-digit", year: "numeric" });
 }
 function fmtDt(d: string) {
-  return new Date(d).toLocaleString("uz-UZ", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
+  return fmtDateTimeUz(d);   // UTC -> O'zbekiston vaqti (UTC+5)
 }
 
 export default function DirektorIzohlarPage() {

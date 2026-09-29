@@ -236,7 +236,7 @@ export default function KalendarPage() {
 
               <p className="text-[11px] mt-3 leading-relaxed" style={{ color: "#A8B0BD" }}>
                 Bayram kuni ish kuni hisoblanmaydi: tabelda <b style={{ color: HOLIDAY_COLOR }}>BY</b> belgisi turadi,
-                kelmaganlar hisoblanmaydi va telegram bot 09:00 eslatmasini yubormaydi.
+                kelmaganlar hisoblanmaydi va telegram bot 09:01 eslatmasini yubormaydi.
               </p>
             </div>
           )}

@@ -97,7 +97,7 @@ def reset_password(data: schemas.BotResetIn, db: Session = Depends(get_db)):
 
 @router.get("/attendance-reminder", response_model=schemas.BotAttendanceReminderOut)
 def attendance_reminder(db: Session = Depends(get_db)):
-    """Har kuni ertalab soat 09:00'da bot orqali avtomatik eslatma yuborish uchun:
+    """Har kuni ertalab soat 09:01'da bot orqali avtomatik eslatma yuborish uchun:
     bugun hali 'Ishga keldim' bosmagan xodimlar ro'yxati — shaxsiy xabar
     yuborish uchun telegram_id borlar, va guruhga yuboriladigan tayyor matn."""
     date = datetime.now(_TZ_UZ).strftime("%Y-%m-%d")

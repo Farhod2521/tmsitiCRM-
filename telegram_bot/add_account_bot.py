@@ -266,10 +266,10 @@ async def receive_new_password_reset(update: Update, context: ContextTypes.DEFAU
     return ConversationHandler.END
 
 
-# ─── Har kuni 09:00'da avtomatik davomat eslatmasi ────────────────────────────
+# ─── Har kuni 09:01'da avtomatik davomat eslatmasi ────────────────────────────
 
 async def send_daily_attendance_reminder(context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Har kuni ertalab soat 09:00 (UTC+5) — 'Ishga keldim' bosmagan xodimlarning
+    """Har kuni ertalab soat 09:01 (UTC+5) — 'Ishga keldim' bosmagan xodimlarning
     har biriga shaxsan, va guruhga umumiy ro'yxat sifatida xabar yuboradi."""
     try:
         async with httpx.AsyncClient(timeout=15) as client:
@@ -345,7 +345,7 @@ def build_app() -> Application:
 
     app.job_queue.run_daily(
         send_daily_attendance_reminder,
-        time=dt.time(hour=9, minute=0, tzinfo=TZ_UZ),
+        time=dt.time(hour=9, minute=1, tzinfo=TZ_UZ),
         # PTB 20.0+ da 0-6 = yakshanba—shanba (dushanba—yakshanba EMAS!). Shu sabab
         # (0,1,2,3,4) aslida yaksh—payshanba edi va juma/shanba o'rniga yakshanba
         # kuni ham xato yuborilardi. Dushanba(1)—juma(5) — shanba(6)/yakshanba(0)
