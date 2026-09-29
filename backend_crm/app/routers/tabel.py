@@ -301,6 +301,24 @@ def _build_auto_tabel(db: Session, year: int, month: int) -> schemas.AutoTabelOu
     )
 
 
+def attendance_balls(db: Session, year: int, month: int) -> dict[int, int]:
+    """{employee_id: davomat bali (25 dan)} — shu oy uchun "Xodimlar davomati"
+    jadvalidagi "Ball" ustuni. KPI'dagi KADR bali shundan olinadi.
+    Oy hali boshlanmagan yoki tizimda shu oy uchun davomat umuman bo'lmasa
+    (tizim ishga tushishidan oldingi oylar) — bo'sh lug'at."""
+    today = datetime.now(TZ_UZ).date()
+    if (year, month) > (today.year, today.month):
+        return {}
+    days = monthrange(year, month)[1]
+    has_data = db.query(models.Attendance.id).filter(
+        models.Attendance.date >= f"{year:04d}-{month:02d}-01",
+        models.Attendance.date <= f"{year:04d}-{month:02d}-{days:02d}",
+    ).first()
+    if not has_data:
+        return {}
+    return {r.employee_id: r.ball for r in _build_auto_tabel(db, year, month).rows if r.ball is not None}
+
+
 _AUTO_TABEL_VIEW_ROLES = {
     models.RoleEnum.kadr, models.RoleEnum.superadmin,
     models.RoleEnum.direktor, models.RoleEnum.zamdirektor,

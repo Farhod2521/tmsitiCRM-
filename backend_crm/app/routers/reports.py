@@ -863,7 +863,9 @@ def monthly_report(
     ).first()
     ijro_edo_ball   = sc.ijro_edo_ball if sc else None
     ijro_ichki_ball = sc.ijro_ichki_ball if sc else None
-    kadr_ball  = sc.kadr_ball if sc else None
+    # KADR bali — davomatdan avtomatik (bo'lmasa kadr qo'lda qo'ygani)
+    from .tabel import attendance_balls
+    kadr_ball  = attendance_balls(db, year, month).get(employee_id, sc.kadr_ball if sc else None)
     bolim_ball = sc.bolim_ball if sc else None
     umumiy = None
     if ijro_edo_ball is not None or ijro_ichki_ball is not None or kadr_ball is not None or bolim_ball is not None:

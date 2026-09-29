@@ -105,11 +105,29 @@ def my_year_scores(
     db: Session = Depends(get_db),
     current: models.Employee = Depends(get_current_employee),
 ):
-    """Joriy foydalanuvchining bir yillik ball/hisobotlari."""
-    return db.query(models.Score).filter(
-        models.Score.employee_id == current.id,
-        models.Score.year == year,
-    ).order_by(models.Score.month).all()
+    """Joriy foydalanuvchining bir yillik ball/hisobotlari. KADR bali — davomatdan
+    avtomatik (davomat jadvalidagi "Ball"); davomat ma'lumoti bo'lmagan oylarda
+    kadr qo'lda qo'ygan qiymat qoladi."""
+    from datetime import datetime
+    from .tabel import attendance_balls
+
+    by_month = {
+        s.month: schemas.ScoreOut.model_validate(s)
+        for s in db.query(models.Score).filter(
+            models.Score.employee_id == current.id,
+            models.Score.year == year,
+        ).all()
+    }
+    for m in range(1, 13):
+        ball = attendance_balls(db, year, m).get(current.id)
+        if ball is None:
+            continue
+        if m in by_month:
+            by_month[m].kadr_ball = ball
+        else:
+            by_month[m] = schemas.ScoreOut(id=0, employee_id=current.id, year=year, month=m,
+                                           kadr_ball=ball, updated_at=datetime.utcnow())
+    return [by_month[m] for m in sorted(by_month)]
 
 
 def _upsert_score(db: Session, emp_id: int, year: int, month: int, creator_id: int) -> models.Score:
