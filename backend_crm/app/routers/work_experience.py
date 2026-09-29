@@ -63,6 +63,22 @@ class ExperienceRow(BaseModel):
     percent: int              # shu oy uchun yakuniy foiz (MT bo'lsa 0)
     base_percent: int         # stajga ko'ra foiz
     full_month_mt: bool       # butun oy mehnat ta'tilida
+    employee_name: Optional[str] = None   # bog'langan CRM xodimining ismi
+
+
+class ExperienceBulkRow(BaseModel):
+    id: int
+    employee_id: Optional[int] = None   # CRM xodimi (ism mos kelmaganda qo'lda bog'lanadi)
+    full_name: str
+    position: Optional[str] = None
+    years: int
+    months: int
+
+
+class ExperienceBulkIn(BaseModel):
+    year: int                 # qaysi oy holatida tahrirlanmoqda
+    month: int
+    rows: List[ExperienceBulkRow]
 
 
 class ExperienceOut(BaseModel):
@@ -138,6 +154,7 @@ def _build(db: Session, year: int, month: int) -> ExperienceOut:
         out.append(ExperienceRow(
             id=r.id, order_num=r.order_num, employee_id=r.employee_id,
             full_name=r.full_name, position=r.position,
+            employee_name=r.employee.full_name if r.employee else None,
             years=total // 12, months=total % 12,
             percent=0 if full_mt else base_pct, base_percent=base_pct, full_month_mt=full_mt,
         ))
@@ -281,6 +298,39 @@ def edit_experience(
     r.updated_by = current.id
     db.commit()
     return next(x for x in _build(db, data.year, data.month).rows if x.id == row_id)
+
+
+@router.put("/bulk", response_model=ExperienceOut)
+def bulk_edit_experience(
+    data: ExperienceBulkIn,
+    db: Session = Depends(get_db),
+    current: models.Employee = Depends(get_current_employee),
+):
+    """Jadvalni bir yo'la tahrirlash (A4 varaqdagi qalamcha): ism, lavozim, CRM
+    xodimiga bog'lash va tanlangan oy holatidagi staj. Staj asos oyga qayta hisoblanadi."""
+    _require(current)
+    rows = {r.id: r for r in db.query(models.WorkExperience).filter(
+        models.WorkExperience.id.in_([x.id for x in data.rows])).all()}
+    emp_ids = {x.employee_id for x in data.rows if x.employee_id}
+    known = {e.id for e in db.query(models.Employee.id).filter(models.Employee.id.in_(emp_ids)).all()} if emp_ids else set()
+    shift = _month_index(data.year, data.month)
+    for x in data.rows:
+        r = rows.get(x.id)
+        if r is None:
+            raise HTTPException(status_code=404, detail=f"Qator topilmadi: {x.id}")
+        if not x.full_name.strip():
+            raise HTTPException(status_code=400, detail="FISh bo'sh bo'lishi mumkin emas")
+        if x.years < 0 or not 0 <= x.months <= 11:
+            raise HTTPException(status_code=400, detail=f"{x.full_name}: yil 0 dan katta, oy 0–11 oralig'ida bo'lishi kerak")
+        if x.employee_id and x.employee_id not in known:
+            raise HTTPException(status_code=400, detail=f"{x.full_name}: CRM xodimi topilmadi")
+        r.full_name = x.full_name.strip()
+        r.position = (x.position or "").strip() or None
+        r.employee_id = x.employee_id or None
+        r.base_total_months = x.years * 12 + x.months - (shift - _month_index(r.base_year, r.base_month))
+        r.updated_by = current.id
+    db.commit()
+    return _build(db, data.year, data.month)
 
 
 # ── Yuklab olish ──────────────────────────────────────────────────────────────

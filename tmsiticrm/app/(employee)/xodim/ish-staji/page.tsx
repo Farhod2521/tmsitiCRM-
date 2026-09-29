@@ -3,7 +3,8 @@
 import { useState, useEffect, useCallback } from "react";
 import Header from "@/components/layout/Header";
 import { apiFetch } from "@/lib/api";
-import { ChevronLeft, ChevronRight, Loader2, FileSpreadsheet, FileText, BriefcaseBusiness } from "lucide-react";
+import { ChevronLeft, ChevronRight, Loader2, FileSpreadsheet, FileText, BriefcaseBusiness, CircleAlert, PencilLine } from "lucide-react";
+import { StajInfoModal, StajEditModal } from "@/components/ish-staji/StajModals";
 
 interface Row {
   id: number;
@@ -16,6 +17,7 @@ interface Row {
   percent: number;
   base_percent: number;
   full_month_mt: boolean;
+  employee_name?: string | null;
 }
 interface Data {
   year: number;
@@ -39,6 +41,8 @@ export default function IshStajiPage() {
   const [data, setData] = useState<Data | null>(null);
   const [loading, setLoading] = useState(true);
   const [downloading, setDownloading] = useState<"xlsx" | "docx" | null>(null);
+  const [infoOpen, setInfoOpen] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
 
   // Stajni tuzatish: yil/oy katagiga ikki marta bosiladi
   const [editId, setEditId] = useState<number | null>(null);
@@ -155,10 +159,23 @@ export default function IshStajiPage() {
 
       {/* Hujjat (qog'oz) */}
       <div className="overflow-x-auto pb-2">
-        <div className="mx-auto bg-white" style={{
+        <div className="relative mx-auto bg-white" style={{
           maxWidth: 820, minWidth: 640, padding: "40px 48px 48px", fontFamily: PAPER_FONT, color: "#000",
           boxShadow: "0 8px 40px rgba(10,22,41,0.10)", borderRadius: 4,
         }}>
+          {/* Varaq burchagi: ❗ ustama foizlari, ✏️ tahrirlash */}
+          <div className="absolute top-3 right-3 flex items-center gap-1.5" style={{ fontFamily: "inherit" }}>
+            <button onClick={() => setInfoOpen(true)} title="Ustamalar miqdorlari (foizlar)"
+              className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-[#FFF4EC] transition-colors">
+              <CircleAlert size={17} style={{ color: "#FF8C42" }} />
+            </button>
+            {rows.length > 0 && (
+              <button onClick={() => setEditOpen(true)} title="Ish stajini tahrirlash"
+                className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-[#EEF4FF] transition-colors">
+                <PencilLine size={16} style={{ color: "#3F8CFF" }} />
+              </button>
+            )}
+          </div>
           {loading ? (
             <div className="flex justify-center py-24"><Loader2 size={26} className="animate-spin" style={{ color: "#3F8CFF" }} /></div>
           ) : rows.length === 0 ? (
@@ -233,6 +250,10 @@ export default function IshStajiPage() {
           )}
         </div>
       </div>
+      {infoOpen && <StajInfoModal onClose={() => setInfoOpen(false)} />}
+      {editOpen && data && (
+        <StajEditModal data={data} onClose={() => setEditOpen(false)} onSaved={d => setData(d)} />
+      )}
     </div>
   );
 }
