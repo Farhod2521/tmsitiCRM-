@@ -6,6 +6,7 @@ import { apiFetch } from "@/lib/api";
 import { getUser } from "@/lib/auth";
 import { CODE_CFG, OVERRIDE_COLOR } from "@/components/attendance/tabelCodes";
 import TabelEditModal from "@/components/attendance/TabelEditModal";
+import CheckInCorrectionModal from "@/components/attendance/CheckInCorrectionModal";
 
 const MON_NAMES = [
   "Yanvar", "Fevral", "Mart", "Aprel", "May", "Iyun",
@@ -198,7 +199,20 @@ export default function AutoTabelTable() {
   const [ballInfoOpen, setBallInfoOpen] = useState(false);
   // Qo'lda tuzatish — faqat kadr va superadmin (backendda ham shunday)
   const [canEdit, setCanEdit] = useState(false);
-  useEffect(() => { setCanEdit(["kadr", "superadmin"].includes(getUser()?.role ?? "")); }, []);
+  // Kelish vaqtini tuzatish (o'tgan kunlar ham) — faqat superadmin
+  const [isSuperadmin, setIsSuperadmin] = useState(false);
+  const [correcting, setCorrecting] = useState<{ employeeId: number; date: string } | null>(null);
+  useEffect(() => {
+    const role = getUser()?.role ?? "";
+    setCanEdit(["kadr", "superadmin"].includes(role));
+    setIsSuperadmin(role === "superadmin");
+  }, []);
+
+  const todayIso = (() => {
+    const t = new Date();
+    return `${t.getFullYear()}-${String(t.getMonth() + 1).padStart(2, "0")}-${String(t.getDate()).padStart(2, "0")}`;
+  })();
+  const dayIso = (d: number) => `${year}-${String(month).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
 
   // Tashqariga bosilganda yoki sahifa aylantirilganda oyna yopiladi
   useEffect(() => {
@@ -380,6 +394,14 @@ export default function AutoTabelTable() {
                         ) : isOverride ? (
                           <span className="inline-block" title="Kadr tuzatgan: bo'sh"
                             style={{ width: 22, height: 20, borderRadius: 5, border: `1px dashed ${OVERRIDE_COLOR}` }} />
+                        ) : isSuperadmin && dayIso(d) <= todayIso ? (
+                          // Bo'sh (kelmagan) o'tgan kun — superadmin kelish vaqtini qo'sha oladi
+                          <button onClick={e => { e.stopPropagation(); setCorrecting({ employeeId: r.employee_id, date: dayIso(d) }); }}
+                            title="Kelish vaqtini qo'shish (turniket bo'yicha)"
+                            className="inline-flex items-center justify-center text-[11px] font-bold opacity-0 hover:opacity-100 focus:opacity-100 transition-opacity"
+                            style={{ width: 22, height: 20, borderRadius: 5, border: "1px dashed #6D5DD3", color: "#6D5DD3" }}>
+                            +
+                          </button>
                         ) : null}
                       </td>
                     );
@@ -439,11 +461,16 @@ export default function AutoTabelTable() {
           Ariza tasdiqlangan — vaqt qo'shildi
         </span>
         <span className="text-[11px]" style={{ color: "#B8C2D6" }}>
-          Kelgan kun ustiga bosing — kelgan vaqti va izohi ko'rinadi{canEdit ? "; xodim ismini bosing — kunlarni tuzatish" : ""}
+          Kelgan kun ustiga bosing — kelgan vaqti va izohi ko'rinadi{canEdit ? "; xodim ismini bosing — kunlarni tuzatish" : ""}{isSuperadmin ? "; bo'sh kun ustiga kelib «+» — kelish vaqtini qo'shish" : ""}
         </span>
       </div>
 
       {ballInfoOpen && <BallInfoModal onClose={() => setBallInfoOpen(false)} />}
+
+      {correcting && (
+        <CheckInCorrectionModal employeeId={correcting.employeeId} date={correcting.date}
+          onClose={() => setCorrecting(null)} onSaved={() => load(year, month)} />
+      )}
 
       {editRow && data && (
         <TabelEditModal
@@ -485,6 +512,12 @@ export default function AutoTabelTable() {
               {openCell.info.excused && " (vaqt qo'shildi)"}
             </span>
           </div>
+          {isSuperadmin && (
+            <button onClick={() => { setCorrecting({ employeeId: openCell.row.employee_id, date: dayIso(openCell.day) }); setOpenCell(null); }}
+              className="w-full mt-3 py-2 text-xs font-bold text-white" style={{ background: "#6D5DD3", borderRadius: 10 }}>
+              Kelish vaqtini tuzatish
+            </button>
+          )}
           {openCell.info.override && (
             <p className="mt-2 text-[11px] font-bold" style={{ color: OVERRIDE_COLOR }}>Kadr qo&apos;lda tuzatgan — 8 soat hisoblangan</p>
           )}
