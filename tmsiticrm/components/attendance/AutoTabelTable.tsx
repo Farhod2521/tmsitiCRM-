@@ -140,12 +140,8 @@ function BallInfoModal({ onClose }: { onClose: () => void }) {
         </div>
 
         <div className="px-6 py-4">
-          <p className="text-sm leading-relaxed" style={{ color: "#3D4557" }}>
-            Ball xodimning oy davomida <b>ishda bo&apos;lmagan vaqti</b>{" "}(sababsiz kechikishlar yig&apos;indisi —
-            &quot;Kechikkan vaqti&quot; ustuni) bo&apos;yicha hisoblanadi:
-          </p>
 
-          <table className="w-full mt-3 text-sm" style={{ borderCollapse: "collapse" }}>
+          <table className="w-full text-sm" style={{ borderCollapse: "collapse" }}>
             <thead>
               <tr style={{ background: "#FAFCFF" }}>
                 <th className="text-left px-3 py-2 text-xs font-bold" style={{ color: "#91929E" }}>Ishda bo&apos;lmagan vaqt</th>
@@ -172,11 +168,6 @@ function BallInfoModal({ onClose }: { onClose: () => void }) {
             </tbody>
           </table>
 
-          <ul className="mt-4 flex flex-col gap-1.5 text-xs" style={{ color: "#7D8592" }}>
-            <li>• 09:10 gacha kelish kechikish hisoblanmaydi (09:12 da kelsa — 2 daqiqa).</li>
-            <li>• Kadr tasdiqlagan ariza bilan kechikkan vaqt hisobga kirmaydi.</li>
-            <li>• Joriy oy uchun ball shu kungacha bo&apos;lgan kechikishlardan hisoblanadi.</li>
-          </ul>
         </div>
 
         <div className="px-6 pb-5">
