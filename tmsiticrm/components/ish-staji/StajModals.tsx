@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { createPortal } from "react-dom";
 import { apiFetch } from "@/lib/api";
-import { X, Loader2, Save, CircleAlert, PencilLine, Search, Link2Off } from "lucide-react";
+import { X, Loader2, Save, CircleAlert, PencilLine, Search, Link2Off, Upload, FileSpreadsheet, CheckCircle2 } from "lucide-react";
 
 export interface StajRow {
   id: number;
@@ -62,6 +62,108 @@ function Shell({ title, sub, icon, onClose, children, footer, wide }: {
       </div>
     </div>,
     document.body,
+  );
+}
+
+// ── ⬆ Excel (илова .xlsx) yuklash ─────────────────────────────────────────────
+interface ImportResult { imported: number; matched: number; unmatched: string[]; base_year: number; base_month: number; }
+const MON_CAP = MON.map(m => m[0].toUpperCase() + m.slice(1));
+
+export function StajImportModal({ year, month, onClose, onImported }: {
+  year: number; month: number; onClose: () => void; onImported: (year: number, month: number) => void;
+}) {
+  const [y, setY] = useState(year);
+  const [m, setM] = useState(month);
+  const [file, setFile] = useState<File | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [result, setResult] = useState<ImportResult | null>(null);
+
+  async function upload() {
+    if (!file) { setError("Faylni tanlang"); return; }
+    setBusy(true); setError(null);
+    try {
+      const fd = new FormData();
+      fd.append("file", file); fd.append("year", String(y)); fd.append("month", String(m));
+      const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+      const token = localStorage.getItem("crm_token");
+      const res = await fetch(`${API_URL}/ish-staji/import`, {
+        method: "POST", body: fd, headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(typeof body.detail === "string" ? body.detail : "Yuklab bo'lmadi");
+      setResult(body as ImportResult);
+      onImported(body.base_year, body.base_month);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Xatolik");
+    } finally { setBusy(false); }
+  }
+
+  const sel = "w-full px-3 py-2.5 text-sm outline-none bg-[#F4F9FD]";
+  const selStyle = { border: "1px solid #E4EAF2", borderRadius: 10, color: "#0A1629" };
+  return (
+    <Shell title="Ish staji jadvalini yuklash" sub="илова .xlsx — kadrlar jadvali" onClose={onClose}
+      icon={<div className="w-10 h-10 flex items-center justify-center" style={{ background: "rgba(0,196,140,0.12)", borderRadius: 12 }}><FileSpreadsheet size={19} style={{ color: "#00A578" }} /></div>}
+      footer={
+        <div className="flex justify-end gap-2 px-6 py-4" style={{ borderTop: "1px solid #F4F9FD" }}>
+          <button onClick={onClose} className="px-4 py-2.5 text-sm font-bold" style={{ background: "#F4F9FD", color: "#7D8592", borderRadius: 12 }}>
+            {result ? "Yopish" : "Bekor qilish"}
+          </button>
+          {!result && (
+            <button onClick={upload} disabled={busy || !file} className="flex items-center gap-2 px-5 py-2.5 text-sm font-bold text-white disabled:opacity-50"
+              style={{ background: "#00A578", borderRadius: 12 }}>
+              {busy ? <Loader2 size={15} className="animate-spin" /> : <Upload size={15} />} Yuklash
+            </button>
+          )}
+        </div>
+      }>
+      <div className="px-6 py-4">
+        {result ? (
+          <div>
+            <div className="flex items-center gap-2 p-3" style={{ background: "#E7F8EE", borderRadius: 12, color: "#16A34A" }}>
+              <CheckCircle2 size={18} />
+              <p className="text-sm font-bold">{MON_CAP[result.base_month - 1]} {result.base_year} uchun {result.imported} ta xodim yuklandi</p>
+            </div>
+            <p className="text-xs mt-3" style={{ color: "#7D8592" }}>CRM xodimlariga bog&apos;landi: <b>{result.matched}</b> ta</p>
+            {result.unmatched.length > 0 && (
+              <div className="mt-2 p-3 text-xs" style={{ background: "#FDECEC", borderRadius: 12, color: "#B91C1C" }}>
+                <p className="font-bold mb-1">CRM&apos;da topilmadi ({result.unmatched.length}) — ✏️ tahrirlash oynasida bog&apos;lang:</p>
+                <p>{result.unmatched.join(", ")}</p>
+              </div>
+            )}
+          </div>
+        ) : (
+          <>
+            <p className="text-xs font-bold mb-1.5" style={{ color: "#7D8592" }}>Jadval qaysi oy holatida?</p>
+            <div className="grid grid-cols-2 gap-2">
+              <select value={m} onChange={e => setM(Number(e.target.value))} className={sel} style={selStyle}>
+                {MON_CAP.map((name, i) => <option key={i} value={i + 1}>{name}</option>)}
+              </select>
+              <select value={y} onChange={e => setY(Number(e.target.value))} className={sel} style={selStyle}>
+                {[year - 1, year, year + 1].map(v => <option key={v} value={v}>{v}</option>)}
+              </select>
+            </div>
+            <div className="mt-3 px-3 py-2.5 text-sm font-bold text-center" style={{ background: "rgba(63,140,255,0.08)", color: "#3F8CFF", borderRadius: 10 }}>
+              {MON_CAP[m - 1]} {y} oy uchun yuklanmoqda
+            </div>
+
+            <label className="mt-3 flex flex-col items-center justify-center gap-1.5 py-6 cursor-pointer"
+              style={{ border: `1.5px dashed ${file ? "#00A578" : "#C9D6E8"}`, borderRadius: 14, background: file ? "#F2FBF6" : "#FAFCFF" }}>
+              <input type="file" accept=".xlsx" className="hidden" onChange={e => { setFile(e.target.files?.[0] ?? null); setError(null); }} />
+              <FileSpreadsheet size={26} style={{ color: file ? "#00A578" : "#A8B0BD" }} />
+              <span className="text-sm font-bold" style={{ color: file ? "#0A1629" : "#7D8592" }}>{file ? file.name : ".xlsx faylni tanlang"}</span>
+              <span className="text-[11px]" style={{ color: "#91929E" }}>Ustunlar: Tr, FISh, Lavozimi, yil, oy</span>
+            </label>
+
+            <p className="text-[11px] mt-3 flex gap-1.5" style={{ color: "#E07A1F" }}>
+              <CircleAlert size={13} className="flex-shrink-0 mt-px" />
+              Yuklangan jadval avvalgi barcha ma&apos;lumotlarni almashtiradi. Keyingi oylar stajiga har oy +1 oy qo&apos;shiladi.
+            </p>
+            {error && <p className="text-xs font-bold mt-2" style={{ color: "#FF5C5C" }}>{error}</p>}
+          </>
+        )}
+      </div>
+    </Shell>
   );
 }
 

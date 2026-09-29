@@ -3,8 +3,8 @@
 import { useState, useEffect, useCallback } from "react";
 import Header from "@/components/layout/Header";
 import { apiFetch } from "@/lib/api";
-import { ChevronLeft, ChevronRight, Loader2, FileSpreadsheet, FileText, BriefcaseBusiness, CircleAlert, PencilLine } from "lucide-react";
-import { StajInfoModal, StajEditModal } from "@/components/ish-staji/StajModals";
+import { ChevronLeft, ChevronRight, Loader2, FileSpreadsheet, FileText, BriefcaseBusiness, CircleAlert, PencilLine, Upload } from "lucide-react";
+import { StajInfoModal, StajEditModal, StajImportModal } from "@/components/ish-staji/StajModals";
 
 interface Row {
   id: number;
@@ -43,6 +43,7 @@ export default function IshStajiPage() {
   const [downloading, setDownloading] = useState<"xlsx" | "docx" | null>(null);
   const [infoOpen, setInfoOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
+  const [importOpen, setImportOpen] = useState(false);
 
   // Stajni tuzatish: yil/oy katagiga ikki marta bosiladi
   const [editId, setEditId] = useState<number | null>(null);
@@ -144,6 +145,11 @@ export default function IshStajiPage() {
           </button>
         </div>
         <div className="flex items-center gap-2">
+          <button onClick={() => setImportOpen(true)}
+            className="flex items-center gap-2 px-4 py-2.5 text-sm font-bold hover:bg-[#F4F9FD] transition-colors"
+            style={{ background: "#FFFFFF", border: "1px solid #D9E3F0", borderRadius: 12, color: "#0A1629" }}>
+            <Upload size={15} style={{ color: "#00A578" }} /> Excel yuklash
+          </button>
           <button onClick={() => download("xlsx")} disabled={!rows.length || !!downloading}
             className="flex items-center gap-2 px-4 py-2.5 text-sm font-bold text-white disabled:opacity-50 hover:opacity-90"
             style={{ background: "#00C48C", borderRadius: 12 }}>
@@ -251,6 +257,10 @@ export default function IshStajiPage() {
         </div>
       </div>
       {infoOpen && <StajInfoModal onClose={() => setInfoOpen(false)} />}
+      {importOpen && (
+        <StajImportModal year={year} month={month} onClose={() => setImportOpen(false)}
+          onImported={(y, m) => { setYear(y); setMonth(m); load(y, m); }} />
+      )}
       {editOpen && data && (
         <StajEditModal data={data} onClose={() => setEditOpen(false)} onSaved={d => setData(d)} />
       )}
