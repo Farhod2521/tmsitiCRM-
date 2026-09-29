@@ -35,6 +35,7 @@ interface AutoTabelRow {
   worked_min: number;
   late_min: number;
   excused_min?: number;
+  ball?: number | null;   // davomat mezoni bali (25 dan)
   auto_cells?: Record<string, string>;
   overridden?: number[];   // kadr qo'lda tuzatgan kunlar
 }
@@ -83,6 +84,22 @@ interface OpenCell {
   info: DayInfo;
   x: number;
   y: number;
+}
+
+// Davomat mezoni bali: oy davomida ishda bo'lmagan (sababsiz kechikkan) vaqtga qarab
+const MAX_BALL = 25;
+function ballRule(min: number): string {
+  if (min <= 60) return "60 daq gacha — 100%";
+  if (min <= 90) return "61–90 daq — 80%";
+  if (min <= 120) return "91–120 daq — 60%";
+  if (min <= 150) return "121–150 daq — 40%";
+  if (min <= 180) return "151–180 daq — 20%";
+  return "181 daq va undan ko'p — 0%";
+}
+function ballColor(b: number): { color: string; bg: string } {
+  if (b >= MAX_BALL) return { color: "#00A578", bg: "rgba(0,196,140,0.1)" };
+  if (b >= 15) return { color: "#B4780C", bg: "rgba(255,189,33,0.18)" };
+  return { color: "#FF5C5C", bg: "rgba(255,92,92,0.12)" };
 }
 
 function weekdayOf(year: number, month: number, day: number): number {
@@ -227,6 +244,10 @@ export default function AutoTabelTable() {
                 <th className="px-3 py-2 text-center text-[10px] font-bold" style={{ minWidth: 90, background: "#FAFCFF", color: "#91929E" }}>
                   Kechikkan vaqti
                 </th>
+                <th className="px-3 py-2 text-center text-[10px] font-bold" style={{ minWidth: 70, background: "#FAFCFF", color: "#91929E" }}
+                  title="Davomat mezoni: ishda bo'lmagan vaqt 60 daq gacha — 25, 61–90 — 20, 91–120 — 15, 121–150 — 10, 151–180 — 5, undan ko'p — 0">
+                  Ball
+                </th>
               </tr>
             </thead>
             <tbody>
@@ -288,6 +309,15 @@ export default function AutoTabelTable() {
                     {fmtHM(r.late_min)}
                     {!!r.excused_min && (
                       <div className="text-[9px] font-semibold" style={{ color: "#3F8CFF" }}>+{fmtHM(r.excused_min)} sababli</div>
+                    )}
+                  </td>
+                  <td className="text-center py-2 px-2 whitespace-nowrap" style={{ background: ri % 2 ? "#FFFFFF" : "#FAFCFF" }}
+                    title={`Ishda bo'lmagan vaqt: ${fmtHM(r.late_min)} — ${ballRule(r.late_min)}`}>
+                    {r.ball != null && (
+                      <span className="inline-flex items-baseline gap-0.5 px-2 py-0.5 text-xs font-bold"
+                        style={{ color: ballColor(r.ball).color, background: ballColor(r.ball).bg, borderRadius: 6 }}>
+                        {r.ball}<span className="text-[9px] font-semibold opacity-70">/{MAX_BALL}</span>
+                      </span>
                     )}
                   </td>
                 </tr>

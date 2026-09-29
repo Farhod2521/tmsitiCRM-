@@ -247,6 +247,7 @@ class AutoTabelRow(BaseModel):
     worked_min: int = 0    # ishlagan vaqt: har kun 8 soat - sababsiz kechikish, daqiqada
     late_min: int = 0      # shu oydagi jami sababsiz kechikish, daqiqada
     excused_min: int = 0   # tasdiqlangan ariza bilan qo'shib berilgan vaqt, daqiqada
+    ball: Optional[int] = None  # davomat mezoni bali (25 dan) — ishda bo'lmagan vaqtga qarab
     auto_cells: dict = {}  # kadr tuzatishisiz avtomatik hisoblangan kodlar
     overridden: List[int] = []  # kadr qo'lda tuzatgan kunlar
 

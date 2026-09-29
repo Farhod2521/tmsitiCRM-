@@ -124,6 +124,20 @@ def _fmt_hm(total_min: int) -> str:
     return f"{h} soat {m} daqiqa" if m else f"{h} soat"
 
 
+# Davomat mezoni: oy davomida ishda bo'lmagan (sababsiz kechikkan) vaqtga qarab ball.
+DAVOMAT_MAX_BALL = 25
+# (shu daqiqagacha, maksimal ballning foizi): <=60 — 100%, 61–90 — 80%, 91–120 — 60%,
+# 121–150 — 40%, 151–180 — 20%, 181 va undan ko'p — 0%.
+_DAVOMAT_BALL_STEPS = [(60, 100), (90, 80), (120, 60), (150, 40), (180, 20)]
+
+
+def davomat_ball(missed_min: int) -> int:
+    for limit, pct in _DAVOMAT_BALL_STEPS:
+        if missed_min <= limit:
+            return DAVOMAT_MAX_BALL * pct // 100
+    return 0
+
+
 def _notes_by_day(db: Session, emp_ids: list[int], date_from: str, date_to: str) -> dict[tuple[int, str], dict]:
     """(employee_id, "YYYY-MM-DD") -> shu kunni qamragan eng oxirgi ariza (izoh)."""
     if not emp_ids:
@@ -276,6 +290,7 @@ def _build_auto_tabel(db: Session, year: int, month: int) -> schemas.AutoTabelOu
             worked_min=worked_min,
             late_min=late_min,
             excused_min=excused_min,
+            ball=davomat_ball(late_min),
         ))
 
     return schemas.AutoTabelOut(
@@ -374,7 +389,7 @@ def auto_tabel_xlsx(
     ws = wb.active
     ws.title = f"{month:02d}.{year}"[:31]
 
-    header = ["Ism familiyasi"] + [str(d) for d in range(1, data.days_in_month + 1)] + ["Jami ish soati", "Kechikkan vaqti"]
+    header = ["Ism familiyasi"] + [str(d) for d in range(1, data.days_in_month + 1)] + ["Jami ish soati", "Kechikkan vaqti", "Ball"]
     ws.append(header)
     for c in ws[1]:
         c.font = Font(bold=True)
@@ -396,7 +411,8 @@ def auto_tabel_xlsx(
     for row in data.rows:
         ws.append(
             [row.full_name] + [row.cells.get(str(d), "") for d in range(1, data.days_in_month + 1)]
-            + [f"{_fmt_hm(row.worked_min)}/{_fmt_hm(required_min)}", _fmt_hm(row.late_min)]
+            + [f"{_fmt_hm(row.worked_min)}/{_fmt_hm(required_min)}", _fmt_hm(row.late_min),
+               f"{row.ball}/{DAVOMAT_MAX_BALL}" if row.ball is not None else ""]
         )
 
     for ri, row in enumerate(data.rows, start=2):
@@ -412,7 +428,7 @@ def auto_tabel_xlsx(
                 fill = late_fill if info["late_min"] <= LATE_WARN_MIN else very_late_fill
             if fill:
                 cell.fill = fill
-        for extra_col in (2 + data.days_in_month, 3 + data.days_in_month):
+        for extra_col in (2 + data.days_in_month, 3 + data.days_in_month, 4 + data.days_in_month):
             ws.cell(row=ri, column=extra_col).alignment = Alignment(horizontal="center")
             ws.cell(row=ri, column=extra_col).font = Font(bold=True)
 
@@ -421,6 +437,7 @@ def auto_tabel_xlsx(
         ws.column_dimensions[get_column_letter(2 + i)].width = 6
     ws.column_dimensions[get_column_letter(2 + data.days_in_month)].width = 16
     ws.column_dimensions[get_column_letter(3 + data.days_in_month)].width = 16
+    ws.column_dimensions[get_column_letter(4 + data.days_in_month)].width = 10
     ws.freeze_panes = "B2"
 
     buf = io.BytesIO()
