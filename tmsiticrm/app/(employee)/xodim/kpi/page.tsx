@@ -83,6 +83,7 @@ interface ApiScore {
 export default function XodimKpiPage() {
   const now = new Date();
   const [year, setYear]     = useState(now.getFullYear());
+  const [month, setMonth]   = useState(now.getMonth() + 1);   // ko'rsatiladigan oy (standart — joriy oy)
   const [scores, setScores] = useState<ApiScore[]>([]);
   const [loading, setLoading] = useState(true);
   const [kpiModal, setKpiModal] = useState(false);
@@ -98,9 +99,12 @@ export default function XodimKpiPage() {
 
   useEffect(() => { load(year); }, []); // eslint-disable-line
 
-  function chYear(dir: number) {
-    const y = year + dir;
-    setYear(y); load(y);
+  // Tepadagi almashtirgich — oyma-oy; yil o'zgarsa o'sha yil ballari yuklanadi
+  function chMonth(dir: number) {
+    let m = month + dir; let y = year;
+    if (m < 1) { m = 12; y--; } if (m > 12) { m = 1; y++; }
+    setMonth(m);
+    if (y !== year) { setYear(y); load(y); }
   }
 
   function total(s: ApiScore) { return (s.bolim_ball ?? 0) + (s.kadr_ball ?? 0) + (s.ijro_edo_ball ?? 0) + (s.ijro_ichki_ball ?? 0); }
@@ -114,14 +118,11 @@ export default function XodimKpiPage() {
   const currentMonthScore = scores.find(s => s.year === now.getFullYear() && s.month === now.getMonth()+1);
   const currentTotal = currentMonthScore ? total(currentMonthScore) : 0;
 
-  // Joriy oy hali baholanmagan bo'lsa ham ro'yxatdan tushib qolmasin —
-  // bo'sh (0) halqalar bilan ko'rsatiladi.
-  const currentMonthNum = now.getMonth() + 1;
-  const isCurrentYearSelected = year === now.getFullYear();
-  const hasCurrentMonthInRated = ratedMonths.some(s => s.month === currentMonthNum);
-  const displayMonths: ApiScore[] = isCurrentYearSelected && !hasCurrentMonthInRated
-    ? [...ratedMonths, { id: -1, employee_id: 0, year, month: currentMonthNum, bolim_ball: null, kadr_ball: null, ijro_edo_ball: null, ijro_ichki_ball: null }]
-    : ratedMonths;
+  // Faqat tanlangan oy ko'rsatiladi; hali baholanmagan bo'lsa — bo'sh (0) halqalar bilan.
+  const displayMonths: ApiScore[] = [
+    scores.find(s => s.month === month)
+      ?? { id: -1, employee_id: 0, year, month, bolim_ball: null, kadr_ball: null, ijro_edo_ball: null, ijro_ichki_ball: null },
+  ];
 
   const statCards = [
     { label: "O'rtacha jami ball", value: avgKpiPct != null ? `${avgKpiPct}` : "—", sub: `/${MAX_TOTAL} ball`, img: "/ball.png",          bg: "#E4EFFF" },
@@ -164,11 +165,11 @@ export default function XodimKpiPage() {
               <Info size={13}/> KPI foiz jadvali
             </button>
             <div className="flex items-center gap-1 p-1" style={{ background:"#F4F9FD", borderRadius:12 }}>
-              <button onClick={()=>chYear(-1)} className="w-8 h-8 flex items-center justify-center rounded hover:bg-white transition-colors">
+              <button onClick={()=>chMonth(-1)} className="w-8 h-8 flex items-center justify-center rounded hover:bg-white transition-colors">
                 <ChevronLeft size={15} style={{ color:"#3F8CFF" }}/>
               </button>
-              <span className="px-3 font-bold text-sm" style={{ color:"#0A1629" }}>{year} yil</span>
-              <button onClick={()=>chYear(1)} className="w-8 h-8 flex items-center justify-center rounded hover:bg-white transition-colors">
+              <span className="px-3 font-bold text-sm text-center" style={{ color:"#0A1629", minWidth:120 }}>{MON_NAMES[month-1]} {year}</span>
+              <button onClick={()=>chMonth(1)} className="w-8 h-8 flex items-center justify-center rounded hover:bg-white transition-colors">
                 <ChevronRight size={15} style={{ color:"#3F8CFF" }}/>
               </button>
             </div>
