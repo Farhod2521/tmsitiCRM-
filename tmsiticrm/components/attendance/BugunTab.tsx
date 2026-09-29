@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { apiFetch } from "@/lib/api";
 import {
-  ListChecks, Search, Download, Loader2, CheckCircle2, Clock, XCircle, MinusCircle, Palmtree,
+  ListChecks, Search, Download, Loader2, Check, Clock, Minus, Palmtree,
   MoreVertical, CalendarDays, X,
 } from "lucide-react";
 
@@ -25,13 +25,28 @@ interface DailyRow {
 }
 interface DailyOut { date: string; day_off: string | null; rows: DailyRow[]; }
 
-const HOLAT_CFG: Record<DailyRow["holat"], { icon: typeof CheckCircle2; color: string; bg: string }> = {
-  kelgan:    { icon: CheckCircle2, color: "#00A578", bg: "rgba(0,196,140,0.12)" },
-  kechikkan: { icon: Clock,        color: "#E07A1F", bg: "rgba(255,140,66,0.14)" },
-  kelmagan:  { icon: XCircle,      color: "#FF5C5C", bg: "rgba(255,92,92,0.12)" },
-  sababli:   { icon: MinusCircle,  color: "#7D8592", bg: "rgba(125,133,146,0.14)" },
-  tatilda:   { icon: Palmtree,     color: "#3F8CFF", bg: "rgba(63,140,255,0.12)" },
+// Belgi: to'la rangli doiracha ichida oq ikonka, matn — shu rangda, fon — och
+type PillCfg = { icon: typeof Check; color: string; bg: string };
+const HOLAT_CFG: Record<DailyRow["holat"], PillCfg> = {
+  kelgan:    { icon: Check,    color: "#16A34A", bg: "#E7F8EE" },
+  kechikkan: { icon: Clock,    color: "#F97316", bg: "#FFF1E6" },
+  kelmagan:  { icon: X,        color: "#EF4444", bg: "#FDECEC" },
+  sababli:   { icon: Minus,    color: "#64748B", bg: "#EEF1F5" },
+  tatilda:   { icon: Palmtree, color: "#3B82F6", bg: "#E8F0FE" },
 };
+
+function Pill({ cfg, label }: { cfg: PillCfg; label: string }) {
+  const Icon = cfg.icon;
+  return (
+    <span className="inline-flex items-center gap-1.5 pl-1.5 pr-2.5 py-1 text-xs font-bold whitespace-nowrap"
+      style={{ color: cfg.color, background: cfg.bg, borderRadius: 8 }}>
+      <span className="w-4 h-4 rounded-full flex items-center justify-center flex-shrink-0" style={{ background: cfg.color }}>
+        <Icon size={10} strokeWidth={3} color="#FFFFFF" />
+      </span>
+      {label}
+    </span>
+  );
+}
 const HOLAT_FILTERS: { key: "" | DailyRow["holat"]; label: string }[] = [
   { key: "", label: "Barcha holatlar" },
   { key: "kelgan", label: "Kelgan" },
@@ -45,11 +60,11 @@ const REVIEW_LABEL: Record<string, string> = {
   sababli: "Tasdiqlangan", sababsiz: "Rad etilgan",
 };
 
-function statusCfg(status: string): { color: string; bg: string } {
-  if (status === "faol" || status === "online") return { color: "#00A578", bg: "rgba(0,196,140,0.12)" };
-  if (status === "faol_emas") return { color: "#FF5C5C", bg: "rgba(255,92,92,0.12)" };
-  if (status.startsWith("ariza_")) return { color: "#E07A1F", bg: "rgba(255,189,33,0.16)" };
-  return { color: "#3F8CFF", bg: "rgba(63,140,255,0.12)" };
+function statusCfg(status: string): PillCfg {
+  if (status === "faol" || status === "online") return HOLAT_CFG.kelgan;
+  if (status === "faol_emas") return HOLAT_CFG.kelmagan;
+  if (status.startsWith("ariza_")) return { icon: Clock, color: "#F59E0B", bg: "#FEF5E1" };
+  return HOLAT_CFG.tatilda;
 }
 
 function todayIso(): string {
@@ -200,7 +215,6 @@ export default function BugunTab() {
             <tbody>
               {visible.map((r, i) => {
                 const hc = HOLAT_CFG[r.holat];
-                const HIcon = hc.icon;
                 const sc = statusCfg(r.status);
                 return (
                   <tr key={r.employee_id} className="hover:bg-[#FAFCFF] transition-colors" style={{ borderBottom: "1px solid #F4F9FD" }}>
@@ -220,19 +234,13 @@ export default function BugunTab() {
                     <td className="px-3 py-2 whitespace-nowrap" style={{ color: "#3D4557" }}>{r.department || "—"}</td>
                     <td className="px-3 py-2 font-semibold" style={{ color: "#0A1629" }}>{r.check_in || "–"}</td>
                     <td className="px-3 py-2">
-                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-bold whitespace-nowrap"
-                        style={{ color: hc.color, background: hc.bg, borderRadius: 8 }}>
-                        <HIcon size={13} /> {r.holat_label}
-                      </span>
+                      <Pill cfg={hc} label={r.holat_label} />
                     </td>
                     <td className="px-3 py-2 whitespace-nowrap" style={{ color: r.late_min ? "#0A1629" : "#91929E" }}>
                       {r.late_min ? `${r.late_min} daq` : "–"}
                     </td>
                     <td className="px-3 py-2">
-                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-bold whitespace-nowrap"
-                        style={{ color: sc.color, background: sc.bg, borderRadius: 8 }}>
-                        <span className="w-1.5 h-1.5 rounded-full" style={{ background: sc.color }} /> {r.status_label}
-                      </span>
+                      <Pill cfg={sc} label={r.status_label} />
                     </td>
                     <td className="px-2 py-2 text-center">
                       <button onClick={e => {
