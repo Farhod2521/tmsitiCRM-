@@ -7,6 +7,7 @@ import CheckInCorrectionModal from "@/components/attendance/CheckInCorrectionMod
 import {
   ListChecks, Search, Download, Loader2, Check, Clock, Minus, Palmtree,
   MoreVertical, CalendarDays, X, Clock3, PencilLine,
+  Send,
 } from "lucide-react";
 
 interface DailyNote { type: string; label: string; status: string; text: string | null; }
@@ -26,6 +27,7 @@ interface DailyRow {
   distance_m: number | null;
   turniket_check_in: string | null;
   corrected: boolean;          // kelish vaqti superadmin tomonidan tuzatilgan
+  source: string | null;       // "telegram" — bot jonli lokatsiyasi orqali
 }
 interface DailyOut { date: string; day_off: string | null; rows: DailyRow[]; }
 
@@ -244,6 +246,12 @@ export default function BugunTab() {
                       <span className="inline-flex items-center gap-1 font-semibold">
                         {r.check_in || "–"}
                         {r.corrected && <span title="Kelish vaqti superadmin tomonidan tuzatilgan"><PencilLine size={11} style={{ color: "#6D5DD3" }} /></span>}
+                        {r.source === "telegram" && (
+                          <span title="Telegram bot orqali (jonli lokatsiya)" className="inline-flex items-center gap-0.5 px-1.5 py-0.5 text-[9px] font-bold"
+                            style={{ background: "rgba(34,158,217,0.12)", color: "#229ED9", borderRadius: 6 }}>
+                            <Send size={9} /> TG
+                          </span>
+                        )}
                       </span>
                       {r.turniket_check_in && r.turniket_check_in !== r.check_in && (
                         <span className="block text-[10px] font-semibold" style={{ color: "#91929E" }} title="Turniketdagi kirish vaqti">

@@ -63,6 +63,7 @@ class DailyRow(BaseModel):
     distance_m: Optional[float] = None
     turniket_check_in: Optional[str] = None   # turniketdagi kirish vaqti (bo'lsa)
     corrected: bool = False                    # kelish vaqti superadmin tomonidan tuzatilgan
+    source: Optional[str] = None               # "telegram" — bot jonli lokatsiyasi orqali
 
 
 class DailyOut(BaseModel):
@@ -173,6 +174,7 @@ def _build(db: Session, day: str, with_avatars: bool = True) -> DailyOut:
             distance_m=att.distance_m if att else None,
             turniket_check_in=turniket.get(e.id),
             corrected=e.id in corrected_ids,
+            source=att.source if att else None,
         ))
 
     rows.sort(key=lambda r: (

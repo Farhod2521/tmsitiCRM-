@@ -340,6 +340,51 @@ async def attendance_note_decision(update: Update, context: ContextTypes.DEFAULT
                 pass
 
 
+# ─── "Ishga keldim" — jonli lokatsiya orqali ─────────────────────────────────
+
+KELDIM_HELP = (
+    "📍 <b>Ishga keldim — jonli lokatsiya orqali</b>\n\n"
+    "1. Shu chatda 📎 (biriktirish) tugmasini bosing\n"
+    "2. «Joylashuv» → <b>«Jonli joylashuvni ulashish»</b> ni tanlang (15 daqiqa yetarli)\n"
+    "3. Ish joyi hududida bo'lsangiz — kelgan vaqtingiz darhol yoziladi\n\n"
+    "ℹ️ Oddiy (bir martalik) yoki forward qilingan lokatsiya qabul qilinmaydi. "
+    "Yo'lda yoqib qo'ysangiz — hududga kirgan paytingiz yoziladi."
+)
+
+
+async def keldim_help(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    await update.effective_message.reply_text(KELDIM_HELP, parse_mode="HTML")
+
+
+async def live_location(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Lokatsiya xabari (yangi yoki jonli lokatsiya yangilanishi — edited_message).
+    Tekshiruv backendda: jonlimi, forward emasmi, yangimi, aniqligi, hududdami."""
+    msg = update.effective_message
+    if msg is None or msg.location is None or msg.chat.type != "private":
+        return
+    loc = msg.location
+    is_update = update.edited_message is not None
+    sent = msg.edit_date if (is_update and msg.edit_date) else msg.date
+    forwarded = bool(getattr(msg, "forward_origin", None) or getattr(msg, "forward_date", None))
+    payload = {
+        "telegram_id": update.effective_user.id,
+        "latitude": loc.latitude, "longitude": loc.longitude,
+        "live_period": loc.live_period, "horizontal_accuracy": loc.horizontal_accuracy,
+        "sent_at": int(sent.timestamp()), "is_forwarded": forwarded, "is_update": is_update,
+    }
+    try:
+        async with httpx.AsyncClient(timeout=15) as client:
+            resp = await client.post(f"{BACKEND_URL}/bot/attendance/live-location", json=payload, headers=_HEADERS)
+        data = resp.json()
+    except Exception:
+        log.exception("attendance/live-location xatosi")
+        if not is_update:
+            await msg.reply_text("Server bilan bog'lanib bo'lmadi. Birozdan so'ng qayta urinib ko'ring.")
+        return
+    if data.get("reply"):
+        await msg.reply_text(data.get("message") or "Qabul qilindi")
+
+
 def build_app() -> Application:
     app = ApplicationBuilder().token(BOT_TOKEN).build()
 
@@ -372,6 +417,9 @@ def build_app() -> Application:
     )
     app.add_handler(conv)
     app.add_handler(CallbackQueryHandler(attendance_note_decision, pattern=r"^an:"))
+    app.add_handler(CommandHandler("keldim", keldim_help))
+    # Yangi lokatsiya xabari ham, jonli lokatsiya yangilanishi (edited_message) ham
+    app.add_handler(MessageHandler(filters.LOCATION, live_location))
     return app
 
 

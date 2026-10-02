@@ -5,7 +5,7 @@ import Header from "@/components/layout/Header";
 import Badge from "@/components/ui/Badge";
 import {
   ChevronLeft, ChevronRight, ClipboardCheck, Loader2, X, Info, Users, UserCog, FileCheck2, ClipboardList,
-  FileText, BarChart3, Clock, ArrowRight, ShieldCheck, CalendarDays, CheckCircle2, XCircle, Search, Activity,
+  FileText, BarChart3, Clock, ArrowRight, ShieldCheck, Search, Activity,
   Upload, Trophy,
 } from "lucide-react";
 import { fmtDateTimeUz } from "@/lib/datetime";
@@ -103,7 +103,6 @@ function ScoreCircle({ val, max, color }:{val:number|null;max:number;color:strin
 
 
 const PAGE = 10;
-interface YearStats { year: number; ish_kunlari: number; kelgan: number; kechikkan: number; kelmagan: number; }
 
 function CardTitle({ icon: Icon, title, sub, extra }: { icon: typeof Users; title: string; sub?: string; extra?: React.ReactNode }) {
   return (
@@ -179,11 +178,6 @@ export default function BolimKpiPage() {
   const [statusFilter, setStatusFilter] = useState("");
   const [page, setPage] = useState(1);
   const [showAllActivity, setShowAllActivity] = useState(false);
-  const [statsYear, setStatsYear] = useState(now.getFullYear());
-  const [stats, setStats] = useState<YearStats | null>(null);
-  useEffect(() => {
-    apiFetch<YearStats>(`/attendance/my-year-stats?year=${statsYear}`).then(setStats).catch(() => setStats(null));
-  }, [statsYear]);
   const [kpiModal, setKpiModal] = useState(false);
 
   /* ── Hisobot review modal (xodimlar) / self upload modal ── */
@@ -263,12 +257,6 @@ export default function BolimKpiPage() {
     { label:"EDO", val:selfRow?.ijroEdoBall??null, max:MAX_IJRO_EDO, color:"#00C48C", icon:FileCheck2 },
     { label:"Ichki", val:selfRow?.ijroIchkiBall??null, max:MAX_IJRO_ICHKI, color:"#15C0E6", icon:ClipboardList },
   ];
-  const statTiles = [
-    { label:"Ish kunlari", value:stats?.ish_kunlari, icon:CalendarDays, color:"#00C48C", bg:"rgba(0,196,140,0.12)" },
-    { label:"Ishga kelgan", value:stats?.kelgan, icon:CheckCircle2, color:"#3F8CFF", bg:"rgba(63,140,255,0.12)" },
-    { label:"Kechikishlar", value:stats?.kechikkan, icon:Clock, color:"#FF8C42", bg:"rgba(255,140,66,0.14)" },
-    { label:"Kelmagan", value:stats?.kelmagan, icon:XCircle, color:"#FF5C5C", bg:"rgba(255,92,92,0.12)" },
-  ];
 
   /* ════════════════════════════════════════════════ RENDER ══ */
   return (
@@ -299,9 +287,9 @@ export default function BolimKpiPage() {
         );})}
       </div>
 
-      {/* ── 2. KPI jadvali / O'z natijam / Statistika ── */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 2xl:grid-cols-[1.25fr_1fr_1fr] gap-4 mb-5">
-        <div className="p-5 lg:col-span-2 2xl:col-span-1" style={card}>
+      {/* ── 2. KPI jadvali / O'z natijam ── */}
+      <div className="grid grid-cols-1 lg:grid-cols-[1.4fr_1fr] gap-4 mb-5">
+        <div className="p-5" style={card}>
           <div className="flex items-start justify-between gap-3 mb-3">
             <CardTitle icon={BarChart3} title="KPI foiz jadvali" sub="Xodimlar jami bali · tanlangan oy"
               extra={<button onClick={()=>setKpiModal(true)} title="Ball oralig'iga qarab KPI ulushi"><Info size={14} style={{color:"#6D5DD3"}}/></button>}/>
@@ -328,26 +316,6 @@ export default function BolimKpiPage() {
           </div>
         </div>
 
-        <div className="p-5" style={card}>
-          <div className="flex items-start justify-between gap-3 mb-4">
-            <CardTitle icon={CalendarDays} title="Umumiy statistika" sub={`Mening davomatim — ${statsYear}`}/>
-            <select value={statsYear} onChange={e=>setStatsYear(Number(e.target.value))}
-              className="px-3 py-2 text-sm font-bold outline-none" style={{background:"#F4F9FD",borderRadius:10,color:"#0A1629"}}>
-              {[now.getFullYear()-1, now.getFullYear()].map(y=><option key={y} value={y}>{y}</option>)}
-            </select>
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            {statTiles.map(t=>{ const Icon=t.icon; return (
-              <div key={t.label} className="flex items-center gap-3 p-3" style={{background:"#FAFCFF",borderRadius:14,border:"1px solid #F0F3F8"}}>
-                <div className="w-10 h-10 flex items-center justify-center flex-shrink-0" style={{background:t.bg,borderRadius:12}}><Icon size={18} style={{color:t.color}}/></div>
-                <div className="min-w-0 flex-1">
-                  <p className="text-xl font-bold leading-tight" style={{color:"#0A1629"}}>{t.value ?? "—"}</p>
-                  <p className="text-[11px] truncate" style={{color:"#7D8592"}}>{t.label}</p>
-                </div>
-              </div>
-            );})}
-          </div>
-        </div>
       </div>
 
       {/* ── 3. Xodimlar jadvali / Oxirgi faoliyatlar ── */}

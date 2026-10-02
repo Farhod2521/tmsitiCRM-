@@ -119,6 +119,7 @@ class Attendance(Base):
     latitude    = Column(Float, nullable=False)
     longitude   = Column(Float, nullable=False)
     distance_m  = Column(Float, nullable=True)         # binogacha masofa (metr)
+    source      = Column(String(20), nullable=True)    # None — ilova/sayt, "telegram" — bot jonli lokatsiyasi
 
     employee    = relationship("Employee", foreign_keys=[employee_id])
 

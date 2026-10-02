@@ -77,6 +77,32 @@ def _location_for(db: Session, employee: models.Employee) -> tuple[float, float,
     return OFFICE_LAT, OFFICE_LNG, RADIUS_M
 
 
+LOCATION_NAMES = {"vazirlik": "Vazirlik", "labaratoriya": "Labaratoriya"}
+
+
+def work_locations(db: Session) -> list[tuple[str, float, float, float]]:
+    """Barcha belgilangan ish joylari: [(nomi, lat, lng, radius_m), ...].
+    Hech biri sozlanmagan bo'lsa — standart ofis koordinatasi."""
+    out = []
+    for s in db.query(models.LocationSetting).all():
+        if s.latitude is not None and s.longitude is not None:
+            key = s.location_type.value if hasattr(s.location_type, "value") else str(s.location_type)
+            out.append((LOCATION_NAMES.get(key, key), s.latitude, s.longitude, float(s.radius_meters)))
+    return out or [("Ofis", OFFICE_LAT, OFFICE_LNG, RADIUS_M)]
+
+
+def nearest_work_location(db: Session, lat: float, lng: float) -> tuple[str, float, float, bool]:
+    """Eng yaqin belgilangan joy: (nomi, masofa_m, radius_m, hudud_ichidami).
+    Biror joyning radiusi ichida bo'lsa — o'sha joy qaytadi."""
+    best = None
+    for name, plat, plng, radius in work_locations(db):
+        d = haversine_m(lat, lng, plat, plng)
+        cand = (name, d, radius, d <= radius)
+        if best is None or (cand[3], -d) > (best[3], -best[1]):
+            best = cand
+    return best
+
+
 # Kadr tasdiqlagan (yoki keyin zamdirektor ham tasdiqlagan) ariza — shu kungi
 # kechikish "sababli" hisoblanadi. 2-bosqichda rad etilsa "sababsiz" bo'ladi.
 APPROVED_NOTE_STATUSES = ("kadr_tasdiqladi", "sababli")
