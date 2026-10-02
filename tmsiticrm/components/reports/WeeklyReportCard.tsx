@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import {
   ChevronLeft, ChevronRight, Calendar, Upload, FileText,
-  CheckCircle2, Clock, Download, Loader2, Lock, Pencil, Trash2, Info,
+  CheckCircle2, Clock, Download, Loader2, Lock, Pencil, Trash2, Info, CloudUpload, HelpCircle,
 } from "lucide-react";
 import { apiFetch } from "@/lib/api";
 import LottiePlayer from "@/components/ui/LottiePlayer";
@@ -86,6 +86,27 @@ export default function WeeklyReportCard() {
     if (isFutureMonth) return "future";
     if (currentWeekIdx === -1) return "past";
     return idx < currentWeekIdx ? "past" : "future";
+  }
+
+  // Oktabr 2026 dan boshlab hisobot oyiga bitta — backend bitta davr qaytaradi
+  if (!loading && rows.length === 1) {
+    return (
+      <>
+        <MonthlyReport row={rows[0]} year={year} month={month} locked={lockedState(rows[0], 0)}
+          deleting={deletingId === rows[0].id} onMonth={chMonth}
+          onEdit={() => setUploadTarget(rows[0])} onDelete={() => deleteReport(rows[0].id)} />
+        {uploadTarget && (
+          <WeeklyReportUploadModal
+            year={year} month={month} week={uploadTarget.week}
+            weekLabel={`${MON_NAMES[month - 1]} ${year} oylik hisoboti`}
+            initialDescription={uploadTarget.description}
+            initialReportId={uploadTarget.id > 0 ? uploadTarget.id : null}
+            onClose={() => setUploadTarget(null)}
+            onSaved={() => load(year, month)}
+          />
+        )}
+      </>
+    );
   }
 
   return (
@@ -242,6 +263,105 @@ function WeekCell({ row, deleting, locked, onEdit, onDelete }: {
           )}
         </div>
       )}
+    </div>
+  );
+}
+
+function MonthlyReport({ row, year, month, locked, deleting, onMonth, onEdit, onDelete }: {
+  row: WeeklyReportRow; year: number; month: number; locked: "past" | "future" | null; deleting: boolean;
+  onMonth: (dir: number) => void; onEdit: () => void; onDelete: () => void;
+}) {
+  const started = row.id > 0;
+  const confirmed = !!row.confirmed_at;
+  const label = row.week_label?.replace(/ (\S+)$/, ` ${MON_NAMES[month - 1]}`) ?? MON_NAMES[month - 1];
+  const badge = locked === "past"
+    ? { text: "Muddati o'tgan", color: "#91929E", bg: "#F4F9FD", icon: Lock }
+    : locked === "future"
+      ? { text: "Hali boshlanmagan", color: "#91929E", bg: "#F4F9FD", icon: Lock }
+      : { text: row.open_until && !row.is_current
+            ? `${new Date(row.open_until).toLocaleDateString("uz-UZ", { day: "2-digit", month: "2-digit" })} gacha ochiq`
+            : `${label} uchun ochiq`, color: "#00A578", bg: "rgba(0,196,140,0.1)", icon: CheckCircle2 };
+  const BadgeIcon = badge.icon;
+
+  return (
+    <div style={{ background: "#FFFFFF", boxShadow: "0px 6px 58px rgba(196,203,214,0.103611)", borderRadius: 24 }}>
+      <div className="flex items-center justify-between flex-wrap gap-3 px-6 py-5">
+        <div className="flex items-center gap-3">
+          <div className="w-11 h-11 flex items-center justify-center flex-shrink-0" style={{ background: "rgba(63,140,255,0.1)", borderRadius: 12 }}>
+            <FileText size={20} style={{ color: "#3F8CFF" }} />
+          </div>
+          <div>
+            <h3 className="font-bold text-base" style={{ color: "#0A1629" }}>Mening hisobotim</h3>
+            <p className="text-xs mt-0.5" style={{ color: "#91929E" }}>{MON_NAMES[month - 1]} {year} — oylik hisobot faylini yuklang</p>
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          <div className="flex items-center" style={{ background: "#F4F9FD", borderRadius: 10 }}>
+            <button onClick={() => onMonth(-1)} className="w-8 h-8 flex items-center justify-center" title="Oldingi oy"><ChevronLeft size={15} style={{ color: "#3F8CFF" }} /></button>
+            <button onClick={() => onMonth(1)} className="w-8 h-8 flex items-center justify-center" title="Keyingi oy"><ChevronRight size={15} style={{ color: "#3F8CFF" }} /></button>
+          </div>
+          <span className="flex items-center gap-1.5 px-3 py-2 text-xs font-bold" style={{ background: badge.bg, color: badge.color, borderRadius: 10 }}>
+            <BadgeIcon size={14} /> {badge.text}
+          </span>
+          <span title="Hisobot oyiga bir marta topshiriladi. Bo'lim boshlig'i ko'rib chiqib, 23 ballgacha baho qo'yadi."
+            className="w-8 h-8 flex items-center justify-center cursor-help">
+            <HelpCircle size={18} style={{ color: "#3F8CFF" }} />
+          </span>
+        </div>
+      </div>
+
+      <div className="px-6 pb-6">
+        {!started ? (
+          <div className="flex flex-col items-center justify-center text-center gap-2 py-9"
+            style={{ border: "1.5px dashed #D3DEEC", borderRadius: 18, background: "#FCFDFF" }}>
+            {locked ? <Lock size={34} style={{ color: "#C4CBD6" }} /> : <CloudUpload size={40} style={{ color: "#3F8CFF" }} strokeWidth={1.6} />}
+            <p className="font-bold" style={{ color: locked ? "#A8B0BD" : "#3F8CFF" }}>
+              {locked === "past" ? "Bu oy uchun hisobot topshirilmagan" : locked === "future" ? "Bu oy hali boshlanmagan" : "Hisobot faylini yuklang"}
+            </p>
+            <p className="text-xs" style={{ color: "#91929E" }}>PDF, DOC, DOCX, XLS, XLSX (maksimal 10MB)</p>
+            {!locked && (
+              <button onClick={onEdit} className="mt-2 flex items-center gap-2 px-7 py-3 text-sm font-bold text-white"
+                style={{ background: "#3F8CFF", borderRadius: 12, boxShadow: "0 6px 14px rgba(63,140,255,0.3)" }}>
+                <Upload size={16} /> Fayl tanlash
+              </button>
+            )}
+          </div>
+        ) : (
+          <div className="flex items-center gap-4 flex-wrap p-5" style={{ border: "1.5px solid #EEF2FF", borderRadius: 18, background: "#FAFCFF" }}>
+            <div className="w-12 h-12 flex items-center justify-center flex-shrink-0" style={{ background: "rgba(109,93,211,0.1)", borderRadius: 14 }}>
+              <FileText size={22} style={{ color: "#6D5DD3" }} />
+            </div>
+            <div className="flex-1 min-w-[180px]">
+              <p className="font-bold text-sm" style={{ color: "#0A1629" }}>
+                {row.files_count > 0 ? `${row.files_count} ta fayl yuklangan` : "Fayl yo'q"}{row.description ? " · Tavsif bor" : ""}
+              </p>
+              <p className="text-xs mt-0.5" style={{ color: "#91929E" }}>
+                {row.uploaded_at ? `Yuklangan: ${new Date(row.uploaded_at).toLocaleString("uz-UZ", { timeZone: "Asia/Tashkent", day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}` : ""}
+              </p>
+            </div>
+            {confirmed ? (
+              <span className="flex items-center gap-1.5 px-3 py-2 text-sm font-bold" style={{ background: "rgba(0,196,140,0.1)", color: "#00A578", borderRadius: 10 }}>
+                <CheckCircle2 size={15} /> Tasdiqlandi · {row.ball} / {row.max_ball}
+              </span>
+            ) : (
+              <span className="flex items-center gap-1.5 px-3 py-2 text-sm font-bold" style={{ background: "rgba(255,189,33,0.14)", color: "#D99A00", borderRadius: 10 }}>
+                <Clock size={15} /> Bo&apos;lim boshlig&apos;i ko&apos;rib chiqmoqda
+              </span>
+            )}
+            <div className="flex items-center gap-2">
+              <button onClick={onEdit} className="flex items-center gap-1.5 px-3 py-2 text-xs font-bold" style={{ background: "rgba(63,140,255,0.1)", color: "#3F8CFF", borderRadius: 10 }}>
+                {confirmed ? <><Download size={14} /> Ko&apos;rish</> : <><Pencil size={14} /> Tahrirlash</>}
+              </button>
+              {!confirmed && (
+                <button onClick={onDelete} disabled={deleting} className="flex items-center gap-1.5 px-3 py-2 text-xs font-bold disabled:opacity-50"
+                  style={{ background: "rgba(255,92,92,0.1)", color: "#FF5C5C", borderRadius: 10 }}>
+                  {deleting ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />} O&apos;chirish
+                </button>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

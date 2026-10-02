@@ -185,6 +185,50 @@ def check_in(
     return _to_out(rec)
 
 
+@router.get("/my-year-stats")
+def my_year_stats(
+    year: int,
+    db: Session = Depends(get_db),
+    current: models.Employee = Depends(get_current_employee),
+):
+    """KPI sahifasi "Umumiy statistika": yil boshidan bugungacha ish kunlari,
+    ishga kelgan, kechikkan (sababsiz) va kelmagan kunlar. Bayram va dam olish
+    kunlari, ta'til/bolnichniy/safar kunlari ish kuni hisoblanmaydi."""
+    from .holidays import holiday_map
+    from ..status_periods import status_code_map
+    today = datetime.now(TZ_UZ).date()
+    start, end = date_cls(year, 1, 1), min(date_cls(year, 12, 31), today)
+    # Tizim ishga tushgandan (birinchi davomat yozuvi) oldingi kunlar hisoblanmaydi
+    from sqlalchemy import func
+    first = db.query(func.min(models.Attendance.date)).scalar()
+    if first:
+        start = max(start, date_cls.fromisoformat(first))
+    out = {"year": year, "ish_kunlari": 0, "kelgan": 0, "kechikkan": 0, "kelmagan": 0}
+    if end < start:
+        return out
+    s, e = start.isoformat(), end.isoformat()
+    hol = holiday_map(db, s, e)
+    codes = status_code_map(db, [current], s, e)
+    excused = excused_days(db, [current.id], s, e)
+    atts = {a.date: a for a in db.query(models.Attendance).filter(
+        models.Attendance.employee_id == current.id, models.Attendance.date >= s, models.Attendance.date <= e).all()}
+    d = start
+    while d <= end:
+        iso = d.isoformat()
+        if d.weekday() < 5 and iso not in hol and (current.id, iso) not in codes:
+            out["ish_kunlari"] += 1
+            att = atts.get(iso)
+            if att is not None:
+                out["kelgan"] += 1
+                ci = att.check_in.astimezone(TZ_UZ) if att.check_in.tzinfo is not None else att.check_in
+                if late_minutes_for(ci) > 0 and (current.id, iso) not in excused:
+                    out["kechikkan"] += 1
+            elif (current.id, iso) not in excused and iso != today.isoformat():
+                out["kelmagan"] += 1
+        d += timedelta(days=1)
+    return out
+
+
 @router.get("/my-month", response_model=List[schemas.AttendanceOut])
 def my_month(
     year: int,

@@ -12,13 +12,27 @@ MON_NAMES_SHORT = [
 ]
 
 
+# Shu oydan boshlab hisobot oyiga BITTA (haftalik emas) topshiriladi — oy bitta
+# "davr" (week=1, butun oy) sifatida qaytadi. Oldingi oylar haftalik bo'lib qoladi
+# (tarixdagi hisobotlar va ballar buzilmaydi).
+MONTHLY_REPORT_SINCE = (2026, 10)
+
+
+def is_monthly(year: int, month: int) -> bool:
+    return (year, month) >= MONTHLY_REPORT_SINCE
+
+
 def get_month_weeks(year: int, month: int) -> list[dict]:
-    """Berilgan oy ichidagi taqvim haftalarini qaytaradi (oy chegarasiga qisqartirilgan).
+    """Berilgan oy ichidagi hisobot davrlarini qaytaradi (oy chegarasiga qisqartirilgan).
 
     Har bir element: {"week": 1.., "start": date, "end": date, "label": "1-7 iyun"}
+    MONTHLY_REPORT_SINCE dan boshlab — bitta davr: butun oy.
     """
     first_day = date(year, month, 1)
     last_day = date(year, month, monthrange(year, month)[1])
+    if is_monthly(year, month):
+        return [{"week": 1, "start": first_day, "end": last_day,
+                 "label": f"1-{last_day.day} {MON_NAMES_SHORT[month - 1]}"}]
 
     seen_mondays: set[date] = set()
     d = first_day
