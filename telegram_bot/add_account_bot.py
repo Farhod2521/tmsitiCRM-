@@ -38,7 +38,7 @@ from dotenv import load_dotenv
 load_dotenv()  # mahalliy ishga tushirishda shu papkadagi .env'ni o'qiydi (Dockerda muhit o'zgaruvchilari orqali beriladi)
 
 import httpx
-from telegram import KeyboardButton, ReplyKeyboardMarkup, ReplyKeyboardRemove, Update
+from telegram import InlineKeyboardButton, InlineKeyboardMarkup, KeyboardButton, ReplyKeyboardMarkup, ReplyKeyboardRemove, Update
 from telegram.error import TelegramError
 from telegram.ext import (
     Application, ApplicationBuilder, CallbackQueryHandler, CommandHandler, ContextTypes,
@@ -283,10 +283,11 @@ async def send_daily_attendance_reminder(context: ContextTypes.DEFAULT_TYPE) -> 
         log.info("Bugun barcha faol xodimlar 'Ishga keldim' bosgan — eslatma yuborilmadi.")
         return
 
-    personal_text = "⏰ Assalomu alaykum! Bugun hali ‘Ishga keldim’ tugmasini bosmadingiz. Iltimos, tizimga kirib belgilang."
+    personal_text = ("⏰ Assalomu alaykum! Bugun hali ‘Ishga keldim’ tugmasini bosmadingiz. Iltimos, tizimga kirib "
+                     "belgilang yoki shu yerda jonli lokatsiya yuboring 👇")
     for emp in data.get("personal", []):
         try:
-            await context.bot.send_message(chat_id=emp["telegram_id"], text=personal_text)
+            await context.bot.send_message(chat_id=emp["telegram_id"], text=personal_text, reply_markup=KELDIM_KEYBOARD)
         except TelegramError:
             log.warning("Shaxsiy eslatma yuborilmadi: %s (telegram_id=%s)", emp.get("full_name"), emp.get("telegram_id"))
 
@@ -352,8 +353,32 @@ KELDIM_HELP = (
 )
 
 
+KELDIM_KEYBOARD = InlineKeyboardMarkup([[InlineKeyboardButton("📍 Ishga keldim", callback_data="keldim")]])
+KELDIM_VIDEO = os.path.join(os.path.dirname(__file__), "assets", "keldim.mp4")
+_keldim_file_id: str | None = None   # birinchi yuborilgandan keyin Telegram file_id qayta ishlatiladi
+
+
+async def send_keldim_help(message) -> None:
+    """Jonli lokatsiya yuborish yo'riqnomasi — animatsiya (ovozsiz mp4 = GIF) + matn."""
+    global _keldim_file_id
+    try:
+        if _keldim_file_id:
+            await message.reply_animation(animation=_keldim_file_id, caption=KELDIM_HELP, parse_mode="HTML")
+            return
+        with open(KELDIM_VIDEO, "rb") as f:
+            sent = await message.reply_animation(animation=f, caption=KELDIM_HELP, parse_mode="HTML",
+                                                 width=432, height=960, filename="keldim.mp4")
+        if sent.animation:
+            _keldim_file_id = sent.animation.file_id
+        elif sent.video:
+            _keldim_file_id = sent.video.file_id
+    except Exception:
+        log.exception("Yo'riqnoma animatsiyasi yuborilmadi — matn yuboriladi")
+        await message.reply_text(KELDIM_HELP, parse_mode="HTML")
+
+
 async def keldim_help(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    await update.effective_message.reply_text(KELDIM_HELP, parse_mode="HTML")
+    await send_keldim_help(update.effective_message)
 
 
 async def keldim_button(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -361,7 +386,7 @@ async def keldim_button(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
     bo'lmaydi (Telegram ruxsat bermaydi), shuning uchun yo'riqnoma yuboramiz."""
     q = update.callback_query
     await q.answer("Jonli lokatsiya yuboring 📍")
-    await q.message.reply_text(KELDIM_HELP, parse_mode="HTML")
+    await send_keldim_help(q.message)
 
 
 async def live_location(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
