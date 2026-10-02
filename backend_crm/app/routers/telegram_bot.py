@@ -154,6 +154,19 @@ def live_location_checkin(data: LiveLocationIn, db: Session = Depends(get_db)):
                                    "Jonli lokatsiyani endi o'chirib qo'yishingiz mumkin.")
 
 
+@router.get("/whoami")
+def bot_whoami(telegram_id: int, db: Session = Depends(get_db)):
+    """/start uchun: shu Telegram hisobi CRM xodimiga bog'langanmi, bugun belgilanganmi."""
+    emp = db.query(models.Employee).filter(models.Employee.telegram_id == telegram_id).first()
+    if not emp:
+        return {"linked": False}
+    today = datetime.now(_TZ_UZ).strftime("%Y-%m-%d")
+    att = db.query(models.Attendance).filter(models.Attendance.employee_id == emp.id,
+                                             models.Attendance.date == today).first()
+    return {"linked": True, "full_name": emp.full_name,
+            "checked_in_at": att.check_in.strftime("%H:%M") if att else None}
+
+
 @router.post("/reset-password", response_model=schemas.BotResetOut)
 def reset_password(data: schemas.BotResetIn, db: Session = Depends(get_db)):
     """Allaqachon bog'langan telegram_id orqali yangi parol o'rnatadi (eski parolni bilish shart emas)."""

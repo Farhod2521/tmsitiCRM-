@@ -112,6 +112,24 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
             await update.message.reply_text(caption)
         return PHOTO
 
+    # Oddiy /start — hisob bog'langan bo'lsa "📍 Ishga keldim" tugmasi (09:01 eslatmasidan
+    # oldin, erta keladiganlar ham belgilay olsin)
+    info = {}
+    try:
+        async with httpx.AsyncClient(timeout=10) as client:
+            resp = await client.get(f"{BACKEND_URL}/bot/whoami",
+                                    params={"telegram_id": update.effective_user.id}, headers=_HEADERS)
+        info = resp.json()
+    except Exception:
+        log.exception("bot/whoami xatosi")
+    if info.get("linked"):
+        done = info.get("checked_in_at")
+        text = (f"👋 Assalomu alaykum, {info.get('full_name')}!\n\n"
+                + (f"✅ Bugun kelganingiz {done} da belgilangan." if done
+                   else "Ishga kelganingizni belgilash uchun quyidagi tugmani bosing 👇"))
+        await update.message.reply_text(text, reply_markup=None if done else KELDIM_KEYBOARD)
+        return ConversationHandler.END
+
     await update.message.reply_text(
         "⚠️ Bu botni to'g'ridan-to'g'ri emas, CRM profilingiz sahifasidagi "
         "\"Telefon va parolni tasdiqlash\" tugmasi orqali oching."
@@ -418,8 +436,20 @@ async def live_location(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         await msg.reply_text(data.get("message") or "Qabul qilindi")
 
 
+async def _set_commands(app: Application) -> None:
+    """Bot menyusi (chap pastdagi "Menu" tugmasi)."""
+    from telegram import BotCommand
+    try:
+        await app.bot.set_my_commands([
+            BotCommand("start", "📍 Ishga keldim tugmasi"),
+            BotCommand("keldim", "Jonli lokatsiya yuborish yo'riqnomasi"),
+        ])
+    except TelegramError:
+        log.exception("Bot buyruqlari o'rnatilmadi")
+
+
 def build_app() -> Application:
-    app = ApplicationBuilder().token(BOT_TOKEN).build()
+    app = ApplicationBuilder().token(BOT_TOKEN).post_init(_set_commands).build()
 
     app.job_queue.run_daily(
         send_daily_attendance_reminder,
