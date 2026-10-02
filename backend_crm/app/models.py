@@ -625,6 +625,28 @@ class EnergyAudit(Base):
     updater    = relationship("Employee", foreign_keys=[updated_by])
 
 
+class TelegramBroadcast(Base):
+    """Superadmin Telegram bot orqali barcha xodimlarga yuborgan xabar va natijasi."""
+    __tablename__ = "telegram_broadcasts"
+
+    id          = Column(Integer, primary_key=True, index=True)
+    text_html   = Column(Text, nullable=True)       # CKEditor matni (asl)
+    tg_text     = Column(Text, nullable=True)       # Telegram HTML ga o'girilgan
+    file_name   = Column(String(300), nullable=True)
+    file_kind   = Column(String(20), nullable=True) # video | photo | animation | document
+    status      = Column(String(20), nullable=False, default="sending")   # sending | done
+    total       = Column(Integer, default=0)
+    sent        = Column(Integer, default=0)
+    failed      = Column(Integer, default=0)
+    failed_list = Column(JSON, default=list)        # [{"name": ..., "reason": ...}]
+    error       = Column(Text, nullable=True)
+    created_by  = Column(Integer, ForeignKey("employees.id"), nullable=True)
+    created_at  = Column(DateTime, default=datetime.utcnow)
+    finished_at = Column(DateTime, nullable=True)
+
+    creator     = relationship("Employee", foreign_keys=[created_by])
+
+
 class AttendanceCorrection(Base):
     """Superadmin kelish vaqtini tuzatgani (masalan, xodim ishga kelgan, turniket
     qayd etgan, lekin tizimda "Ishga keldim"ni bosishni unutgan). Har bir o'zgarish

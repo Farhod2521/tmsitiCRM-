@@ -10,7 +10,7 @@ load_dotenv(os.path.join(os.path.dirname(__file__), "..", ".env"))
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from .database import Base, engine
-from .routers import auth, employees, departments, tabel, ball, attendance, reports, ijro_docs, telegram_bot, locations, internal_docs, turniket, holidays, notifications, work_experience, daily, energy_audit
+from .routers import auth, employees, departments, tabel, ball, attendance, reports, ijro_docs, telegram_bot, locations, internal_docs, turniket, holidays, notifications, work_experience, daily, energy_audit, broadcast
 
 Base.metadata.create_all(bind=engine)
 
@@ -62,6 +62,7 @@ app.include_router(notifications.router)
 app.include_router(work_experience.router)
 app.include_router(daily.router)
 app.include_router(energy_audit.router)
+app.include_router(broadcast.router)
 
 
 @app.get("/", tags=["Health"])

@@ -23,7 +23,7 @@ import {
   FileBarChart2,
   Timer,
   MessageSquareWarning,
-  FolderCheck,
+  FolderCheck, Send
 } from "lucide-react";
 import LottiePlayer from "@/components/ui/LottiePlayer";
 import MobileTopBar from "@/components/layout/MobileTopBar";
@@ -44,6 +44,7 @@ const navItems = [
   { href: "/superadmin/sozlamalar",   icon: Settings,        label: "Sozlamalar",  enabled: true  },
   { href: "/superadmin/xodimlar",     icon: Users,           label: "Xodimlar",    enabled: true  },
   { href: "/superadmin/lokatsiya",    icon: MapPin,          label: "Lokatsiya",   enabled: true  },
+  { href: "/superadmin/telegram",     icon: Send,            label: "Telegram xabar", enabled: true },
   { href: "/superadmin/kpi",          icon: Target,          label: "KPI",         enabled: false },
   { href: "/superadmin/kalendar",     icon: CalendarDays,    label: "Kalendar",    enabled: false },
   { href: "/superadmin/moliya",       icon: Wallet,          label: "Moliya",      enabled: false },
