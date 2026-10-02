@@ -14,6 +14,10 @@ bo'yicha) uchun tekshirish skripti. Backend konteynerida ishga tushiriladi:
   ... python telegram_men_scipt.py --simulate 41.3045 69.4801
       → bot yuborgandek to'liq tekshiruvdan o'tkazadi (hududda bo'lsa davomat YOZILADI)
 
+  ... python telegram_men_scipt.py --send
+      → bot shu xodimga "📍 Ishga keldim" inline tugmali xabar yuboradi; tugma
+        bosilganda bot jonli lokatsiya yuborish yo'riqnomasini beradi
+
   ... python telegram_men_scipt.py --reset
       → shu xodimning FAQAT BUGUNGI davomat yozuvini o'chiradi (qayta sinash uchun)
 
@@ -82,6 +86,7 @@ def main():
     g.add_argument("--check", nargs=2, type=float, metavar=("LAT", "LNG"))
     g.add_argument("--simulate", nargs=2, type=float, metavar=("LAT", "LNG"))
     g.add_argument("--reset", action="store_true")
+    g.add_argument("--send", action="store_true")
     args = ap.parse_args()
 
     db = SessionLocal()
@@ -101,6 +106,19 @@ def main():
             telegram_id=emp.telegram_id, latitude=args.simulate[0], longitude=args.simulate[1],
             live_period=900, horizontal_accuracy=15, sent_at=int(time.time())), db)
         print(f"Bot javobi [{res.status}]:\n{res.message}")
+
+    elif args.send:
+        if not emp.telegram_id:
+            sys.exit("❌ Telegram bog'lanmagan — xabar yuborib bo'lmaydi")
+        from app.telegram import telegram_api
+        res = telegram_api("sendMessage", {
+            "chat_id": emp.telegram_id,
+            "text": (f"Assalomu alaykum, {emp.full_name}!\n\n"
+                     "Ishga kelganingizni belgilash uchun quyidagi tugmani bosing 👇"),
+            "reply_markup": {"inline_keyboard": [[{"text": "📍 Ishga keldim", "callback_data": "keldim"}]]},
+        })
+        print("📨 Xabar yuborildi — telefoningizda tugmani bosing." if res else
+              "❌ Yuborilmadi (TELEGRAM_BOT_TOKEN yoki bot bloklanganini tekshiring; backend logida xato bor).")
 
     elif args.reset:
         a = today_record(db, emp)

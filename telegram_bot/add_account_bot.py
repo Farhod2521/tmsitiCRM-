@@ -356,6 +356,14 @@ async def keldim_help(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
     await update.effective_message.reply_text(KELDIM_HELP, parse_mode="HTML")
 
 
+async def keldim_button(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """"📍 Ishga keldim" inline tugmasi — jonli lokatsiyani tugma orqali so'rab
+    bo'lmaydi (Telegram ruxsat bermaydi), shuning uchun yo'riqnoma yuboramiz."""
+    q = update.callback_query
+    await q.answer("Jonli lokatsiya yuboring 📍")
+    await q.message.reply_text(KELDIM_HELP, parse_mode="HTML")
+
+
 async def live_location(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Lokatsiya xabari (yangi yoki jonli lokatsiya yangilanishi — edited_message).
     Tekshiruv backendda: jonlimi, forward emasmi, yangimi, aniqligi, hududdami."""
@@ -418,6 +426,7 @@ def build_app() -> Application:
     app.add_handler(conv)
     app.add_handler(CallbackQueryHandler(attendance_note_decision, pattern=r"^an:"))
     app.add_handler(CommandHandler("keldim", keldim_help))
+    app.add_handler(CallbackQueryHandler(keldim_button, pattern=r"^keldim$"))
     # Yangi lokatsiya xabari ham, jonli lokatsiya yangilanishi (edited_message) ham
     app.add_handler(MessageHandler(filters.LOCATION, live_location))
     return app
