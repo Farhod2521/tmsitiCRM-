@@ -1,9 +1,11 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
-import { MapPin, CheckCircle2, Clock, Calendar as CalIcon, Loader2, Footprints, Map as MapIcon, X, Crosshair, XCircle, Fingerprint, ArrowRight, Check, MessageSquareWarning, DoorOpen, PartyPopper } from "lucide-react";
+import { Paperclip, MapPin, CheckCircle2, Clock, Calendar as CalIcon, Loader2, Footprints, Map as MapIcon, X, Crosshair, XCircle, Fingerprint, ArrowRight, Check, MessageSquareWarning, DoorOpen, PartyPopper } from "lucide-react";
 import { apiFetch } from "@/lib/api";
 import FaceVerifyModal from "@/components/profile/FaceVerifyModal";
+
+const NOTE_FILE_MAX = 5 * 1024 * 1024;   // ariza fayli — 5 MB gacha
 
 interface Attendance {
   id: number;
@@ -134,6 +136,7 @@ export default function AttendanceCalendar() {
   const [showNoteModal, setShowNoteModal] = useState(false);
   const [noteType, setNoteType] = useState<NoteType>("kechikish");
   const [noteText, setNoteText] = useState("");
+  const [noteFile, setNoteFile] = useState<File | null>(null);   // biriktirilgan fayl (≤5 MB)
   const [noteDateFrom, setNoteDateFrom] = useState(todayStr());
   const [noteDateTo, setNoteDateTo] = useState(todayStr());
   const [noteExpectedTime, setNoteExpectedTime] = useState("");
@@ -182,8 +185,18 @@ export default function AttendanceCalendar() {
       setNoteError("Tugash vaqti boshlanish vaqtidan oldin bo'lishi mumkin emas");
       return;
     }
+    if (noteFile && noteFile.size > NOTE_FILE_MAX) {
+      setNoteError("Fayl hajmi 5 MB dan oshmasligi kerak");
+      return;
+    }
     setNoteSaving(true);
     try {
+      const fileData = noteFile ? await new Promise<string>((resolve, reject) => {
+        const r = new FileReader();
+        r.onload = () => resolve(String(r.result));
+        r.onerror = () => reject(new Error("Faylni o'qib bo'lmadi"));
+        r.readAsDataURL(noteFile);
+      }) : null;
       const res = await apiFetch<AttendanceNote>("/attendance/notes", {
         method: "POST",
         body: JSON.stringify({
@@ -196,6 +209,8 @@ export default function AttendanceCalendar() {
           object_latitude: noteType === "obyektda" ? noteObjLat : null,
           object_longitude: noteType === "obyektda" ? noteObjLng : null,
           text: noteText || null,
+          file_name: noteFile?.name ?? null,
+          file_data: fileData,
         }),
       });
       setMyNote(res);
@@ -210,6 +225,7 @@ export default function AttendanceCalendar() {
   function openNoteEdit() {
     setNoteType("kechikish");
     setNoteText("");
+    setNoteFile(null);
     setNoteDateFrom(todayStr());
     setNoteDateTo(todayStr());
     setNoteExpectedTime("");
@@ -761,6 +777,30 @@ export default function AttendanceCalendar() {
                 placeholder="Sababini yozing (ixtiyoriy)..."
                 rows={3} className="w-full px-3 py-2.5 text-sm outline-none resize-none"
                 style={{ background: "#F4F9FD", borderRadius: 10, border: "1.5px solid #EEF2FF", color: "#0A1629" }} />
+
+              {/* Fayl biriktirish (ixtiyoriy) — ma'lumotnoma, buyruq va h.k. */}
+              {noteFile ? (
+                <div className="flex items-center gap-2 mt-2 px-3 py-2.5" style={{ background: "#F4F9FD", borderRadius: 10, border: "1.5px solid #EEF2FF" }}>
+                  <Paperclip size={15} style={{ color: "#3F8CFF", flexShrink: 0 }} />
+                  <span className="text-sm font-semibold truncate flex-1" style={{ color: "#0A1629" }}>{noteFile.name}</span>
+                  <span className="text-xs flex-shrink-0" style={{ color: "#91929E" }}>{(noteFile.size / 1024 / 1024).toFixed(1)} MB</span>
+                  <button onClick={() => setNoteFile(null)} title="Olib tashlash" className="w-6 h-6 flex items-center justify-center flex-shrink-0 hover:opacity-70">
+                    <X size={14} style={{ color: "#7D8592" }} />
+                  </button>
+                </div>
+              ) : (
+                <label className="flex items-center justify-center gap-2 mt-2 py-2.5 text-sm font-bold cursor-pointer hover:bg-[#EEF5FF] transition-colors"
+                  style={{ border: "1.5px dashed #C9D6E8", borderRadius: 10, color: "#3F8CFF" }}>
+                  <Paperclip size={15} /> Fayl biriktirish (ixtiyoriy, 5 MB gacha)
+                  <input type="file" className="hidden" accept=".pdf,.jpg,.jpeg,.png,.heic,.webp,.doc,.docx,.xls,.xlsx,.txt"
+                    onChange={e => {
+                      const f = e.target.files?.[0] ?? null;
+                      e.target.value = "";
+                      if (f && f.size > NOTE_FILE_MAX) { setNoteError("Fayl hajmi 5 MB dan oshmasligi kerak"); return; }
+                      setNoteError(null); setNoteFile(f);
+                    }} />
+                </label>
+              )}
 
               {noteError && (
                 <p className="text-xs font-bold mt-2" style={{ color: "#FF5C5C" }}>{noteError}</p>

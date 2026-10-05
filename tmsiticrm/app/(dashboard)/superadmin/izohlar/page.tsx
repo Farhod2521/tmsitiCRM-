@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import Header from "@/components/layout/Header";
 import { apiFetch } from "@/lib/api";
+import NoteFileLink from "@/components/attendance/NoteFileLink";
 import { fmtDateTimeUz } from "@/lib/datetime";
 import { waitingFor } from "@/components/attendance/noteStages";
 import { MessageSquareWarning, AlarmClock, UserX, MapPinned, DoorOpen, Loader2, Check, X as XIcon, Clock } from "lucide-react";
@@ -21,6 +22,7 @@ interface AttendanceNote {
   date_from: string;
   date_to: string;
   expected_time: string | null;
+  file_name?: string | null;
   object_time_from: string | null;
   object_time_to: string | null;
   object_latitude: number | null;
@@ -192,6 +194,7 @@ export default function DirektorIzohlarPage() {
 
                     <td className="py-4 text-sm" style={{ color: "#3D4557", paddingRight: 16, maxWidth: 320 }}>
                       <span style={{ whiteSpace: "pre-wrap" }}>{n.text || "—"}</span>
+                      {n.file_name && <div><NoteFileLink noteId={n.id} name={n.file_name} /></div>}
                       {n.note_type === "kechikish" && n.expected_time && (
                         <p className="text-xs mt-0.5" style={{ color: "#91929E" }}>~{n.expected_time} da keladi</p>
                       )}

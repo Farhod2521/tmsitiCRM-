@@ -342,6 +342,8 @@ class AttendanceNoteIn(BaseModel):
     object_latitude: Optional[float] = None   # "obyektda" uchun joriy joylashuv (ixtiyoriy)
     object_longitude: Optional[float] = None
     text: Optional[str] = None
+    file_name: Optional[str] = None           # biriktirilgan fayl (ixtiyoriy, ≤5 MB)
+    file_data: Optional[str] = None           # data URL yoki base64
 
 class AttendanceNoteOut(BaseModel):
     id: int
@@ -358,6 +360,7 @@ class AttendanceNoteOut(BaseModel):
     object_time_to: Optional[str] = None
     object_latitude: Optional[float] = None
     object_longitude: Optional[float] = None
+    file_name: Optional[str] = None           # bor bo'lsa — /attendance/notes/{id}/file orqali yuklanadi
     created_at: datetime
     review_status: str = "kutilmoqda"
     bolim_by_nomi: Optional[str] = None

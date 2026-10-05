@@ -143,6 +143,9 @@ class AttendanceNote(Base):
     object_time_to   = Column(String(5), nullable=True)  # "obyektda" uchun vaqt oralig'i, "14:00"
     object_latitude  = Column(Float, nullable=True)       # "obyektda" uchun joriy joylashuv (ixtiyoriy)
     object_longitude = Column(Float, nullable=True)
+    file_name     = Column(String(255), nullable=True)   # biriktirilgan fayl (≤5 MB)
+    file_type     = Column(String(100), nullable=True)
+    file_b64      = Column(Text, nullable=True)
     created_at    = Column(DateTime, default=datetime.utcnow)
 
     # Tasdiqlash bosqichlari (note_flow.py):

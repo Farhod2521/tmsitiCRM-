@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { MessageSquareWarning, AlarmClock, UserX, MapPinned, DoorOpen, Loader2, Check, X as XIcon } from "lucide-react";
 import { apiFetch } from "@/lib/api";
+import NoteFileLink from "@/components/attendance/NoteFileLink";
 import { fmtDateTimeUz } from "@/lib/datetime";
 import { getUser } from "@/lib/auth";
 
@@ -20,6 +21,7 @@ interface AttendanceNote {
   date_from: string;
   date_to: string;
   expected_time: string | null;
+  file_name?: string | null;
   object_time_from: string | null;
   object_time_to: string | null;
   object_latitude: number | null;
@@ -133,6 +135,7 @@ export default function AttendanceNotesInbox() {
                     </p>
                   )}
                   {n.text && <p className="text-sm mt-1.5" style={{ color: "#3D4557" }}>{n.text}</p>}
+                  {n.file_name && <NoteFileLink noteId={n.id} name={n.file_name} />}
                   <p className="text-xs mt-1.5" style={{ color: "#91929E" }}>
                     {n.date_from === n.date_to ? n.date_from : `${n.date_from} — ${n.date_to}`}
                     {n.note_type === "kechikish" && n.expected_time && <> · ~{n.expected_time} da keladi</>}

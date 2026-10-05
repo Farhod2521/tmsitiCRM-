@@ -85,6 +85,52 @@ def send_telegram_photo_to(chat_id, image_bytes: bytes, caption: str = "") -> bo
         return False
 
 
+def telegram_send_file(chat_id, filename: str, data: bytes, ctype: str = "application/octet-stream",
+                       caption: str = "", reply_to: int | None = None, file_id: str | None = None) -> dict | None:
+    """Faylni (rasm — sendPhoto, qolgani — sendDocument) yuboradi. file_id berilsa —
+    qayta yuklamasdan o'sha nusxa. Natija: Telegram javobi (result) yoki None."""
+    import uuid
+    is_photo = (ctype or "").startswith("image/") and filename.lower().endswith((".jpg", ".jpeg", ".png", ".webp"))
+    method, field = ("sendPhoto", "photo") if is_photo else ("sendDocument", "document")
+    fields = {"chat_id": str(chat_id)}
+    if caption:
+        fields.update(caption=caption[:1000], parse_mode="HTML")
+    if reply_to:
+        fields["reply_to_message_id"] = str(reply_to)
+    if file_id:
+        return telegram_api(method, {**fields, field: file_id})
+    token = os.getenv("TELEGRAM_BOT_TOKEN")
+    if not token:
+        _log.warning("TELEGRAM_BOT_TOKEN sozlanmagan — fayl yuborilmadi")
+        return None
+    boundary = uuid.uuid4().hex
+    body = b"".join(
+        [f'--{boundary}\r\nContent-Disposition: form-data; name="{k}"\r\n\r\n{v}\r\n'.encode("utf-8") for k, v in fields.items()]
+        + [f'--{boundary}\r\nContent-Disposition: form-data; name="{field}"; filename="{filename}"\r\n'
+           f"Content-Type: {ctype}\r\n\r\n".encode("utf-8") + data + b"\r\n",
+           f"--{boundary}--\r\n".encode("utf-8")]
+    )
+    req = urllib.request.Request(f"https://api.telegram.org/bot{token}/{method}", data=body, method="POST",
+                                 headers={"Content-Type": f"multipart/form-data; boundary={boundary}"})
+    try:
+        with urllib.request.urlopen(req, timeout=60) as resp:
+            result = json.loads(resp.read().decode("utf-8"))
+        return result.get("result") if result.get("ok") else None
+    except Exception as e:
+        _log.warning("Telegram fayl yuborilmadi (%s): %s", method, e)
+        return None
+
+
+def file_id_of(result: dict | None) -> str | None:
+    if not result:
+        return None
+    if result.get("photo"):
+        return result["photo"][-1]["file_id"]
+    if result.get("document"):
+        return result["document"]["file_id"]
+    return None
+
+
 def telegram_api(method: str, payload: dict, timeout: int = 10) -> dict | None:
     """Bot API'ga JSON so'rov (inline tugmalar, xabarni tahrirlash uchun).
     Xato bo'lsa None qaytaradi — asosiy jarayon to'xtamasligi kerak."""

@@ -506,6 +506,49 @@ def _note_out(n: models.AttendanceNote) -> schemas.AttendanceNoteOut:
     return out
 
 
+NOTE_FILE_MAX = 5 * 1024 * 1024
+NOTE_FILE_EXT = (".pdf", ".jpg", ".jpeg", ".png", ".heic", ".webp", ".doc", ".docx", ".xls", ".xlsx", ".txt")
+
+
+def _note_file(data: schemas.AttendanceNoteIn) -> tuple:
+    """Ariza fayli: (nomi, turi, base64) yoki (None, None, None). 5 MB chegarasi."""
+    import base64, binascii, mimetypes
+    if not data.file_data:
+        return None, None, None
+    name = (data.file_name or "fayl").strip().replace("/", "_").replace("\\", "_").replace('"', "'")[:200]
+    if not name.lower().endswith(NOTE_FILE_EXT):
+        raise HTTPException(status_code=400, detail="Fayl turi: PDF, rasm (JPG/PNG), Word, Excel yoki TXT bo'lishi kerak")
+    raw = data.file_data.split(",", 1)[1] if data.file_data.startswith("data:") else data.file_data
+    try:
+        size = len(base64.b64decode(raw, validate=True))
+    except (binascii.Error, ValueError):
+        raise HTTPException(status_code=400, detail="Fayl buzilgan")
+    if size > NOTE_FILE_MAX:
+        raise HTTPException(status_code=400, detail="Fayl hajmi 5 MB dan oshmasligi kerak")
+    ftype = mimetypes.guess_type(name)[0] or "application/octet-stream"
+    return name, ftype, raw
+
+
+@router.get("/notes/{note_id}/file")
+def note_file(note_id: int, db: Session = Depends(get_db), current: models.Employee = Depends(get_current_employee)):
+    """Ariza fayli — muallif, ko'rib chiquvchilar (bo'lim boshlig'i, kadr, rahbariyat) uchun."""
+    import base64
+    from fastapi.responses import Response
+    from urllib.parse import quote
+    n = db.get(models.AttendanceNote, note_id)
+    if not n or not n.file_b64:
+        raise HTTPException(status_code=404, detail="Fayl topilmadi")
+    R = models.RoleEnum
+    allowed = (current.id == n.employee_id
+               or current.role in {R.superadmin, R.direktor, R.zamdirektor, R.kadr}
+               or (current.role in {R.bolim_boshligi, R.boshqarma_boshligi} and n.employee
+                   and n.employee.department_id == current.department_id))
+    if not allowed:
+        raise HTTPException(status_code=403, detail="Ruxsat yo'q")
+    return Response(base64.b64decode(n.file_b64), media_type=n.file_type or "application/octet-stream",
+                    headers={"Content-Disposition": f"attachment; filename*=UTF-8''{quote(n.file_name or 'fayl')}"})
+
+
 @router.post("/notes", response_model=schemas.AttendanceNoteOut)
 def create_note(
     data:    schemas.AttendanceNoteIn,
@@ -522,8 +565,10 @@ def create_note(
     if data.object_time_from and data.object_time_to and data.object_time_to < data.object_time_from:
         raise HTTPException(status_code=400, detail="Tugash vaqti boshlanish vaqtidan oldin bo'lishi mumkin emas")
 
+    fname, ftype, fb64 = _note_file(data)
     note = models.AttendanceNote(
         employee_id=current.id,
+        file_name=fname, file_type=ftype, file_b64=fb64,
         note_type=data.note_type,
         text=data.text,
         date_from=data.date_from,

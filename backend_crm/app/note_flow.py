@@ -240,6 +240,7 @@ def _notify_stage(db: Session, note: models.AttendanceNote) -> None:
     reviewers = stage_reviewers(db, note)
     if not reviewers:
         log.warning("Ariza #%s (%s): ko'rib chiquvchi topilmadi", note.id, note.review_status)
+    file_id = None   # ariza fayli birinchi ko'rib chiquvchiga yuklanadi, qolganlarga nusxasi
     for emp in reviewers:
         if not emp.telegram_id:
             log.warning("Ariza #%s (%s): %s Telegram'ga bog'lanmagan — xabar yuborilmadi",
@@ -260,6 +261,17 @@ def _notify_stage(db: Session, note: models.AttendanceNote) -> None:
                 note_id=note.id, stage=note.review_status, employee_id=emp.id,
                 chat_id=emp.telegram_id, message_id=res["message_id"],
             ))
+            if note.file_b64:
+                import base64
+                from .telegram import telegram_send_file, file_id_of
+                fres = telegram_send_file(emp.telegram_id, note.file_name or "fayl",
+                                          b"" if file_id else base64.b64decode(note.file_b64),
+                                          note.file_type or "application/octet-stream",
+                                          caption=f"📎 Ariza fayli — {escape(note.employee.full_name if note.employee else '')}",
+                                          reply_to=res["message_id"], file_id=file_id)
+                file_id = file_id or file_id_of(fres)
+                if not fres:
+                    log.warning("Ariza #%s: %s ga fayl yuborilmadi", note.id, emp.full_name)
     db.commit()
 
 
