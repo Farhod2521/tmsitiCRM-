@@ -30,6 +30,7 @@ class EmployeeStatusEnum(str, enum.Enum):
     oquv_tatilida       = "oquv_tatilida"        # o'quv ta'tilida — muddatli
     mehnatga_layoqatsiz = "mehnatga_layoqatsiz"  # bolnichniy — muddatli
     online              = "online"               # masofada (onlayn) ishlaydi — muddatli
+    ish_haqisiz_tatil   = "ish_haqisiz_tatil"    # BS — ish haqi saqlanmaydigan ta'til — muddatli
 
 
 class DeptTypeEnum(str, enum.Enum):
@@ -582,7 +583,7 @@ class TabelOverride(Base):
     id          = Column(Integer, primary_key=True, index=True)
     employee_id = Column(Integer, ForeignKey("employees.id"), nullable=False, index=True)
     date        = Column(String(10), nullable=False)   # "2026-09-07"
-    code        = Column(String(5), nullable=False)    # "8","MT","B","K","O'","Д","X","BY",""
+    code        = Column(String(5), nullable=False)    # "8","MT","BS","B","K","O'","Д","X","BY",""
     updated_by  = Column(Integer, ForeignKey("employees.id"), nullable=True)
     updated_at  = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 

@@ -22,6 +22,7 @@ if engine.dialect.name == "postgresql":
         _conn.execute(_sql("ALTER TABLE attendance_notes ADD COLUMN IF NOT EXISTS bolim_by INTEGER REFERENCES employees(id)"))
         _conn.execute(_sql("ALTER TABLE attendance_notes ADD COLUMN IF NOT EXISTS bolim_at TIMESTAMP"))
         _conn.execute(_sql("ALTER TABLE attendances ADD COLUMN IF NOT EXISTS source VARCHAR(20)"))
+        _conn.execute(_sql("ALTER TYPE employee_status_enum ADD VALUE IF NOT EXISTS 'ish_haqisiz_tatil'"))
 
 # Holatlar tarixi jadvali bo'sh bo'lsa (birinchi ishga tushirish) — joriy
 # holatlar va eski qo'lda to'ldirilgan tabeldan tiklanadi.

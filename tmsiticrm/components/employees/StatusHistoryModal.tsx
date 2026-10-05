@@ -19,6 +19,7 @@ const PERIOD_STATUS: Record<string, { label: string; code: string; color: string
   mehnatga_layoqatsiz: { label: "Bolnichniy",       code: "B",  color: "#FF5C5C", bg: "rgba(255,92,92,0.12)" },
   xizmat_safarida:     { label: "Xizmat safari",    code: "K",  color: "#3F8CFF", bg: "rgba(63,140,255,0.12)" },
   oquv_tatilida:       { label: "O'quv ta'tili",    code: "O'", color: "#6D5DD3", bg: "rgba(109,93,211,0.12)" },
+  ish_haqisiz_tatil:   { label: "Ish haqisiz ta'til", code: "BS", color: "#E07A1F", bg: "rgba(255,140,66,0.14)" },
 };
 
 const SOURCE_LABEL: Record<StatusPeriod["source"], string> = {

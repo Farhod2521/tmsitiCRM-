@@ -49,7 +49,8 @@ export default function TelegramBroadcastPage() {
   const [text, setText] = useState("");
   const [file, setFile] = useState<File | null>(null);
   const [fileUrl, setFileUrl] = useState<string | null>(null);
-  const [recip, setRecip] = useState<{ linked: number; total: number } | null>(null);
+  const [recip, setRecip] = useState<{ linked: number; total: number; group: boolean } | null>(null);
+  const [toGroup, setToGroup] = useState(false);
   const [history, setHistory] = useState<Broadcast[]>([]);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -61,7 +62,7 @@ export default function TelegramBroadcastPage() {
   }, []);
 
   useEffect(() => {
-    apiFetch<{ linked: number; total: number }>("/telegram-broadcast/recipients").then(setRecip).catch(() => {});
+    apiFetch<{ linked: number; total: number; group: boolean }>("/telegram-broadcast/recipients").then(setRecip).catch(() => {});
     loadHistory();
   }, [loadHistory]);
 
@@ -87,11 +88,12 @@ export default function TelegramBroadcastPage() {
 
   async function send() {
     if (!canSend) return;
-    if (!confirm(`Xabar Telegram'i bog'langan ${recip?.linked ?? "barcha"} ta xodimga yuboriladi. Davom etasizmi?`)) return;
+    if (!confirm(`Xabar Telegram'i bog'langan ${recip?.linked ?? "barcha"} ta xodimga${toGroup ? " va Telegram guruhga" : ""} yuboriladi. Davom etasizmi?`)) return;
     setSending(true); setError(null);
     try {
       const fd = new FormData();
       fd.append("text_html", text);
+      fd.append("to_group", toGroup ? "true" : "false");
       if (file) fd.append("file", file);
       const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
       const token = localStorage.getItem("crm_token");
@@ -169,7 +171,13 @@ export default function TelegramBroadcastPage() {
           {error && <p className="text-sm font-bold mt-3" style={{ color: "#FF5C5C" }}>{error}</p>}
           {active && <p className="text-sm font-bold mt-3" style={{ color: "#E07A1F" }}>Oldingi xabar hali yuborilmoqda — tugashini kuting.</p>}
 
-          <div className="flex justify-end mt-4">
+          <div className="flex items-center justify-between flex-wrap gap-3 mt-4">
+            <label className={`flex items-center gap-2 text-sm font-bold select-none ${recip?.group ? "cursor-pointer" : "opacity-50"}`} style={{ color: "#3D4557" }}
+              title={recip?.group ? "Xabar 09:01 eslatmasi boradigan Telegram guruhga ham yuboriladi" : "Serverda TELEGRAM_CHAT_ID sozlanmagan"}>
+              <input type="checkbox" checked={toGroup} disabled={!recip?.group} onChange={e => setToGroup(e.target.checked)}
+                className="w-4 h-4" style={{ accentColor: "#229ED9" }} />
+              <Users size={15} style={{ color: "#229ED9" }} /> Telegram guruhga ham yuborish
+            </label>
             <button onClick={send} disabled={!canSend}
               className="flex items-center gap-2 px-6 py-3 text-sm font-bold text-white disabled:opacity-50"
               style={{ background: "#229ED9", borderRadius: 12, boxShadow: "0 6px 14px rgba(34,158,217,0.3)" }}>

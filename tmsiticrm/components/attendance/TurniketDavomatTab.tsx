@@ -54,6 +54,7 @@ const CODE_CFG: Record<string, { color: string; bg: string }> = {
   "8":  { color: "#00A578", bg: "rgba(0,196,140,0.1)" },
   "X":  { color: "#B8C2D6", bg: "#F4F9FD" },
   "MT": { color: "#B4780C", bg: "rgba(255,189,33,0.15)" },
+  "BS": { color: "#E07A1F", bg: "rgba(255,140,66,0.14)" },
   "O'": { color: "#6D5DD3", bg: "rgba(109,93,211,0.12)" },
   "K":  { color: "#3F8CFF", bg: "rgba(63,140,255,0.12)" },
   "B":  { color: "#FF5C5C", bg: "rgba(255,92,92,0.12)" },
@@ -273,7 +274,7 @@ export default function TurniketDavomatTab({ canImport = true }: { canImport?: b
       )}
 
       <div className="flex items-center gap-4 flex-wrap px-6 py-4" style={{ borderTop: "1px solid #F4F9FD" }}>
-        {[["8", "Kelgan"], ["X", "Dam olish kuni"], ["MT", "Mehnat ta'tili"], ["O'", "O'quv ta'tili"], ["K", "Xizmat safari"], ["B", "Bolnichniy"], ["BY", "Bayram"]].map(([code, label]) => (
+        {[["8", "Kelgan"], ["X", "Dam olish kuni"], ["MT", "Mehnat ta'tili"], ["BS", "Ish haqisiz ta'til"], ["O'", "O'quv ta'tili"], ["K", "Xizmat safari"], ["B", "Bolnichniy"], ["BY", "Bayram"]].map(([code, label]) => (
           <span key={code} className="flex items-center gap-1.5 text-[11px]" style={{ color: "#91929E" }}>
             <span className="inline-flex items-center justify-center text-[9px] font-bold px-1" style={{ minWidth: 20, height: 16, borderRadius: 4, color: CODE_CFG[code]?.color, background: CODE_CFG[code]?.bg }}>
               {code}

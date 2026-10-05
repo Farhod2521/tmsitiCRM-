@@ -7,7 +7,7 @@ import { isFutureDate, type StatusResult } from "@/lib/employeeStatus";
 import StatusHistoryModal from "@/components/employees/StatusHistoryModal";
 import {
   Loader2, ArrowLeft, Palmtree, Baby, UserCheck,
-  Car, Plane, GraduationCap, Stethoscope, Laptop, History,
+  Car, Plane, GraduationCap, Stethoscope, Laptop, History, WalletMinimal,
 } from "lucide-react";
 
 export const STATUS_LABEL: Record<string, string> = {
@@ -19,11 +19,12 @@ export const STATUS_LABEL: Record<string, string> = {
   oquv_tatilida: "O'quv ta'tilida",
   mehnatga_layoqatsiz: "Mehnatga layoqatsiz (bolnichniy)",
   online: "Online ishlaydi",
+  ish_haqisiz_tatil: "Ish haqisiz ta'til (BS)",
 };
 // faol — yashil; qolganlari — "faol emas"ni bildirib kulrang bo'ladi
 export const STATUS_BADGE: Record<string, "success" | "gray"> = {
   faol: "success", otpuska: "gray", dekret: "gray", shafyor_farrosh: "gray",
-  xizmat_safarida: "gray", oquv_tatilida: "gray", mehnatga_layoqatsiz: "gray", online: "gray",
+  xizmat_safarida: "gray", oquv_tatilida: "gray", mehnatga_layoqatsiz: "gray", online: "gray", ish_haqisiz_tatil: "gray",
 };
 
 // needsRange: true bo'lgan statuslar tanlanganda "sanadan / sanagacha" so'raladi —
@@ -36,6 +37,7 @@ const STATUS_MENU: { status: string; label: string; icon: typeof UserCheck; colo
   { status: "oquv_tatilida",        label: "O'quv ta'tiliga chiqarish",        icon: GraduationCap, color: "#6D5DD3", bg: "rgba(109,93,211,0.1)",  needsRange: true  },
   { status: "online",               label: "Online ishlashga o'tkazish",       icon: Laptop,        color: "#15C0E6", bg: "rgba(21,192,230,0.1)",  needsRange: true  },
   { status: "mehnatga_layoqatsiz",  label: "Mehnatga layoqatsiz (bolnichniy)", icon: Stethoscope,   color: "#FF5C5C", bg: "rgba(255,92,92,0.1)",   needsRange: true  },
+  { status: "ish_haqisiz_tatil",    label: "Ish haqisiz ta'til (BS)",          icon: WalletMinimal, color: "#E07A1F", bg: "rgba(255,140,66,0.12)", needsRange: true  },
   { status: "shafyor_farrosh",      label: "Texnik xodimlarga o'tkazish",      icon: Car,           color: "#7D8592", bg: "rgba(125,133,146,0.1)", needsRange: false },
 ];
 

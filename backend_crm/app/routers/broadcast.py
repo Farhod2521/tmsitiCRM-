@@ -210,15 +210,26 @@ def _send_one(chat_id: int, tg_text: str, file: Optional[dict], state: dict) -> 
                                      "disable_web_page_preview": True})
 
 
-def _run_broadcast(bid: int, file: Optional[dict]) -> None:
+def _run_broadcast(bid: int, file: Optional[dict], to_group: bool = False) -> None:
     db = SessionLocal()
     try:
         b = db.get(models.TelegramBroadcast, bid)
         recipients = (db.query(models.Employee).filter(models.Employee.telegram_id.isnot(None))
                       .order_by(models.Employee.full_name).all())
-        b.total = len(recipients); db.commit()
+        b.total = len(recipients) + (1 if to_group else 0); db.commit()
         state: dict = {}
         failed = []
+        group_id = os.getenv("TELEGRAM_CHAT_ID")
+        if to_group:
+            try:
+                if not group_id:
+                    raise TgError("TELEGRAM_CHAT_ID sozlanmagan")
+                _send_one(int(group_id), b.tg_text or "", file, state)
+                b.sent = (b.sent or 0) + 1
+            except (TgError, ValueError) as e:
+                failed.append({"name": "📢 Telegram guruh", "reason": str(e)[:200]})
+                b.failed = len(failed); b.failed_list = list(failed)
+            db.commit()
         for emp in recipients:
             try:
                 _send_one(emp.telegram_id, b.tg_text or "", file, state)
@@ -279,7 +290,7 @@ def recipients(db: Session = Depends(get_db), current: models.Employee = Depends
     _require(current)
     total = db.query(models.Employee).count()
     linked = db.query(models.Employee).filter(models.Employee.telegram_id.isnot(None)).count()
-    return {"linked": linked, "total": total}
+    return {"linked": linked, "total": total, "group": bool(os.getenv("TELEGRAM_CHAT_ID"))}
 
 
 @router.get("", response_model=List[BroadcastOut])
@@ -293,6 +304,7 @@ def history(db: Session = Depends(get_db), current: models.Employee = Depends(ge
 async def create(
     background: BackgroundTasks,
     text_html: str = Form(""),
+    to_group: bool = Form(False),
     file: Optional[UploadFile] = File(None),
     db: Session = Depends(get_db),
     current: models.Employee = Depends(get_current_employee),
@@ -322,5 +334,5 @@ async def create(
                                  file_kind=fdata["kind"] if fdata else None, status="sending",
                                  total=0, sent=0, failed=0, failed_list=[], created_by=current.id)
     db.add(b); db.commit(); db.refresh(b)
-    background.add_task(_run_broadcast, b.id, fdata)
+    background.add_task(_run_broadcast, b.id, fdata, to_group)
     return _out(b)

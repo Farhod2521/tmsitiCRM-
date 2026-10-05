@@ -342,7 +342,7 @@ def get_auto_tabel(
     return _build_auto_tabel(db, year, month)
 
 
-_OVERRIDE_CODES = {"8", "MT", "O'", "K", "B", "Д", "X", HOLIDAY_CODE, ""}
+_OVERRIDE_CODES = {"8", "MT", "BS", "O'", "K", "B", "Д", "X", HOLIDAY_CODE, ""}
 _OVERRIDE_EDIT_ROLES = {models.RoleEnum.kadr, models.RoleEnum.superadmin}
 
 
@@ -417,6 +417,7 @@ def auto_tabel_xlsx(
         "8":  PatternFill("solid", fgColor="FFE3F7EC"),
         "X":  PatternFill("solid", fgColor="FFF4F9FD"),
         "MT": PatternFill("solid", fgColor="FFFFF3CD"),
+        "BS": PatternFill("solid", fgColor="FFFFE4D1"),
         "O'": PatternFill("solid", fgColor="FFEDE9FB"),
         "K":  PatternFill("solid", fgColor="FFE3EEFF"),
         "B":  PatternFill("solid", fgColor="FFFDE2E2"),

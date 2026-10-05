@@ -11,7 +11,7 @@ const MON_NAMES = [
 ];
 
 const STATUS_LABEL: Record<string, string> = {
-  "status_MT": "MT", "status_O'": "O'", "status_K": "K", "status_B": "B", "status_Д": "Д",
+  "status_MT": "MT", "status_BS": "BS", "status_O'": "O'", "status_K": "K", "status_B": "B", "status_Д": "Д",
 };
 const STATUS_CFG: Record<string, { color: string; bg: string }> = {
   kelgan:    { color: "#00A578", bg: "rgba(0,196,140,0.1)" },

@@ -28,11 +28,12 @@ _VIEW_ROLES = {R.kadr, R.superadmin, R.direktor, R.zamdirektor}
 _EXCLUDED_ROLES = {R.superadmin, R.direktor, R.zamdirektor}
 _EXCLUDED_STATUSES = {models.EmployeeStatusEnum.shafyor_farrosh, models.EmployeeStatusEnum.dekret}
 
-STATUS_CODE_LABEL = {"MT": "Mehnat ta'tili", "B": "Bolnichniy", "K": "Xizmat safari", "O'": "O'quv ta'tili"}
+STATUS_CODE_LABEL = {"MT": "Mehnat ta'tili", "B": "Bolnichniy", "K": "Xizmat safari", "O'": "O'quv ta'tili",
+                     "BS": "Ish haqisiz ta'til"}
 EMP_STATUS_LABEL = {
     "faol": "Faol", "otpuska": "Mehnat ta'tilida", "dekret": "Dekretda", "shafyor_farrosh": "Texnik xodim",
     "xizmat_safarida": "Xizmat safarida", "oquv_tatilida": "O'quv ta'tilida",
-    "mehnatga_layoqatsiz": "Bolnichniy", "online": "Online",
+    "mehnatga_layoqatsiz": "Bolnichniy", "online": "Online", "ish_haqisiz_tatil": "Ish haqisiz ta'til",
 }
 NOTE_LABEL = {"kechikish": "Kechikaman", "kelmaslik": "Kelmayman", "obyektda": "Obyektda", "ruxsat": "Ruxsat"}
 

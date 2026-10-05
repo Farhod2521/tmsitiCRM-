@@ -31,6 +31,7 @@ STATUS_WITH_RANGE = {
     models.EmployeeStatusEnum.oquv_tatilida,
     models.EmployeeStatusEnum.mehnatga_layoqatsiz,
     models.EmployeeStatusEnum.online,
+    models.EmployeeStatusEnum.ish_haqisiz_tatil,
 }
 
 

@@ -26,6 +26,7 @@ const WEEK_DAYS = ["Du", "Se", "Ch", "Pa", "Ju", "Sh", "Ya"];
 const PALETTE: { code: string | null; label: string }[] = [
   { code: "8",  label: "8 — Kelgan" },
   { code: "MT", label: "MT — Mehnat ta'tili" },
+  { code: "BS", label: "BS — Ish haqisiz ta'til" },
   { code: "B",  label: "B — Bolnichniy" },
   { code: "K",  label: "K — Xizmat safari" },
   { code: "O'", label: "O' — O'quv ta'tili" },

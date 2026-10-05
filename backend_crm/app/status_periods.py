@@ -16,6 +16,7 @@ STATUS_CODE = {
     S.oquv_tatilida:       "O'",
     S.xizmat_safarida:     "K",
     S.mehnatga_layoqatsiz: "B",
+    S.ish_haqisiz_tatil:   "BS",
 }
 
 # Muddatli (sanadan-sanagacha) holatlar — tarixga yoziladi, kelajakdagisi "rejalashtirilgan"
@@ -27,6 +28,7 @@ _MANUAL_TABEL_CODE = {
     "Б": S.mehnatga_layoqatsiz, "B": S.mehnatga_layoqatsiz,
     "К": S.xizmat_safarida, "K": S.xizmat_safarida,
     "У/Т": S.oquv_tatilida, "O'": S.oquv_tatilida,
+    "BS": S.ish_haqisiz_tatil, "БС": S.ish_haqisiz_tatil,
 }
 
 

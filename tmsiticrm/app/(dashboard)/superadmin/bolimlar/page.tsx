@@ -63,10 +63,11 @@ const STATUS_LABEL: Record<string,string> = {
   oquv_tatilida:"O'quv ta'tilida",
   mehnatga_layoqatsiz:"Mehnatga layoqatsiz (bolnichniy)",
   online:"Online ishlaydi",
+  ish_haqisiz_tatil:"Ish haqisiz ta'til (BS)",
 };
 const STATUS_BADGE: Record<string,"success"|"warning"|"purple"|"gray"> = {
   faol:"success", otpuska:"warning", dekret:"purple", shafyor_farrosh:"gray",
-  xizmat_safarida:"gray", oquv_tatilida:"gray", mehnatga_layoqatsiz:"gray", online:"gray",
+  xizmat_safarida:"gray", oquv_tatilida:"gray", mehnatga_layoqatsiz:"gray", online:"gray", ish_haqisiz_tatil:"gray",
 };
 /* ── Dropdown Menu: faqat rol tanlash ── */
 function EmpMenu({ emp, color, onRoleChange }: {

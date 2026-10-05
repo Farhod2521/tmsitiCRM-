@@ -432,7 +432,7 @@ export default function AutoTabelTable() {
       )}
 
       <div className="flex items-center gap-4 flex-wrap px-6 py-4" style={{ borderTop: "1px solid #F4F9FD" }}>
-        {[["8", "Kelgan"], ["X", "Dam olish kuni"], ["MT", "Mehnat ta'tili"], ["O'", "O'quv ta'tili"], ["K", "Xizmat safari"], ["B", "Bolnichniy"], ["BY", "Bayram"]].map(([code, label]) => (
+        {[["8", "Kelgan"], ["X", "Dam olish kuni"], ["MT", "Mehnat ta'tili"], ["BS", "Ish haqisiz ta'til"], ["O'", "O'quv ta'tili"], ["K", "Xizmat safari"], ["B", "Bolnichniy"], ["BY", "Bayram"]].map(([code, label]) => (
           <span key={code} className="flex items-center gap-1.5 text-[11px]" style={{ color: "#91929E" }}>
             <span className="inline-flex items-center justify-center text-[9px] font-bold" style={{ width: 18, height: 16, borderRadius: 4, color: CODE_CFG[code]?.color, background: CODE_CFG[code]?.bg }}>
               {code}
