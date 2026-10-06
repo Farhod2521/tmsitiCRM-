@@ -11,8 +11,10 @@ export function openTelegramStatic(startPayload: string) {
 }
 
 /** CRM profilida (autentifikatsiyadan o'tgan holda) bir martalik token yaratib,
- * botga "link_<token>" bilan yo'naltiradi — hisobni Telegramga bog'lash uchun. */
-export async function openTelegramLink() {
+ * botga "link_<token>" bilan yo'naltiradi — hisobni Telegramga bog'lash uchun.
+ * "relink" — allaqachon bog'langan hisobni boshqa/yangi Telegram akkauntiga
+ * qayta ulash: bot telegram_id'ni darhol qayta yozadi (selfi/parol so'ralmaydi). */
+export async function openTelegramLink(prefix: "link" | "relink" = "link") {
   if (!TELEGRAM_BOT_USERNAME) {
     alert("Telegram bot sozlanmagan. Administratorga murojaat qiling.");
     return;
@@ -22,7 +24,7 @@ export async function openTelegramLink() {
   const win = window.open("", "_blank");
   try {
     const { token } = await apiFetch<{ token: string; expires_in: number }>("/employees/me/telegram-link-token", { method: "POST" });
-    if (win) win.location.href = `https://t.me/${TELEGRAM_BOT_USERNAME}?start=link_${token}`;
+    if (win) win.location.href = `https://t.me/${TELEGRAM_BOT_USERNAME}?start=${prefix}_${token}`;
   } catch {
     win?.close();
     alert("Havola olishda xatolik yuz berdi. Qaytadan urinib ko'ring.");

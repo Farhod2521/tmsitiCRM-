@@ -63,6 +63,36 @@ def link_account(data: schemas.BotLinkIn, db: Session = Depends(get_db)):
     return schemas.BotLinkOut(ok=True, full_name=emp.full_name, phone=emp.phone)
 
 
+class RelinkIn(BaseModel):
+    token: str
+    telegram_id: int
+    telegram_username: Optional[str] = None
+
+
+@router.post("/relink-account", response_model=schemas.BotLinkOut)
+def relink_account(data: RelinkIn, db: Session = Depends(get_db)):
+    """"Telegramni qayta ulash" — CRM profilidagi bir martalik token orqali
+    xodimning telegram_id/username'ini shu Telegram akkauntiga qayta yozadi
+    (yangi akkaunt, Telegram qayta o'rnatilgan va h.k.). Selfi, kontakt va
+    parol so'ralmaydi — token CRM'ga kirgan xodimning o'zi tomonidan yaratilgan."""
+    link = db.query(models.TelegramLinkToken).filter(models.TelegramLinkToken.token == data.token).first()
+    if not link or link.used_at is not None or link.expires_at < datetime.utcnow():
+        return schemas.BotLinkOut(ok=False, detail="Havola muddati o'tgan yoki ishlatilgan. CRM profilingizdagi \"Telegramni qayta ulash\" tugmasini qaytadan bosing.")
+    emp = db.query(models.Employee).filter(models.Employee.id == link.employee_id).first()
+    if not emp:
+        return schemas.BotLinkOut(ok=False, detail="Hisob topilmadi.")
+    # Bu Telegram akkaunti boshqa xodimga bog'langan bo'lsa — bo'shatamiz
+    db.query(models.Employee).filter(
+        models.Employee.telegram_id == data.telegram_id,
+        models.Employee.id != emp.id,
+    ).update({"telegram_id": None, "telegram_username": None})
+    emp.telegram_id = data.telegram_id
+    emp.telegram_username = data.telegram_username
+    link.used_at = datetime.utcnow()
+    db.commit()
+    return schemas.BotLinkOut(ok=True, full_name=emp.full_name, phone=emp.phone)
+
+
 @router.post("/attendance-notes/review", response_model=schemas.BotNoteReviewOut)
 def bot_review_note(data: schemas.BotNoteReviewIn, background: BackgroundTasks, db: Session = Depends(get_db)):
     """Telegram'dagi "Tasdiqlash"/"Rad etish" inline tugmasi bosilganda bot

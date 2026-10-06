@@ -97,6 +97,31 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
         )
         return NEW_PASSWORD_RESET
 
+    if payload.startswith("relink_") and len(payload) > len("relink_"):
+        # "Telegramni qayta ulash" — telegram_id darhol shu akkauntga qayta yoziladi
+        user = update.effective_user
+        try:
+            async with httpx.AsyncClient(timeout=15) as client:
+                resp = await client.post(f"{BACKEND_URL}/bot/relink-account", headers=_HEADERS, json={
+                    "token": payload[len("relink_"):],
+                    "telegram_id": user.id,
+                    "telegram_username": user.username,
+                })
+            res = resp.json()
+        except Exception:
+            log.exception("relink-account xatosi")
+            res = {"ok": False, "detail": "Server bilan bog'lanishda xatolik. Birozdan so'ng qayta urinib ko'ring."}
+        if res.get("ok"):
+            await update.message.reply_text(
+                f"✅ {res.get('full_name')}, Telegram akkauntingiz CRM'ga qayta ulandi.\n\n"
+                "Endi eslatmalar va xabarlar shu akkauntga keladi. Ishga kelganingizni "
+                "belgilash uchun quyidagi tugmani bosing 👇",
+                reply_markup=KELDIM_KEYBOARD,
+            )
+        else:
+            await update.message.reply_text("⚠️ " + (res.get("detail") or "Qayta ulab bo'lmadi."))
+        return ConversationHandler.END
+
     if payload.startswith("link_") and len(payload) > len("link_"):
         context.user_data["token"] = payload[len("link_"):]
         caption = (

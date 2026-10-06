@@ -123,6 +123,13 @@ export default function ProfilePage() {
     photoInputRef.click();
   }
 
+  // Telegramda qayta ulangach sahifaga qaytilganda — @username yangilanib ko'rinsin
+  useEffect(() => {
+    const onFocus = () => { apiFetch<Employee>("/auth/me").then(setEmp).catch(() => {}); };
+    window.addEventListener("focus", onFocus);
+    return () => window.removeEventListener("focus", onFocus);
+  }, []);
+
   useEffect(() => {
     (async () => {
       try {
@@ -388,12 +395,21 @@ export default function ProfilePage() {
               </div>
 
               {emp.telegram_id ? (
-                <button onClick={openPasswordReset}
-                  className="flex items-center gap-2 px-4 py-2.5 text-sm font-bold text-white flex-shrink-0 hover:opacity-90 transition-opacity"
-                  style={{ background: "#229ED9", borderRadius: 12 }}>
-                  <KeyRound size={15} />
-                  Parolni o'zgartirish
-                </button>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <button onClick={() => openTelegramLink("relink")}
+                    title="Telegram akkauntingiz o'zgargan bo'lsa — bosing, botda ID qayta yoziladi"
+                    className="flex items-center gap-2 px-4 py-2.5 text-sm font-bold flex-shrink-0 hover:opacity-80 transition-opacity"
+                    style={{ background: "rgba(34,158,217,0.1)", color: "#229ED9", borderRadius: 12 }}>
+                    <RefreshCw size={15} />
+                    Telegramni qayta ulash
+                  </button>
+                  <button onClick={openPasswordReset}
+                    className="flex items-center gap-2 px-4 py-2.5 text-sm font-bold text-white flex-shrink-0 hover:opacity-90 transition-opacity"
+                    style={{ background: "#229ED9", borderRadius: 12 }}>
+                    <KeyRound size={15} />
+                    Parolni o'zgartirish
+                  </button>
+                </div>
               ) : (
                 <button onClick={() => openTelegramLink()}
                   className="flex items-center gap-2 px-4 py-2.5 text-sm font-bold text-white flex-shrink-0 hover:opacity-90 transition-opacity"
