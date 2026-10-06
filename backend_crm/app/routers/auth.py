@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from ..database import get_db
 from ..auth import verify_password, create_access_token
-from ..schemas import LoginRequest, LoginResponse, EmployeeOut
+from ..schemas import LoginRequest, LoginResponse, EmployeeOut, SwitchRoleIn
 from ..deps import get_current_employee
 from .. import models
 from .employees import revert_expired_statuses
@@ -31,6 +31,26 @@ def login(data: LoginRequest, db: Session = Depends(get_db)):
         role=emp.role,
         department_id=emp.department_id,
         phone=emp.phone,
+        roles=emp.roles,
+    )
+
+
+@router.post("/switch-role", response_model=LoginResponse)
+def switch_role(data: SwitchRoleIn, current: models.Employee = Depends(get_current_employee)):
+    """Bir nechta roli bor xodim faol rolni almashtiradi — yangi token qaytariladi."""
+    if data.role.value not in current.roles:
+        raise HTTPException(status_code=403, detail="Bu rol sizga berilmagan")
+    claims = {"sub": current.phone}
+    if data.role != current.primary_role:
+        claims["ar"] = data.role.value
+    return LoginResponse(
+        access_token=create_access_token(claims),
+        id=current.id,
+        full_name=current.full_name,
+        role=data.role,
+        department_id=current.department_id,
+        phone=current.phone,
+        roles=current.roles,
     )
 
 

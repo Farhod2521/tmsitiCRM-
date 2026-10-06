@@ -59,6 +59,7 @@ class EmployeeOut(BaseModel):
     telegram_username: Optional[str] = None
     work_location: WorkLocationEnum = WorkLocationEnum.vazirlik
     has_photo: bool = False
+    roles: List[str] = []             # barcha rollari, birinchisi — asosiy rol
     model_config = {"from_attributes": True}
 
 class SetStatusIn(BaseModel):
@@ -197,9 +198,13 @@ class LoginResponse(BaseModel):
     token_type: str = "bearer"
     id: int
     full_name: str
-    role: str
+    role: str                         # hozir faol (tanlangan) rol
     department_id: Optional[int] = None
     phone: str
+    roles: List[str] = []             # barcha rollari — almashtirish menyusi uchun
+
+class SwitchRoleIn(BaseModel):
+    role: RoleEnum
 
 
 # ── Tabel ─────────────────────────────────────────────────────────────────────
@@ -449,6 +454,7 @@ class ReportFileIn(BaseModel):
 # ── Kadr/Ijro/Direktor ball berish ───────────────────────────────────────────
 class SetRoleIn(BaseModel):
     role: RoleEnum
+    extra_roles: Optional[List[RoleEnum]] = None   # berilsa — qo'shimcha rollar shu ro'yxatga almashtiriladi
 
 class EmpScoreRowOut(BaseModel):
     """Barcha xodimlar + oy bali — kadr/ijro/direktor sahifalari uchun."""

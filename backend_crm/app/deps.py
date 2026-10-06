@@ -3,7 +3,7 @@ from fastapi import Depends, Header, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.orm import Session
 from .database import get_db
-from .auth import decode_token
+from .auth import decode_payload
 from . import models
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
@@ -18,7 +18,8 @@ def get_current_employee(
         detail="Token yaroqsiz yoki muddati o'tgan",
         headers={"WWW-Authenticate": "Bearer"},
     )
-    phone = decode_token(token)
+    payload = decode_payload(token) or {}
+    phone = payload.get("sub")
     if not phone:
         raise exc
     # is_active — faqat "ball berish/statistikada hisoblanadi" belgisi (mehnat ta'tili,
@@ -26,6 +27,10 @@ def get_current_employee(
     emp = db.query(models.Employee).filter(models.Employee.phone == phone).first()
     if not emp:
         raise exc
+    # Rol almashtirilgan bo'lsa (token "ar") — shu rol hali ham berilgan bo'lsagina
+    ar = payload.get("ar")
+    if ar and ar != emp.role.value and ar in emp.extra_role_list:
+        models.apply_active_role(emp, models.RoleEnum(ar))
     return emp
 
 

@@ -1,10 +1,11 @@
 "use client";
 
-import { Bell, ChevronDown, Search, LogOut, User, Phone, ChevronRight, CheckCheck, MessageSquareWarning, FileText, ClipboardCheck } from "lucide-react";
+import { Bell, ChevronDown, Search, LogOut, User, Phone, ChevronRight, CheckCheck, MessageSquareWarning, FileText, ClipboardCheck, Repeat, Check, Loader2 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { getUser, clearAuth } from "@/lib/auth";
+import { getUser, clearAuth, switchRole } from "@/lib/auth";
+import { apiFetch } from "@/lib/api";
 import { useNotifications, type NotificationItem } from "@/lib/notifications";
 import type { LoginResponse } from "@/lib/api";
 
@@ -66,13 +67,23 @@ export default function Header({ title, subtitle }: HeaderProps) {
   const [user, setUser] = useState<LoginResponse | null>(null);
   const [bellOpen, setBellOpen] = useState(false);
   const [accOpen, setAccOpen] = useState(false);
+  const [switching, setSwitching] = useState<string | null>(null);
   const notif = useNotifications();
 
   const bellRef = useOutsideClose(bellOpen, () => setBellOpen(false));
   const accRef  = useOutsideClose(accOpen, () => setAccOpen(false));
 
   useEffect(() => {
-    setUser(getUser());
+    const u = getUser();
+    setUser(u);
+    // Superadmin yangi rol qo'shgan bo'lsa — qayta kirmasdan menyuda ko'rinsin
+    if (u) apiFetch<{ roles?: string[] }>("/auth/me").then(me => {
+      if (me.roles && JSON.stringify(me.roles) !== JSON.stringify(u.roles)) {
+        const nu = { ...u, roles: me.roles };
+        localStorage.setItem("crm_user", JSON.stringify(nu));
+        setUser(nu);
+      }
+    }).catch(() => {});
   }, []);
 
   const initials    = user ? getInitials(user.full_name) : "SA";
@@ -201,6 +212,30 @@ export default function Header({ title, subtitle }: HeaderProps) {
                   )}
                 </div>
               </div>
+              {user?.roles && user.roles.length > 1 && (
+                <div className="p-2" style={{ borderBottom: "1px solid #F4F9FD" }}>
+                  <p className="px-3 pt-1 pb-1.5 text-[10px] font-bold uppercase flex items-center gap-1.5" style={{ color: "#B0B8C8", letterSpacing: "0.06em" }}>
+                    <Repeat size={11} /> Rolni almashtirish
+                  </p>
+                  {user.roles.map(r => {
+                    const active = r === user.role;
+                    return (
+                      <button key={r} disabled={active || switching !== null}
+                        onClick={async () => {
+                          setSwitching(r);
+                          try { await switchRole(r); }
+                          catch (e) { alert(e instanceof Error ? e.message : "Xatolik"); setSwitching(null); }
+                        }}
+                        className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-sm font-semibold hover:bg-[#F8FAFF] transition-colors disabled:cursor-default text-left"
+                        style={{ color: active ? "#3F8CFF" : "#0A1629", background: active ? "rgba(63,140,255,0.08)" : "transparent" }}>
+                        <span className="flex-1">{getRoleLabel(r)}</span>
+                        {switching === r ? <Loader2 size={14} className="animate-spin" style={{ color: "#3F8CFF" }} />
+                          : active ? <Check size={15} style={{ color: "#3F8CFF" }} /> : null}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
               <div className="p-2">
                 {user && (
                   <Link href={profileHref(user.role)} onClick={() => setAccOpen(false)}

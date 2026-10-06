@@ -68,6 +68,10 @@ class Employee(Base):
     hashed_password = Column(String(200), nullable=False)
     enc_password    = Column(Text, nullable=True)   # joriy parol, qaytarib olinadigan shifrda (superadmin uchun)
     role            = Column(SAEnum(RoleEnum, name="role_enum"), default=RoleEnum.xodim, nullable=False)
+    # Qo'shimcha rollar (masalan, bo'lim boshlig'i + ijro vakili): ",ijro,kadr,".
+    # Xodim yuqoridagi menyudan rolni almashtiradi — tanlangan rol JWT'dagi "ar"
+    # orqali shu so'rov uchun `role` o'rniga qo'yiladi (deps.get_current_employee).
+    extra_roles     = Column(String(200), nullable=True)
     status          = Column(SAEnum(EmployeeStatusEnum, name="employee_status_enum"), default=EmployeeStatusEnum.faol, nullable=False)
     status_date_from = Column(String(10), nullable=True)   # "YYYY-MM-DD" — muddatli statuslar uchun (otpuska, safar, o'quv, bolnichniy)
     status_date_to   = Column(String(10), nullable=True)   # shu sana o'tgach avtomatik "faol"ga qaytariladi
@@ -78,6 +82,28 @@ class Employee(Base):
     work_location   = Column(SAEnum(WorkLocationEnum, name="work_location_enum"), default=WorkLocationEnum.vazirlik, nullable=False)
 
     department      = relationship("Department", back_populates="employees")
+
+    @property
+    def extra_role_list(self) -> list[str]:
+        return [r for r in (self.extra_roles or "").split(",") if r]
+
+    @property
+    def primary_role(self) -> "RoleEnum":
+        """Bazadagi asosiy rol (rol almashtirilgan bo'lsa ham)."""
+        return self.__dict__.get("_primary_role") or self.role
+
+    @property
+    def roles(self) -> list[str]:
+        """Barcha rollari — birinchisi asosiy rol."""
+        p = self.primary_role.value
+        return [p] + [r for r in self.extra_role_list if r != p]
+
+    @property
+    def all_roles(self) -> set:
+        return {RoleEnum(r) for r in self.roles}
+
+    def has_role(self, *roles) -> bool:
+        return bool(self.all_roles & set(roles))
     tabel_records   = relationship("TabelRecord", foreign_keys="TabelRecord.employee_id", back_populates="employee")
     scores          = relationship("Score", foreign_keys="Score.employee_id", back_populates="employee")
 
@@ -692,3 +718,31 @@ class LocationSetting(Base):
     longitude      = Column(Float, nullable=True)
     radius_meters  = Column(Integer, default=100, nullable=False)
     updated_at     = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+# ── Ko'p rollilik yordamchilari ────────────────────────────────────────────────
+from sqlalchemy import event as _event, or_ as _or, func as _func
+from sqlalchemy.orm.attributes import set_committed_value as _set_committed
+
+
+def role_filter(*roles):
+    """Asosiy YOKI qo'shimcha roli shulardan biri bo'lgan xodimlar (so'rov filtri)."""
+    vals = [RoleEnum(r) for r in roles]
+    return _or(Employee.role.in_(vals), *[_func.coalesce(Employee.extra_roles, "").like(f"%,{r.value},%") for r in vals])
+
+
+def apply_active_role(emp: "Employee", role: RoleEnum) -> None:
+    """Shu so'rov uchun emp.role'ni tanlangan rolga almashtiradi — bazaga YOZILMAYDI
+    (set_committed_value o'zgarish sifatida belgilamaydi)."""
+    emp.__dict__["_primary_role"] = emp.role
+    emp.__dict__["_active_role"] = role
+    _set_committed(emp, "role", role)
+
+
+@_event.listens_for(Employee, "refresh")
+def _keep_active_role(target, context, attrs):
+    # commit/refresh'dan keyin bazadan qayta o'qilganda ham tanlangan rol saqlansin
+    ar = target.__dict__.get("_active_role")
+    if ar is not None and (attrs is None or "role" in attrs):
+        target.__dict__["_primary_role"] = target.role
+        _set_committed(target, "role", ar)

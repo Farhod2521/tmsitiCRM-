@@ -40,7 +40,7 @@ def _dept_heads(db: Session, department_id: Optional[int]) -> List[models.Employ
         return []
     return (
         db.query(models.Employee)
-        .filter(models.Employee.role.in_(_HEAD_ROLES),
+        .filter(models.role_filter(*_HEAD_ROLES),
                 models.Employee.department_id == department_id,
                 models.Employee.telegram_id.isnot(None))
         .all()
@@ -259,7 +259,7 @@ def list_zamdirektorlar(
     alohida, cheklanmagan endpoint kerak."""
     zams = (
         db.query(models.Employee)
-        .filter(models.Employee.role == models.RoleEnum.zamdirektor, models.Employee.is_active == True)
+        .filter(models.role_filter(models.RoleEnum.zamdirektor), models.Employee.is_active == True)
         .order_by(models.Employee.full_name)
         .all()
     )

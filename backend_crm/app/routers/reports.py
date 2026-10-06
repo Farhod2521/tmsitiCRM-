@@ -38,7 +38,7 @@ def _reviewer_targets(current: models.Employee, db: Session) -> List[models.Empl
     if current.role in _ADMIN_ROLES:
         return (
             db.query(models.Employee)
-            .filter(models.Employee.role.in_(_HEAD_ROLES), models.Employee.is_active == True)
+            .filter(models.role_filter(*_HEAD_ROLES), models.Employee.is_active == True)
             .order_by(models.Employee.id)
             .all()
         )
@@ -50,7 +50,7 @@ def _reviewer_targets(current: models.Employee, db: Session) -> List[models.Empl
             .filter(
                 models.Employee.department_id == current.department_id,
                 models.Employee.is_active == True,
-                ~models.Employee.role.in_(_HEAD_ROLES),
+                ~models.role_filter(*_HEAD_ROLES),
             )
             .order_by(models.Employee.id)
             .all()
@@ -741,7 +741,7 @@ def _bolim_boshligi_nomi(db: Session, department_id: int | None) -> str | None:
         return None
     head = db.query(models.Employee).filter(
         models.Employee.department_id == department_id,
-        models.Employee.role.in_([models.RoleEnum.bolim_boshligi, models.RoleEnum.boshqarma_boshligi]),
+        models.role_filter(models.RoleEnum.bolim_boshligi, models.RoleEnum.boshqarma_boshligi),
     ).first()
     return head.full_name if head else None
 
@@ -872,7 +872,8 @@ def monthly_report(
         umumiy = (ijro_edo_ball or 0) + (ijro_ichki_ball or 0) + (kadr_ball or 0) + (bolim_ball or 0)
 
     dept = emp.department
-    hr = db.query(models.Employee).filter(models.Employee.role == models.RoleEnum.kadr).first()
+    hr = db.query(models.Employee).filter(models.Employee.role == models.RoleEnum.kadr).first() \
+        or db.query(models.Employee).filter(models.role_filter(models.RoleEnum.kadr)).first()
 
     return schemas.MonthlyReportOut(
         report_id=f"{today.strftime('%y%m%d')}-{employee_id:03d}",

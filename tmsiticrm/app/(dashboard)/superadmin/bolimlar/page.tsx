@@ -6,7 +6,7 @@ import Badge from "@/components/ui/Badge";
 import {
   ChevronRight, List, LayoutGrid, Table2, Search,
   Phone, MoreHorizontal, Loader2, Building2, Users,
-  ClipboardList, Activity, Crown, X, User, Briefcase,
+  ClipboardList, Activity, Crown, X, User, Briefcase, Check,
 } from "lucide-react";
 import { apiFetch } from "@/lib/api";
 
@@ -15,7 +15,7 @@ interface ApiDept { id:number; name:string; dept_type:string; order_num:number; 
 interface ApiEmp  {
   id:number; full_name:string; position:string;
   department_id:number|null; work_rate:number; phone:string;
-  role:string; status:string; is_active:boolean;
+  role:string; status:string; is_active:boolean; roles?:string[];
   status_date_from?:string|null; status_date_to?:string|null;
   planned_status?:string|null; planned_from?:string|null; planned_to?:string|null;
 }
@@ -71,8 +71,9 @@ const STATUS_BADGE: Record<string,"success"|"warning"|"purple"|"gray"> = {
 };
 /* ── Dropdown Menu: faqat rol tanlash ── */
 function EmpMenu({ emp, color, onRoleChange }: {
-  emp:ApiEmp; color:string; onRoleChange:(id:number,role:string)=>void;
+  emp:ApiEmp; color:string; onRoleChange:(id:number,role:string,roles?:string[])=>void;
 }) {
+  const extras = (emp.roles ?? []).filter(r=>r!==emp.role);
   const [open, setOpen] = useState(false);
   const [saving, setSaving] = useState<string|null>(null);
   // Menyu sahifa ustida (fixed) ochiladi — ro'yxat kartochkasi uni kesib qo'ymasin;
@@ -110,9 +111,20 @@ function EmpMenu({ emp, color, onRoleChange }: {
     if(!confirm(`${emp.full_name} — rolini "${label}" ga o'zgartirasizmi?`)) return;
     setSaving(role);
     try{
-      await apiFetch(`/employees/${emp.id}/set-role`,{method:"PATCH",body:JSON.stringify({role})});
-      onRoleChange(emp.id,role);
+      const r = await apiFetch<ApiEmp>(`/employees/${emp.id}/set-role`,{method:"PATCH",body:JSON.stringify({role})});
+      onRoleChange(emp.id,role,r.roles);
       setOpen(false);
+    }catch(e){ alert(e instanceof Error?e.message:"Xato"); }
+    finally{setSaving(null);}
+  }
+
+  // Qo'shimcha rol: belgilansa xodim yuqoridagi menyudan shu rolga o'ta oladi
+  async function toggleExtra(role:string){
+    const next = extras.includes(role) ? extras.filter(r=>r!==role) : [...extras, role];
+    setSaving("x:"+role);
+    try{
+      const r = await apiFetch<ApiEmp>(`/employees/${emp.id}/set-role`,{method:"PATCH",body:JSON.stringify({role:emp.role, extra_roles:next})});
+      onRoleChange(emp.id,emp.role,r.roles);
     }catch(e){ alert(e instanceof Error?e.message:"Xato"); }
     finally{setSaving(null);}
   }
@@ -172,9 +184,48 @@ function EmpMenu({ emp, color, onRoleChange }: {
               );
             })}
           </div>
+
+          <div className="px-4 pt-2 pb-1" style={{borderTop:"1px solid #F4F9FD"}}>
+            <p className="text-[10px] font-bold uppercase" style={{color:"#B0B8C8",letterSpacing:"0.06em"}}>Qo'shimcha rollar</p>
+            <p className="text-[10.5px] mt-0.5" style={{color:"#A8B0BD"}}>Xodim profil menyusidan shu rolga o'tib, uning barcha imkoniyatlaridan foydalanadi</p>
+          </div>
+          <div className="px-2 pb-2 flex flex-col gap-0.5">
+            {ROLE_MENU.filter(i=>i.role!==emp.role).map(item=>{
+              const Icon = item.icon;
+              const on = extras.includes(item.role);
+              return (
+                <button key={item.role} role="checkbox" aria-checked={on}
+                  onClick={()=>toggleExtra(item.role)} disabled={saving!==null}
+                  className="w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-xl hover:bg-[#F8FAFF] transition-colors"
+                  style={{background:on?`${item.color}12`:"transparent"}}>
+                  <div className="w-6 h-6 flex-shrink-0 flex items-center justify-center" style={{background:item.bg,borderRadius:8}}>
+                    {saving==="x:"+item.role
+                      ? <Loader2 size={11} className="animate-spin" style={{color:item.color}}/>
+                      : <Icon size={12} style={{color:item.color}}/>}
+                  </div>
+                  <span className="flex-1 min-w-0 text-left text-[12.5px] font-semibold truncate" style={{color:"#0A1629"}}>{item.label}</span>
+                  <span className="w-4 h-4 flex-shrink-0 flex items-center justify-center"
+                    style={{borderRadius:5,border:`2px solid ${on?item.color:"#D9E3F0"}`,background:on?item.color:"transparent"}}>
+                    {on && <Check size={10} strokeWidth={3.5} color="#FFFFFF"/>}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
         </div>
       )}
     </div>
+  );
+}
+
+/* Asosiy rol + qo'shimcha rollar belgisi */
+function RoleBadges({ emp }:{ emp:ApiEmp }){
+  const extras = (emp.roles ?? []).filter(r=>r!==emp.role);
+  return (
+    <span className="inline-flex items-center gap-1 flex-wrap">
+      <Badge label={ROLE_LABEL[emp.role] || emp.role} variant={ROLE_BADGE[emp.role] || "gray"}/>
+      {extras.map(r=><Badge key={r} label={"+ "+(ROLE_LABEL[r]||r)} variant={ROLE_BADGE[r]||"gray"}/>)}
+    </span>
   );
 }
 
@@ -203,8 +254,8 @@ export default function BolimlarPage() {
 
   useEffect(()=>{loadData();},[]);// eslint-disable-line
 
-  function handleRoleChange(empId:number, role:string){
-    setAllEmps(prev=>prev.map(e=>e.id===empId?{...e,role}:e));
+  function handleRoleChange(empId:number, role:string, roles?:string[]){
+    setAllEmps(prev=>prev.map(e=>e.id===empId?{...e,role,roles:roles??e.roles}:e));
   }
 
 
@@ -338,7 +389,7 @@ export default function BolimlarPage() {
                         </div>
                         <p className="text-sm truncate" style={{color:"#7D8592"}}>{emp.position}</p>
                         <p className="text-xs" style={{color:"#7D8592"}}>{emp.work_rate} st.</p>
-                        <Badge label={ROLE_LABEL[emp.role]||emp.role} variant={ROLE_BADGE[emp.role]||"gray"}/>
+                        <RoleBadges emp={emp}/>
                         <EmpMenu emp={emp} color={color} onRoleChange={handleRoleChange}/>
                       </div>
                     ))}
@@ -396,7 +447,7 @@ export default function BolimlarPage() {
                             </td>
                             <td className="py-3 text-sm font-bold" style={{color:"#0A1629",paddingRight:12}}>{emp.work_rate} st.</td>
                             <td className="py-3" style={{paddingRight:12}}>
-                              <Badge label={ROLE_LABEL[emp.role]||emp.role} variant={ROLE_BADGE[emp.role]||"gray"}/>
+                              <RoleBadges emp={emp}/>
                             </td>
                             <td className="py-3" style={{paddingRight:12}}>
                               {emp.status!=="faol"
@@ -439,7 +490,7 @@ export default function BolimlarPage() {
                           </div>
                           <div className="flex items-center justify-between pt-3 mt-2" style={{borderTop:"1px solid #F0F4FF"}}>
                             <span className="text-xs" style={{color:"#91929E"}}>{emp.work_rate} st.</span>
-                            <Badge label={ROLE_LABEL[emp.role]||emp.role} variant={ROLE_BADGE[emp.role]||"gray"}/>
+                            <RoleBadges emp={emp}/>
                           </div>
                         </div>
                       ))}

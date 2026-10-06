@@ -8,6 +8,7 @@ export interface LoginResponse {
   role: string;
   department_id: number | null;
   phone: string;
+  roles?: string[];   // barcha rollari (birinchisi asosiy) — bir nechta bo'lsa rol almashtirish menyusi
 }
 
 export async function loginApi(phone: string, password: string): Promise<LoginResponse> {

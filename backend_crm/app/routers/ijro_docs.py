@@ -63,7 +63,7 @@ def _fill_doc_out(item, doc: models.IjroDocument, db: Session):
             if active_ids:
                 boshliqlar = db.query(models.Employee).filter(
                     models.Employee.department_id.in_(active_ids),
-                    models.Employee.role.in_([models.RoleEnum.bolim_boshligi, models.RoleEnum.boshqarma_boshligi]),
+                    models.role_filter(models.RoleEnum.bolim_boshligi, models.RoleEnum.boshqarma_boshligi),
                 ).all()
                 if boshliqlar:
                     item.masul_bolim_boshliqlari_nomi = ", ".join(b.full_name for b in boshliqlar)

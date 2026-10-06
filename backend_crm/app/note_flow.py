@@ -63,7 +63,7 @@ def dept_heads(db: Session, emp: models.Employee) -> list[models.Employee]:
         db.query(models.Employee)
         .filter(
             models.Employee.department_id == emp.department_id,
-            models.Employee.role.in_(list(HEAD_ROLES)),
+            models.role_filter(*HEAD_ROLES),
             models.Employee.id != emp.id,
         )
         .all()
@@ -73,7 +73,7 @@ def dept_heads(db: Session, emp: models.Employee) -> list[models.Employee]:
 def initial_status(db: Session, author: models.Employee) -> str:
     """Bo'lim boshlig'idan boshqa har kim yozsa — avval o'z bo'limi boshlig'iga;
     bo'lim boshlig'i yozsa (yoki bo'limida faol boshliq bo'lmasa) — to'g'ridan-to'g'ri kadrga."""
-    if author.role in HEAD_ROLES:
+    if author.has_role(*HEAD_ROLES):
         return "kutilmoqda"
     if dept_heads(db, author):
         return "bolim_kutilmoqda"
@@ -87,14 +87,14 @@ def can_review(actor: models.Employee, note: models.AttendanceNote) -> bool:
     if actor.id == note.employee_id:
         return False
     if st == "bolim_kutilmoqda":
-        return actor.role == R.superadmin or (
-            actor.role in HEAD_ROLES and note.employee is not None
+        return actor.has_role(R.superadmin) or (
+            actor.has_role(*HEAD_ROLES) and note.employee is not None
             and actor.department_id == note.employee.department_id
         )
     if st == "kutilmoqda":
-        return actor.role == R.kadr
+        return actor.has_role(R.kadr)
     if st == "kadr_tasdiqladi":
-        return actor.role in ADMIN_REVIEW_ROLES
+        return actor.has_role(*ADMIN_REVIEW_ROLES)
     return False
 
 
@@ -104,9 +104,9 @@ def stage_reviewers(db: Session, note: models.AttendanceNote) -> list[models.Emp
         return dept_heads(db, note.employee) if note.employee else []
     q = db.query(models.Employee).filter(models.Employee.id != note.employee_id)
     if st == "kutilmoqda":
-        return q.filter(models.Employee.role == R.kadr).all()
+        return q.filter(models.role_filter(R.kadr)).all()
     if st == "kadr_tasdiqladi":
-        return q.filter(models.Employee.role == R.zamdirektor).all()
+        return q.filter(models.role_filter(R.zamdirektor)).all()
     return []
 
 

@@ -44,6 +44,15 @@ export function clearAuth() {
   localStorage.removeItem(USER_KEY);
 }
 
+/** Bir nechta roli bor xodim faol rolni almashtiradi: yangi token saqlanadi va
+ * o'sha rolning bosh sahifasiga o'tiladi (sidebar va huquqlar shu rolniki bo'ladi). */
+export async function switchRole(role: string) {
+  const { apiFetch } = await import("./api");
+  const data = await apiFetch<LoginResponse>("/auth/switch-role", { method: "POST", body: JSON.stringify({ role }) });
+  saveAuth(data);
+  window.location.href = getRoleRedirect(data.role);
+}
+
 export function getRoleRedirect(role: string): string {
   switch (role) {
     case "superadmin":

@@ -321,6 +321,14 @@ def set_employee_role(
     if not emp:
         raise HTTPException(status_code=404, detail="Xodim topilmadi")
     emp.role = data.role
+    if data.extra_roles is not None:
+        extras = [r.value for r in dict.fromkeys(data.extra_roles)
+                  if r != data.role and r != models.RoleEnum.superadmin]
+        emp.extra_roles = f",{','.join(extras)}," if extras else None
+    elif emp.extra_roles:
+        # asosiy rol qo'shimchalar ichida bo'lsa — takrorlanmasin
+        extras = [r for r in emp.extra_role_list if r != data.role.value]
+        emp.extra_roles = f",{','.join(extras)}," if extras else None
     db.commit()
     db.refresh(emp)
     return emp
