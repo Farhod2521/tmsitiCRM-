@@ -43,6 +43,8 @@ def _fill_doc_out(item, doc: models.IjroDocument, db: Session):
     """Hujjat chiqish sxemasiga qo'shimcha nomlarni to'ldiradi."""
     if doc.masul_orinbosar:
         item.masul_orinbosar_nomi = doc.masul_orinbosar.full_name
+    if doc.creator:
+        item.created_by_nomi = doc.creator.full_name
     if doc.masul_bolimlar:
         try:
             ids = json.loads(doc.masul_bolimlar)
@@ -263,6 +265,8 @@ def bolim_doc_detail(
     doc_out = schemas.IjroDocOut.model_validate(doc)
     if doc.masul_orinbosar:
         doc_out.masul_orinbosar_nomi = doc.masul_orinbosar.full_name
+    if doc.creator:
+        doc_out.created_by_nomi = doc.creator.full_name
     bolimlar = [_make_bolim_out(b, db) for b in doc.bolim_assignments]
     return schemas.IjroDocTracking(doc=doc_out, bolimlar=bolimlar)
 
@@ -531,6 +535,8 @@ def doc_tracking(
     doc_out = schemas.IjroDocOut.model_validate(doc)
     if doc.masul_orinbosar:
         doc_out.masul_orinbosar_nomi = doc.masul_orinbosar.full_name
+    if doc.creator:
+        doc_out.created_by_nomi = doc.creator.full_name
     bolimlar = [_make_bolim_out(b, db) for b in doc.bolim_assignments]
     return schemas.IjroDocTracking(doc=doc_out, bolimlar=bolimlar)
 

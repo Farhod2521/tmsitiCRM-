@@ -707,6 +707,7 @@ class IjroDocOut(BaseModel):
     holati:                   IjroDocHolati
     qayta_sabab:              Optional[str]      = None
     created_by:               Optional[int]      = None
+    created_by_nomi:          Optional[str]      = None   # topshiriqni kiritgan akkaunt (F.I.Sh.)
     created_at:               Optional[datetime] = None
     model_config = {"from_attributes": True}
 
@@ -735,6 +736,7 @@ class IjroDocListOut(BaseModel):
     holati:                   IjroDocHolati
     qayta_sabab:              Optional[str]      = None
     created_by:               Optional[int]      = None
+    created_by_nomi:          Optional[str]      = None   # topshiriqni kiritgan akkaunt (F.I.Sh.)
     created_at:               Optional[datetime] = None
     model_config = {"from_attributes": True}
 

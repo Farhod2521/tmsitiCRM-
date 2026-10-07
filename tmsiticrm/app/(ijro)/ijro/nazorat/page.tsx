@@ -1,8 +1,10 @@
 "use client";
 
+import Header from "@/components/layout/Header";
+
 import { useState, useEffect, useCallback, useRef } from "react";
 import {
-  Search, Bell, Settings, Eye, ArrowRight,
+  Settings, Eye, ArrowRight,
   ChevronDown, Clock, CheckCircle2, AlertTriangle, AlertCircle,
   FileText, Calendar, Upload, LayoutDashboard, List,
   X, Loader2, Plus, CloudUpload, RefreshCw,
@@ -12,7 +14,6 @@ import {
   ClipboardCheck, Calculator, Monitor, MapPinned, ShieldAlert,
   PenTool, Wrench, Layers, Briefcase, Building2, Users, Download, XCircle, Check,
 } from "lucide-react";
-import { getUser } from "@/lib/auth";
 import { apiFetch } from "@/lib/api";
 import InternalDocIjroViewTab from "@/components/internal-docs/InternalDocIjroViewTab";
 
@@ -47,6 +48,7 @@ interface IjroDoc {
   holati: DocHolati;
   qayta_sabab: string | null;
   created_at: string | null;
+  created_by_nomi?: string | null;   // topshiriqni kiritgan akkaunt
 }
 
 interface Department { id: number; name: string; dept_type: string; }
@@ -924,6 +926,12 @@ function IjroTrackingModal({ docId, depts, onClose }: {
                 {tracking.doc.sarlavha || `№ ${tracking.doc.hujjat_raqami || docId}`}
               </p>
             )}
+            {tracking?.doc.created_by_nomi && (
+              <p className="text-[11px] mt-0.5" style={{ color: "#91929E" }}>
+                Kiritgan: <b style={{ color: "#7D8592" }}>{tracking.doc.created_by_nomi}</b>
+                {tracking.doc.created_at && ` · ${new Date(tracking.doc.created_at.endsWith("Z") ? tracking.doc.created_at : tracking.doc.created_at + "Z").toLocaleString("ru-RU", { timeZone: "Asia/Tashkent", day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" })}`}
+              </p>
+            )}
           </div>
           <button onClick={onClose} className="w-9 h-9 flex items-center justify-center hover:opacity-70"
             style={{ background: "#F4F9FD", borderRadius: 10 }}>
@@ -1535,6 +1543,11 @@ function Topshiriqlar({ docs, depts, onRefresh }:
                       <p className="font-bold text-sm" style={{ color:"#3F8CFF" }}>№ {d.hujjat_raqami || `DOC-${d.id}`}</p>
                       <p className="text-xs mt-0.5" style={{ color:"#91929E" }}>{d.hujjat_sanasi || "—"}</p>
                       <p className="text-xs mt-0.5 font-bold" style={{ color:"#0A1629" }}>{MANBA_LABELS[d.manba]}</p>
+                      {d.created_by_nomi && (
+                        <p className="text-[11px] mt-0.5 whitespace-nowrap" style={{ color:"#91929E" }} title="Topshiriqni kiritgan">
+                          Kiritgan: <b style={{ color:"#7D8592" }}>{d.created_by_nomi}</b>
+                        </p>
+                      )}
                     </td>
                     <td className="px-4 py-4" style={{ maxWidth:200 }}>
                       <p className="text-sm font-bold truncate" style={{ color:"#0A1629" }}>
@@ -1927,8 +1940,6 @@ export default function IjroNazoratPage() {
   const [depts, setDepts] = useState<Department[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const user     = typeof window !== "undefined" ? getUser() : null;
-  const initials = user ? user.full_name.split(" ").filter(Boolean).map((w: string) => w[0]).join("").toUpperCase().slice(0,2) : "IJ";
 
   const loadDocs = useCallback(async () => {
     setLoading(true);
@@ -1946,37 +1957,7 @@ export default function IjroNazoratPage() {
 
   return (
     <div>
-      {/* Header */}
-      <header className="flex items-center justify-between flex-wrap gap-4 mb-6">
-        <div>
-          <h1 className="font-bold text-xl sm:text-2xl" style={{ color:"#0A1629" }}>Ijro intizomi nazorati</h1>
-          <p className="text-xs mt-1" style={{ color:"#91929E" }}>Hujjatlar va topshiriqlar bajarilishini kuzatib boring</p>
-        </div>
-        <div className="flex items-center gap-2 flex-shrink-0">
-          <div className="hidden md:flex items-center gap-2 px-4 py-2.5"
-            style={{ background:"#FFFFFF", borderRadius:12, boxShadow:"0 4px 16px rgba(196,203,214,0.15)", minWidth:200 }}>
-            <Search size={16} style={{ color:"#91929E" }}/>
-            <input type="text" placeholder="Topshiriqlardan izlash..."
-              className="bg-transparent outline-none text-sm flex-1" style={{ color:"#0A1629" }}/>
-          </div>
-          <div className="relative w-10 h-10 flex items-center justify-center"
-            style={{ background:"#FFFFFF", borderRadius:12, boxShadow:"0 4px 16px rgba(196,203,214,0.15)" }}>
-            <Bell size={18} style={{ color:"#0A1629" }}/>
-            <span className="absolute top-2 right-2 w-2 h-2" style={{ background:"#FF5C5C", borderRadius:"50%" }}/>
-          </div>
-          <div className="flex items-center gap-2 px-3 py-2"
-            style={{ background:"#FFFFFF", borderRadius:12, boxShadow:"0 4px 16px rgba(196,203,214,0.15)" }}>
-            <div className="w-8 h-8 flex items-center justify-center text-white text-xs font-bold"
-              style={{ background:"#3F8CFF", borderRadius:9 }}>
-              {initials}
-            </div>
-            <div className="hidden sm:block">
-              <p className="font-bold text-xs" style={{ color:"#0A1629" }}>{user?.full_name || "Foydalanuvchi"}</p>
-              <p className="text-xs" style={{ color:"#91929E" }}>Ijro xodimi</p>
-            </div>
-          </div>
-        </div>
-      </header>
+      <Header title="Ijro intizomi nazorati" subtitle="Hujjatlar va topshiriqlar bajarilishini kuzatib boring" />
 
       {/* Tab switcher */}
       <div className="flex items-center gap-1 mb-5 p-1"

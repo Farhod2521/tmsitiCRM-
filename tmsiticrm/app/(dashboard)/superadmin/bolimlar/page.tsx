@@ -53,6 +53,9 @@ const ROLE_MENU: { role:string; icon:typeof User; label:string; hint:string; col
   { role:"direktor",           icon:Crown,         label:"Direktor",            hint:"Rahbar",                         color:"#E0457B", bg:"rgba(224,69,123,0.1)" },
 ];
 
+/* Asosiy rolga qo'shimcha beriladigan funksiyalar (checkbox) */
+const EXTRA_ROLE_OPTIONS = ["ijro"];
+
 /* ── Xodim holati (status) config ── */
 const STATUS_LABEL: Record<string,string> = {
   faol:"Faol",
@@ -78,19 +81,21 @@ function EmpMenu({ emp, color, onRoleChange }: {
   const [saving, setSaving] = useState<string|null>(null);
   // Menyu sahifa ustida (fixed) ochiladi — ro'yxat kartochkasi uni kesib qo'ymasin;
   // pastda joy yetmasa yuqoriga qarab ochiladi.
-  const [pos, setPos] = useState<{right:number; top?:number; bottom?:number}>({right:0});
+  const [pos, setPos] = useState<{right:number; top?:number; bottom?:number; maxHeight?:number}>({right:0});
   const ref = useRef<HTMLDivElement>(null);
 
   useEffect(()=>{
     if(!open) return;
     function click(e:MouseEvent){ if(ref.current && !ref.current.contains(e.target as Node)) setOpen(false); }
     function close(){ setOpen(false); }
+    // Sahifa aylantirilsa yopiladi — menyuning o'z ichidagi aylantirish bundan mustasno
+    function scroll(e:Event){ if(!(ref.current && e.target instanceof Node && ref.current.contains(e.target))) setOpen(false); }
     document.addEventListener("mousedown",click);
-    window.addEventListener("scroll",close,true);
+    window.addEventListener("scroll",scroll,true);
     window.addEventListener("resize",close);
     return ()=>{
       document.removeEventListener("mousedown",click);
-      window.removeEventListener("scroll",close,true);
+      window.removeEventListener("scroll",scroll,true);
       window.removeEventListener("resize",close);
     };
   },[open]);
@@ -98,11 +103,13 @@ function EmpMenu({ emp, color, onRoleChange }: {
   function toggle(e:React.MouseEvent<HTMLButtonElement>){
     if(open){ setOpen(false); return; }
     const r = e.currentTarget.getBoundingClientRect();
-    const MENU_H = 520;
+    const MENU_H = 600;   // asosiy rollar + Ijro checkbox
     const right = Math.max(8, window.innerWidth - r.right);
-    setPos(window.innerHeight - r.bottom >= MENU_H || r.top < MENU_H
-      ? { right, top: r.bottom + 6 }
-      : { right, bottom: window.innerHeight - r.top + 6 });
+    const below = window.innerHeight - r.bottom - 14, above = r.top - 14;
+    // Ko'proq joy qaysi tomonda bo'lsa — o'sha tomonga; sig'masa ichida aylantiriladi
+    setPos(below >= MENU_H || below >= above
+      ? { right, top: r.bottom + 6, maxHeight: below }
+      : { right, bottom: window.innerHeight - r.top + 6, maxHeight: above });
     setOpen(true);
   }
 
@@ -138,7 +145,7 @@ function EmpMenu({ emp, color, onRoleChange }: {
       </button>
       {open && (
         <div className="fixed z-50 w-[290px] overflow-y-auto"
-          style={{...pos,maxHeight:"calc(100vh - 16px)",background:"#FFFFFF",borderRadius:18,boxShadow:"0px 12px 40px rgba(10,22,41,0.16)",border:"1px solid #F4F9FD"}}>
+          style={{...pos,maxHeight:pos.maxHeight ?? "calc(100vh - 16px)",background:"#FFFFFF",borderRadius:18,boxShadow:"0px 12px 40px rgba(10,22,41,0.16)",border:"1px solid #F4F9FD"}}>
 
           {/* Header */}
           <div className="flex items-center gap-2.5 px-4 py-3.5" style={{background:"#FAFCFF",borderBottom:"1px solid #F4F9FD"}}>
@@ -185,12 +192,13 @@ function EmpMenu({ emp, color, onRoleChange }: {
             })}
           </div>
 
+          {emp.role!=="ijro" && (<>
           <div className="px-4 pt-2 pb-1" style={{borderTop:"1px solid #F4F9FD"}}>
-            <p className="text-[10px] font-bold uppercase" style={{color:"#B0B8C8",letterSpacing:"0.06em"}}>Qo'shimcha rollar</p>
-            <p className="text-[10.5px] mt-0.5" style={{color:"#A8B0BD"}}>Xodim profil menyusidan shu rolga o'tib, uning barcha imkoniyatlaridan foydalanadi</p>
+            <p className="text-[10px] font-bold uppercase" style={{color:"#B0B8C8",letterSpacing:"0.06em"}}>Qo'shimcha funksiya</p>
+            <p className="text-[10.5px] mt-0.5" style={{color:"#A8B0BD"}}>Asosiy roli saqlanadi; yuqoridagi profil menyusidan Ijro nazoratiga o'tadi</p>
           </div>
           <div className="px-2 pb-2 flex flex-col gap-0.5">
-            {ROLE_MENU.filter(i=>i.role!==emp.role).map(item=>{
+            {ROLE_MENU.filter(i=>EXTRA_ROLE_OPTIONS.includes(i.role)).map(item=>{
               const Icon = item.icon;
               const on = extras.includes(item.role);
               return (
@@ -212,6 +220,7 @@ function EmpMenu({ emp, color, onRoleChange }: {
               );
             })}
           </div>
+          </>)}
         </div>
       )}
     </div>
