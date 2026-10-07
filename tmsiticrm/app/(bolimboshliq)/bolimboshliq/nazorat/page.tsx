@@ -7,6 +7,8 @@ import {
   Calendar, Send, ClipboardCheck, UserCog, History, Paperclip, X, Hourglass,
 } from "lucide-react";
 import { apiFetch } from "@/lib/api";
+import { switchRole } from "@/lib/auth";
+import { useMyRoles } from "@/components/layout/RoleSwitchNav";
 import InternalDocMineTab from "@/components/internal-docs/InternalDocMineTab";
 import InternalDocInboxTab from "@/components/internal-docs/InternalDocInboxTab";
 
@@ -566,6 +568,8 @@ function DetailPanel({
 
 export default function BolimNazoratPage() {
   const [tab, setTab] = useState<"ijro" | "hujjatlar">("ijro");
+  const myRoles = useMyRoles();
+  const [switchingIjro, setSwitchingIjro] = useState(false);
   const [hujjatSubTab, setHujjatSubTab] = useState<"inbox" | "mine">("inbox");
   const [rows,       setRows]       = useState<DocBolimRow[]>([]);
   const [loading,    setLoading]    = useState(true);
@@ -632,6 +636,21 @@ export default function BolimNazoratPage() {
             {label}
           </button>
         ))}
+        {/* Ijro funksiyasi qo'shimcha berilgan bo'lsa — topshiriq kiritish/biriktirish oynasi */}
+        {myRoles.roles.includes("ijro") && (
+          <button onClick={async () => {
+              setSwitchingIjro(true);
+              try { await switchRole("ijro"); }
+              catch (e) { alert(e instanceof Error ? e.message : "Xatolik"); setSwitchingIjro(false); }
+            }}
+            disabled={switchingIjro}
+            className="px-5 py-2.5 text-sm font-bold transition-all flex items-center gap-2 hover:opacity-90"
+            style={{ background: "rgba(0,196,140,0.12)", color: "#00A876", borderRadius: 12 }}
+            title="Topshiriqlar, kalendar, bo'limlarga biriktirish — Ijro boshqaruvi oynasi">
+            {switchingIjro ? <Loader2 size={14} className="animate-spin" /> : <ClipboardCheck size={14} />}
+            Ijro boshqaruvi (topshiriqlar)
+          </button>
+        )}
       </div>
 
       {tab === "hujjatlar" ? (

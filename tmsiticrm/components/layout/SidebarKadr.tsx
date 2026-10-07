@@ -7,6 +7,7 @@ import { Star, User, LogOut, X, CalendarCheck } from "lucide-react";
 import LottiePlayer from "@/components/ui/LottiePlayer";
 import MobileTopBar from "@/components/layout/MobileTopBar";
 import { clearAuth } from "@/lib/auth";
+import RoleSwitchNav from "@/components/layout/RoleSwitchNav";
 
 const navItems = [
   { href: "/kadr/ball",    icon: Star,          label: "Ball berish" },
@@ -75,6 +76,7 @@ export default function SidebarKadr() {
             );
           })}
         </ul>
+        <RoleSwitchNav />
       </nav>
 
       <div className="mx-2 mb-4">

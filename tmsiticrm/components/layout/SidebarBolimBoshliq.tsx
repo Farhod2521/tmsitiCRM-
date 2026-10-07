@@ -10,6 +10,7 @@ import MobileTopBar from "@/components/layout/MobileTopBar";
 import NavCount from "@/components/layout/NavCount";
 import { useNotifications, countForHref } from "@/lib/notifications";
 import { clearAuth } from "@/lib/auth";
+import RoleSwitchNav from "@/components/layout/RoleSwitchNav";
 
 const BASE_NAV = [
   { href: "/bolimboshliq/nazorat", icon: ClipboardCheck, label: "Ijro nazorati" },
@@ -95,6 +96,7 @@ export default function SidebarBolimBoshliq() {
             );
           })}
         </ul>
+        <RoleSwitchNav />
       </nav>
 
       {/* Support */}

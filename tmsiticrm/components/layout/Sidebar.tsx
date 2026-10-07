@@ -29,6 +29,7 @@ import LottiePlayer from "@/components/ui/LottiePlayer";
 import MobileTopBar from "@/components/layout/MobileTopBar";
 import NavCount from "@/components/layout/NavCount";
 import { useNotifications, countForHref } from "@/lib/notifications";
+import RoleSwitchNav from "@/components/layout/RoleSwitchNav";
 
 const navItems = [
   { href: "/superadmin",              icon: LayoutDashboard, label: "Dashboard",   enabled: true  },
@@ -190,6 +191,7 @@ export default function Sidebar() {
             );
           })}
         </ul>
+        <RoleSwitchNav />
       </nav>
 
       {/* Support Card */}

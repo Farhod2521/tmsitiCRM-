@@ -10,6 +10,7 @@ import LottiePlayer from "@/components/ui/LottiePlayer";
 import MobileTopBar from "@/components/layout/MobileTopBar";
 import NavCount from "@/components/layout/NavCount";
 import { useNotifications, countForHref } from "@/lib/notifications";
+import RoleSwitchNav from "@/components/layout/RoleSwitchNav";
 
 const ROLE_LABEL: Record<string, string> = {
   kadr: "Kadrlar bo'limi vakili",
@@ -124,6 +125,7 @@ export default function SidebarXodim() {
             );
           })}
         </ul>
+        <RoleSwitchNav />
       </nav>
 
       {/* Support Card */}

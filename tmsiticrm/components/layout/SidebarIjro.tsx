@@ -9,6 +9,7 @@ import MobileTopBar from "@/components/layout/MobileTopBar";
 import NavCount from "@/components/layout/NavCount";
 import { useNotifications, countForHref } from "@/lib/notifications";
 import { clearAuth } from "@/lib/auth";
+import RoleSwitchNav from "@/components/layout/RoleSwitchNav";
 
 const navItems = [
   { href: "/ijro/nazorat", icon: ClipboardCheck, label: "Ijro nazorati" },
@@ -81,6 +82,7 @@ export default function SidebarIjro() {
             );
           })}
         </ul>
+        <RoleSwitchNav />
       </nav>
 
       <div className="mx-2 mb-4">
