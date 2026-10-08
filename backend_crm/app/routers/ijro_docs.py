@@ -432,6 +432,72 @@ def ijro_qaror(
     return _make_bolim_out(ab, db)
 
 
+@router.get("/nazorat")
+def nazorat_rows(
+    db:      Session = Depends(get_db),
+    current: models.Employee = Depends(_require_ijro),
+):
+    """Ijro "Nazorat" bo'limi uchun: barcha bo'lim topshiriqlari (hujjat × bo'lim)
+    javob holati bilan — yengil (fayllarsiz), loglar bitta so'rovda olinadi."""
+    rows = (
+        db.query(models.IjroDocBolim)
+        .options(
+            joinedload(models.IjroDocBolim.document).defer(models.IjroDocument.fayl_b64),
+            joinedload(models.IjroDocBolim.bolim),
+            joinedload(models.IjroDocBolim.xodim),
+            joinedload(models.IjroDocBolim.yakunlovchi),
+            defer(models.IjroDocBolim.yakunlash_fayllar_raw),
+        )
+        .all()
+    )
+    ids = [r.id for r in rows]
+    logs: dict[int, list] = {}
+    if ids:
+        for lg in (db.query(models.IjroDocBolimReviewLog)
+                   .filter(models.IjroDocBolimReviewLog.doc_bolim_id.in_(ids))
+                   .order_by(models.IjroDocBolimReviewLog.reviewed_at.asc())):
+            logs.setdefault(lg.doc_bolim_id, []).append(lg)
+    # Fayllar soni — og'ir JSON'ni yuklamasdan (faqat "b64" kalitlari sanaladi)
+    from sqlalchemy import func as _f
+    fcount = dict(db.query(models.IjroDocBolim.id,
+                           _f.length(models.IjroDocBolim.yakunlash_fayllar_raw) - _f.length(_f.replace(models.IjroDocBolim.yakunlash_fayllar_raw, '"b64"', '')))
+                  .filter(models.IjroDocBolim.yakunlash_fayllar_raw.isnot(None)).all())
+    heads = {}
+    for e in db.query(models.Employee).filter(models.role_filter(*_BOLIM_ROLES)):
+        if e.department_id and e.department_id not in heads:
+            heads[e.department_id] = e.full_name
+    emp_names = {e.id: e.full_name for e in db.query(models.Employee.id, models.Employee.full_name)}
+
+    out = []
+    for r in rows:
+        d = r.document
+        if d is None:
+            continue
+        lg = logs.get(r.id, [])
+        out.append({
+            "id": r.id, "doc_id": d.id, "bolim_id": r.bolim_id,
+            "bolim_nomi": r.bolim.name if r.bolim else None,
+            "boshliq_nomi": heads.get(r.bolim_id),
+            "holati": r.holati.value if r.holati else None,
+            "xodim_nomi": r.xodim.full_name if r.xodim else None,
+            "assigned_at": r.assigned_at, "qaror_at": r.qaror_at,
+            "yakunlash_izohi": r.yakunlash_izohi, "yakunlangan_at": r.yakunlangan_at,
+            "yakunlagan_by_nomi": r.yakunlovchi.full_name if r.yakunlovchi else None,
+            "fayllar_soni": int((fcount.get(r.id) or 0) // len('"b64"')),
+            "qayta_soni": sum(1 for x in lg if x.qaror == "rad_etish"),
+            "review_log": [{"qaror": x.qaror, "izoh": x.izoh, "at": x.reviewed_at,
+                            "by": emp_names.get(x.reviewed_by)} for x in lg],
+            "doc": {
+                "hujjat_raqami": d.hujjat_raqami, "hujjat_sanasi": d.hujjat_sanasi,
+                "sarlavha": d.sarlavha, "mazmun": d.mazmun,
+                "manba": d.manba.value if d.manba else None, "tur": d.tur.value if d.tur else None,
+                "ijro_muddati": d.ijro_muddati, "created_at": d.created_at,
+                "holati": d.holati.value if d.holati else None,
+            },
+        })
+    return out
+
+
 @router.get("/my-tasks", response_model=List[schemas.IjroDocBolimOut])
 def my_tasks(
     db:      Session = Depends(get_db),

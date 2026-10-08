@@ -3,24 +3,29 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useState } from "react";
-import { Star, User, LogOut, X, ClipboardCheck, Target, CalendarCheck, ScrollText, LayoutDashboard, CalendarDays, FileText } from "lucide-react";
+import { Star, User, LogOut, X, ClipboardCheck, Target, CalendarCheck, ScrollText, LayoutDashboard, CalendarDays, FileText, ShieldCheck } from "lucide-react";
 import LottiePlayer from "@/components/ui/LottiePlayer";
 import MobileTopBar from "@/components/layout/MobileTopBar";
 import NavCount from "@/components/layout/NavCount";
 import { useNotifications, countForHref } from "@/lib/notifications";
 import { clearAuth } from "@/lib/auth";
-import RoleSwitchNav from "@/components/layout/RoleSwitchNav";
+import RoleSwitchNav, { useMyRoles } from "@/components/layout/RoleSwitchNav";
 
-const navItems = [
+// Ijro funksiyalari — Ijro qo'shimcha rol sifatida berilganlarga faqat shular ko'rinadi
+const IJRO_ITEMS = [
   { href: "/ijro/nazorat",      icon: LayoutDashboard, label: "Bosh sahifa"        },
   { href: "/ijro/topshiriqlar", icon: ClipboardCheck,  label: "Topshiriqlar"       },
   { href: "/ijro/taqvim",       icon: CalendarDays,    label: "Taqvim"             },
+  { href: "/ijro/holat",        icon: ShieldCheck,     label: "Nazorat"            },
   { href: "/ijro/hujjatlarim",  icon: FileText,        label: "Mening hujjatlarim" },
-  { href: "/ijro/kpi",     icon: Target,         label: "KPI"           },
-  { href: "/ijro/ball",    icon: Star,           label: "Ball berish"   },
-  { href: "/ijro/davomat", icon: CalendarCheck,  label: "Davomat"       },
-  { href: "/ijro/arizalarim", icon: ScrollText,     label: "Mening arizalarim" },
-  { href: "/ijro/profile", icon: User,           label: "Profil"        },
+  { href: "/ijro/ball",         icon: Star,            label: "Ball berish"        },
+];
+// Asosiy roli Ijro bo'lgan xodimning shaxsiy bo'limlari
+const PERSONAL_ITEMS = [
+  { href: "/ijro/kpi",        icon: Target,        label: "KPI"               },
+  { href: "/ijro/davomat",    icon: CalendarCheck, label: "Davomat"           },
+  { href: "/ijro/arizalarim", icon: ScrollText,    label: "Mening arizalarim" },
+  { href: "/ijro/profile",    icon: User,          label: "Profil"            },
 ];
 
 export default function SidebarIjro() {
@@ -29,6 +34,10 @@ export default function SidebarIjro() {
   const router   = useRouter();
   const [mobileOpen, setMobileOpen] = useState(false);
   const isActive = (href: string) => pathname.startsWith(href);
+  // Boshqa roldan Ijro'ga o'tgan (Ijro — qo'shimcha rol) bo'lsa, shaxsiy menyular asosiy rolida qoladi
+  const { roles } = useMyRoles();
+  const switched = roles.length > 0 && roles[0] !== "ijro";
+  const navItems = switched ? IJRO_ITEMS : [...IJRO_ITEMS, ...PERSONAL_ITEMS];
 
   function handleLogout() { clearAuth(); router.push("/login"); }
 

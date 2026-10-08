@@ -5,10 +5,11 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { LucideIcon } from "lucide-react";
 import {
-  FileText, CheckCircle2, Clock, AlertCircle, ArrowUp, ArrowDown, Minus, ChevronLeft, ChevronRight,
+  FileText, CheckCircle2, Clock, AlertCircle, ArrowUp, ArrowDown, ChevronLeft, ChevronRight,
   ChevronRight as Arrow, LayoutGrid, List, Plus, MoreHorizontal, Loader2, ArrowRight, CalendarClock,
 } from "lucide-react";
 import Header from "@/components/layout/Header";
+import IjroHero, { HeroStat } from "@/components/ijro/IjroHero";
 import { getUser } from "@/lib/auth";
 import type { IjroDoc, Department, BolimInfo } from "@/components/ijro/IjroNazorat";
 
@@ -65,41 +66,18 @@ function StatusChip({ s }: { s: Status }) {
   );
 }
 
-/* ── Stat kartochka: qiymat, o'tgan oyga nisbatan o'zgarish, 7 oylik mini ustunlar ── */
-function StatCard({ label, value, icon: Icon, color, series, upIsBad }: {
-  label: string; value: number; icon: LucideIcon; color: string; series: number[]; upIsBad?: boolean;
-}) {
+/* ── O'tgan oyga nisbatan o'zgarish (banner statistikasi uchun) ── */
+function Delta({ series, upIsBad }: { series: number[]; upIsBad?: boolean }) {
   const cur = series[series.length - 1] ?? 0, prev = series[series.length - 2] ?? 0;
   const pct = prev === 0 ? (cur > 0 ? 100 : 0) : Math.round(((cur - prev) / prev) * 100);
-  const good = pct === 0 ? null : (pct > 0) !== !!upIsBad;
-  const dColor = good === null ? C.muted : good ? "#00A578" : "#E5484D";
-  const DIcon = pct > 0 ? ArrowUp : pct < 0 ? ArrowDown : Minus;
-  const max = Math.max(1, ...series);
+  if (pct === 0) return null;
+  const good = (pct > 0) !== !!upIsBad;
+  const DIcon = pct > 0 ? ArrowUp : ArrowDown;
   return (
-    <div className="p-5 flex flex-col gap-3" style={CARD}>
-      <div className="flex items-center gap-3">
-        <div className="w-11 h-11 flex-shrink-0 flex items-center justify-center" style={{ background: `${color}1A`, borderRadius: 13 }}>
-          <Icon size={21} style={{ color }} />
-        </div>
-        <p className="text-[13px] font-semibold leading-snug" style={{ color: C.soft }}>{label}</p>
-      </div>
-      <div className="flex items-end justify-between gap-3">
-        <p className="text-[30px] font-bold leading-none" style={{ color: C.ink }}>{value}</p>
-        {/* 7 oylik mini ustunlar — oxirgisi (joriy oy) to'liq rangda */}
-        <div className="flex items-end gap-[3px] h-10" aria-hidden>
-          {series.map((v, i) => (
-            <span key={i} className="w-[5px] rounded-t-[2px]"
-              style={{ height: `${Math.max(12, (v / max) * 100)}%`, background: color, opacity: i === series.length - 1 ? 1 : 0.22 + (i / series.length) * 0.4 }} />
-          ))}
-        </div>
-      </div>
-      <div className="flex items-center gap-2 text-[11px]">
-        <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 font-bold" style={{ background: `${dColor}17`, color: dColor, borderRadius: 6 }}>
-          <DIcon size={11} strokeWidth={3} />{pct > 0 ? "+" : ""}{pct}%
-        </span>
-        <span style={{ color: C.muted }}>o'tgan oyga nisbatan</span>
-      </div>
-    </div>
+    <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 text-[10.5px] font-bold" title="O'tgan oyga nisbatan"
+      style={{ background: good ? "rgba(18,183,106,0.25)" : "rgba(240,68,56,0.28)", color: good ? "#A6F4C5" : "#FECDCA", borderRadius: 6 }}>
+      <DIcon size={10} strokeWidth={3} />{pct > 0 ? "+" : ""}{pct}%
+    </span>
   );
 }
 
@@ -337,25 +315,12 @@ export default function IjroHome({ docs, depts, loading, onRefresh, kit }: {
       <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_330px] gap-5">
         {/* ═══ Chap ustun ═══ */}
         <div className="flex flex-col gap-5 min-w-0">
-          {/* Hero */}
-          <div className="relative overflow-hidden" style={{ borderRadius: 24, minHeight: 190, boxShadow: "0 6px 30px rgba(196,203,214,0.18)" }}>
-            <div className="absolute inset-0" style={{ backgroundImage: "url(/ijro-hero.jpg)", backgroundSize: "cover", backgroundPosition: "right 30%" }} />
-            <div className="absolute inset-0" style={{ background: "linear-gradient(90deg, rgba(244,249,253,0.98) 0%, rgba(244,249,253,0.9) 38%, rgba(244,249,253,0.25) 68%, rgba(244,249,253,0) 100%)" }} />
-            <div className="sm:hidden absolute inset-0" style={{ background: "rgba(244,249,253,0.78)" }} />
-            <div className="relative px-6 sm:px-7 py-7 sm:py-8 max-w-[560px]">
-              <h2 className="font-bold text-2xl sm:text-[30px] leading-tight" style={{ color: C.ink }}>
-                Assalomu alaykum{name ? `, ${name}` : ""}!
-              </h2>
-              <p className="text-sm sm:text-[15px] mt-2" style={{ color: "#3D4557" }}>Bugungi kun — samarali boshqaruv uchun yangi imkoniyat.</p>
-              <div className="w-10 h-[3px] my-4 rounded-full" style={{ background: C.blue }} />
-              <p className="text-sm italic" style={{ color: C.soft }}>&ldquo;Tartib va nazorat — samarali natijaning asosi.&rdquo;</p>
+          {/* Banner: salomlashish + kichik statistika */}
+          <IjroHero title={`Assalomu alaykum${name ? `, ${name}` : ""}!`}>
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 max-w-[760px]">
+              {stats.map(s => <HeroStat key={s.label} icon={s.icon} label={s.label} value={s.value} color={s.color} note={<Delta series={s.series} upIsBad={s.upIsBad} />} />)}
             </div>
-          </div>
-
-          {/* Stat kartochkalar */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 2xl:grid-cols-4 gap-4">
-            {stats.map(s => <StatCard key={s.label} {...s} />)}
-          </div>
+          </IjroHero>
 
           {/* Bo'limlar bo'yicha topshiriqlar */}
           <div className="p-5 sm:p-6" style={CARD}>
