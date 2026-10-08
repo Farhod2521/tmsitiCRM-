@@ -4,12 +4,14 @@ export interface AuditLayer { nomi: string; qalinlik: number | string; lambda: n
 export type AuditData = Record<string, unknown> & {
   devor_qatlamlar: AuditLayer[];
   tom_qatlamlar: AuditLayer[];
+  pol_qatlamlar: AuditLayer[];
 };
 
 export interface AuditListItem {
   id: number;
   title: string;
   bino_nomi: string | null;
+  manzil?: string | null;
   created_by_name: string | null;
   updated_by_name: string | null;
   created_at: string;
@@ -18,21 +20,19 @@ export interface AuditListItem {
   can_edit: boolean;
 }
 
-export interface CalcLoss { key: string; nomi: string; A: number; R: number; Q: number; kw: number; ulush: number; }
+export interface CalcLoss { key: string; nomi: string; A: number; R: number; n?: number; Q: number; kw: number; ulush: number; }
 export interface CalcLayer { nomi: string; qalinlik: number; lambda: number; R: number; }
-export interface CalcRec {
-  kerak_R: number; qoshimcha_R: number; yangi_R: number; yangi_Q_kw: number;
-  kamayish_kw: number; kamayish_foiz: number; tejash_kwh: number; tejash_gkal: number;
-}
 export interface AuditCalc {
-  dt: number;
+  dt: number; hajm: number;
   devor: { qatlamlar: CalcLayer[]; Rk: number; R0: number };
   tom: { qatlamlar: CalcLayer[]; Rk: number; R0: number };
-  deraza_soni: number; deraza_maydon: number; eshik_soni: number; eshik_maydon: number;
-  devor_maydon: number; devor_maydon_auto: number; tom_maydon: number;
+  pol: { qatlamlar: CalcLayer[]; Rk: number; R0: number | null };
+  deraza_soni: number; deraza_maydon: number; deraza_maydon_asosiy: number; yolak_deraza_maydon: number;
+  eshik_soni: number; eshik_maydon: number;
+  devor_maydon: number; devor_maydon_auto: number; tom_maydon: number; pol_maydon: number; pol_maydon_auto: number;
   yoqotishlar: CalcLoss[]; jami_kw: number;
-  taqqoslash: { devor: boolean; tom: boolean; pol: boolean | null; deraza: boolean };
-  tavsiya_devor: CalcRec; tavsiya_tom: CalcRec;
+  taqqoslash: { devor: boolean; tom: boolean; pol: boolean | null; deraza: boolean; eshik: boolean };
+  koef: { deraza: number; eshik: number; yolak: number };
 }
 
 export interface AuditFull extends AuditListItem {

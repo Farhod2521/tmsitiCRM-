@@ -51,6 +51,7 @@ class AuditListItem(BaseModel):
     id: int
     title: str
     bino_nomi: Optional[str] = None
+    manzil: Optional[str] = None          # viloyat, tuman
     created_by_name: Optional[str] = None
     updated_by_name: Optional[str] = None
     created_at: datetime
@@ -77,6 +78,7 @@ class PhotoIn(BaseModel):
 def _item(a: models.EnergyAudit, current) -> dict:
     return dict(
         id=a.id, title=a.title, bino_nomi=(a.data or {}).get("bino_nomi"),
+        manzil=", ".join(x for x in ((a.data or {}).get("viloyat"), (a.data or {}).get("tuman")) if x) or None,
         created_by_name=a.creator.full_name if a.creator else None,
         updated_by_name=a.updater.full_name if a.updater else None,
         created_at=a.created_at, updated_at=a.updated_at,
@@ -170,7 +172,7 @@ def calc_preview(payload: AuditIn, current: models.Employee = Depends(get_curren
 def download_docx(audit_id: int, db: Session = Depends(get_db), current: models.Employee = Depends(get_current_employee)):
     _require_access(current)
     a = _get(db, audit_id)
-    content = build_docx(a.data or {}, a.photos or {})
+    content = build_docx(a.data or {}, a.photos or {}, a.title)
     safe = re.sub(r"[^\w\-]+", "_", a.title, flags=re.UNICODE).strip("_")[:80] or f"energoaudit_{a.id}"
     from urllib.parse import quote
     return Response(

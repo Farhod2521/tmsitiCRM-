@@ -7,16 +7,21 @@ import { apiFetch } from "@/lib/api";
 import { fmtDateTimeUz } from "@/lib/datetime";
 import {
   ArrowLeft, Save, Download, Loader2, Plus, Trash2, Calculator, Building2, Ruler, DoorOpen, Layers,
-  Home, Scale, Lightbulb, Camera, X, CheckCircle2, XCircle, Lock,
+  Home, Scale, Camera, X, CheckCircle2, XCircle, Lock,
 } from "lucide-react";
 import { AuditFull, AuditCalc, AuditData, AuditLayer, downloadAuditDocx, nf } from "./api";
+import { REGIONS, tumanlarOf } from "./regions";
 
-type FieldDef = { key: string; label: string; hint?: string; wide?: boolean; area?: boolean; num?: boolean; unit?: string };
+type FieldDef = {
+  key: string; label: string; hint?: string; wide?: boolean; area?: boolean; num?: boolean; unit?: string;
+  calc?: (c: AuditCalc) => string;          // faqat ko'rsatiladi — boshqa maydonlardan hisoblanadi
+  select?: "viloyat" | "tuman";
+};
 
 const S_UMUMIY: FieldDef[] = [
-  { key: "bino_nomi", label: "Bino (matnda)", hint: "… 12-уйда жойлашган кўп қаватли турар-жой биносида", wide: true, area: true },
-  { key: "sarlavha", label: "Kolontitul (har sahifa tepasida)", hint: "Масалан: Миробод тумани, 12-уй", wide: true },
-  { key: "ilova", label: "Ilova raqami", hint: "1-илова" },
+  { key: "viloyat", label: "Viloyat", select: "viloyat" },
+  { key: "tuman", label: "Tuman / shahar", select: "tuman" },
+  { key: "bino_nomi", label: "Bino (matnda)", hint: "… кўчаси 12-уйда жойлашган кўп қаватли турар-жой биносида", wide: true, area: true },
   { key: "qurilgan_yil", label: "Qurilgan yil", num: true },
   { key: "umumiy_maydon", label: "Umumiy maydoni", num: true, unit: "m²" },
   { key: "qavatlar_soni", label: "Qavatlar soni", num: true },
@@ -30,7 +35,7 @@ const S_OLCHAM: FieldDef[] = [
   { key: "uzunlik", label: "Uzunligi", num: true, unit: "m" },
   { key: "kenglik", label: "Eni", num: true, unit: "m" },
   { key: "balandlik", label: "Balandligi", num: true, unit: "m" },
-  { key: "hajm", label: "Umumiy hajmi", num: true, unit: "m³" },
+  { key: "hajm", label: "Umumiy hajmi (uzunlik × eni × balandlik)", unit: "m³", calc: c => nf(c.hajm, 1) },
   { key: "tom_maydon", label: "Tom maydoni", num: true, unit: "m²" },
   { key: "devor_maydon", label: "Devor maydoni (bo'sh — avto)", num: true, unit: "m²" },
   { key: "pastki_konstruksiya", label: "Pastki konstruksiya", hint: "ертўла ораёпмаси" },
@@ -39,11 +44,11 @@ const S_OLCHAM: FieldDef[] = [
 ];
 const S_DERAZA: FieldDef[] = [
   { key: "deraza_soni", label: "Derazalar soni", num: true, unit: "ta" },
-  { key: "deraza_maydon", label: "Derazalar maydoni", num: true, unit: "m²" },
+  { key: "deraza_maydon", label: "Derazalar maydoni (soni × 2,2)", unit: "m²", calc: c => nf(c.deraza_maydon_asosiy) },
   { key: "yolak_deraza_soni", label: "Yo'lak derazalari soni", num: true, unit: "ta" },
-  { key: "yolak_deraza_maydon", label: "Yo'lak derazalari maydoni", num: true, unit: "m²" },
+  { key: "yolak_deraza_maydon", label: "Yo'lak derazalari maydoni (soni × 1,5)", unit: "m²", calc: c => nf(c.yolak_deraza_maydon) },
   { key: "eshik_soni", label: "Eshiklar soni", num: true, unit: "ta" },
-  { key: "eshik_maydon", label: "Eshiklar maydoni", num: true, unit: "m²" },
+  { key: "eshik_maydon", label: "Eshiklar maydoni (soni × 1,9)", unit: "m²", calc: c => nf(c.eshik_maydon) },
   { key: "deraza_R", label: "Deraza R", num: true, unit: "m²·°C/W" },
   { key: "eshik_R", label: "Eshik R", num: true, unit: "m²·°C/W" },
 ];
@@ -52,28 +57,20 @@ const S_NORMA: FieldDef[] = [
   { key: "dd", label: "Dd, °C·sutka", num: true },
   { key: "t_ichki", label: "Ichki harorat tᵢ", num: true, unit: "°C" },
   { key: "t_tashqi", label: "Tashqi harorat tₑ", num: true, unit: "°C" },
-  { key: "pol_R", label: "Pol R (bo'sh — mavjud emas)", num: true },
   { key: "norma_toifa", label: "Me'yor: bino toifasi", wide: true },
   { key: "norma_dd", label: "Me'yor: Dd oralig'i" },
   { key: "norma_devor", label: "R talab — devor", num: true },
   { key: "norma_tom", label: "R talab — tom", num: true },
   { key: "norma_pol", label: "R talab — pol", num: true },
   { key: "norma_deraza", label: "R talab — deraza", num: true },
+  { key: "norma_eshik", label: "R talab — eshik", num: true },
   { key: "norma_fonar", label: "R talab — fonar", num: true },
 ];
-const S_TAVSIYA: FieldDef[] = [
-  { key: "tavsiya_devor_material", label: "Devor izolyatsiyasi materiali", hint: "базалт плита" },
-  { key: "tavsiya_devor_qalinlik", label: "Qalinligi", num: true, unit: "sm" },
-  { key: "tavsiya_devor_lambda", label: "λ", num: true, unit: "W/m·°C" },
-  { key: "tavsiya_tom_material", label: "Tom izolyatsiyasi materiali", hint: "енгил базалт плита" },
-  { key: "tavsiya_tom_qalinlik", label: "Qalinligi", num: true, unit: "mm" },
-  { key: "tavsiya_tom_lambda", label: "λ", num: true, unit: "W/m·°C" },
-  { key: "isitish_soati", label: "Yillik isitish soatlari", num: true, unit: "soat" },
-];
-const PHOTO_GROUPS: { title: string; slots: string[] }[] = [
-  { title: "Bino tomi va chordoq qavati", slots: ["tom_1", "tom_2", "tom_3"] },
-  { title: "Bino derazalari", slots: ["deraza_1", "deraza_2", "deraza_3"] },
-  { title: "Eshiklar, deraza va framugalar", slots: ["eshik_1", "eshik_2", "eshik_3"] },
+const PHOTOS: { slot: string; title: string; hint: string }[] = [
+  { slot: "muqova", title: "Muqova — bino surati", hint: "Hisobotning birinchi sahifasida" },
+  { slot: "rasm_1", title: "1-расм. Девор конструкциясининг қатламлари", hint: "Devor qatlamlari hisobidan oldin" },
+  { slot: "rasm_2", title: "2-расм. Томёпма конструкциясининг қатламлари", hint: "Tomyopma hisobidan keyin" },
+  { slot: "rasm_3", title: "3-расм. Иссиқлик йўқотишларининг тепловизион тасвири", hint: "Issiqlik yo'qotishlaridan keyin" },
 ];
 
 const INPUT = "w-full px-3 py-2.5 text-sm outline-none disabled:opacity-70";
@@ -174,6 +171,38 @@ export default function AuditEditor({ id, basePath }: { id: number; basePath: st
   if (!audit || !data) return <div className="flex justify-center py-24"><Loader2 size={28} className="animate-spin" style={{ color: "#3F8CFF" }} /></div>;
 
   const field = (f: FieldDef) => {
+    const labelEl = (
+      <span className="block text-[11px] font-bold mb-1" style={{ color: "#7D8592" }}>
+        {f.label}{f.unit && <span style={{ color: "#A8B0BD" }}> · {f.unit}</span>}
+      </span>
+    );
+    if (f.calc) {
+      return (
+        <div key={f.key} className={f.wide ? "sm:col-span-2 lg:col-span-3" : ""}>
+          {labelEl}
+          <div className="w-full px-3 py-2.5 text-sm font-bold flex items-center justify-between gap-2"
+            style={{ background: "#EEF5FF", borderRadius: 10, border: "1px dashed #B9D2F5", color: "#2D6BE0" }} title="Avtomatik hisoblanadi">
+            {calc ? f.calc(calc) : "—"}<Calculator size={14} style={{ color: "#8FB4EA" }} />
+          </div>
+        </div>
+      );
+    }
+    if (f.select) {
+      const opts = f.select === "viloyat" ? REGIONS.map(r => r.nomi) : tumanlarOf(String(data.viloyat || ""));
+      const cur = String(data[f.key] ?? "");
+      return (
+        <label key={f.key}>
+          {labelEl}
+          <select value={cur} disabled={!editable || (f.select === "tuman" && !data.viloyat)}
+            onChange={e => update(f.select === "viloyat" ? { viloyat: e.target.value, tuman: "" } : { tuman: e.target.value })}
+            className={INPUT} style={INPUT_STYLE}>
+            <option value="">— tanlang —</option>
+            {cur && !opts.includes(cur) && <option value={cur}>{cur}</option>}
+            {opts.map(o => <option key={o} value={o}>{o}</option>)}
+          </select>
+        </label>
+      );
+    }
     const raw = data[f.key];
     const value = raw == null ? "" : String(raw);
     const common = {
@@ -184,9 +213,7 @@ export default function AuditEditor({ id, basePath }: { id: number; basePath: st
     };
     return (
       <label key={f.key} className={f.wide ? "sm:col-span-2 lg:col-span-3" : ""}>
-        <span className="block text-[11px] font-bold mb-1" style={{ color: "#7D8592" }}>
-          {f.label}{f.unit && <span style={{ color: "#A8B0BD" }}> · {f.unit}</span>}
-        </span>
+        {labelEl}
         {f.area
           ? <textarea rows={2} className={`${INPUT} resize-none`} {...common} />
           : <input inputMode={f.num ? "decimal" : undefined} className={INPUT} {...common} />}
@@ -240,22 +267,24 @@ export default function AuditEditor({ id, basePath }: { id: number; basePath: st
             layers={data.tom_qatlamlar} calcLayers={calc?.tom.qatlamlar} editable={editable}
             onChange={l => update({ tom_qatlamlar: l })}
             alpha={[["alfa_tom", "αₑ (tom)"]]} data={data} onAlpha={update} />
+          <LayersCard title="Pol qatlamlari" sub="Pastki konstruksiya (ertўla orayopmasi) · R = δ / λ · bo'sh bo'lsa — jadvalda «Мавжуд эмас»"
+            layers={(data.pol_qatlamlar as AuditLayer[] | undefined) ?? []} calcLayers={calc?.pol.qatlamlar} editable={editable} allowEmpty
+            onChange={l => update({ pol_qatlamlar: l })}
+            alpha={[["alfa_pol_ichki", "αᵢ (ichki)"], ["alfa_pol", "αₑ (tashqi)"], ["pol_n", "n (koef.)"], ["pol_maydon", "Maydoni, m²"]]}
+            placeholders={{ pol_maydon: calc ? `avto: ${nf(calc.pol_maydon_auto)}` : "", pol_n: "0.6" }}
+            data={data} onAlpha={update} />
           <Card icon={Scale} title="Me'yorlar va harorat" sub="16-jadval (ҚМҚ 2.01.04-18) va Δt">{S_NORMA.map(field)}</Card>
-          <Card icon={Lightbulb} title="Tavsiyalar (V bo'lim)" sub="Qo'shimcha izolyatsiya hisobi">{S_TAVSIYA.map(field)}</Card>
 
           {/* Suratlar */}
           <section style={{ background: "#FFFFFF", borderRadius: 20, boxShadow: "0px 6px 58px rgba(196,203,214,0.103611)" }}>
-            <SectionHead icon={Camera} title="Suratlar" sub="Hujjatdagi rasm jadvallariga qo'yiladi · bo'sh guruh hujjatga kirmaydi" />
-            <div className="px-5 pb-5 flex flex-col gap-4">
-              {PHOTO_GROUPS.map(g => (
-                <div key={g.title}>
-                  <p className="text-xs font-bold mb-2" style={{ color: "#3D4557" }}>{g.title}</p>
-                  <div className="grid grid-cols-3 gap-3">
-                    {g.slots.map(s => (
-                      <PhotoSlot key={s} src={photos[s]} busy={photoBusy === s} editable={editable}
-                        onPick={f => setPhoto(s, f)} onRemove={() => setPhoto(s, null)} />
-                    ))}
-                  </div>
+            <SectionHead icon={Camera} title="Suratlar" sub="Hujjatdagi joyiga sarlavhasi bilan qo'yiladi · surat yuklanmasa, sarlavhasi ham chiqmaydi" />
+            <div className="px-5 pb-5 grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {PHOTOS.map(ph => (
+                <div key={ph.slot}>
+                  <PhotoSlot src={photos[ph.slot]} busy={photoBusy === ph.slot} editable={editable}
+                    onPick={f => setPhoto(ph.slot, f)} onRemove={() => setPhoto(ph.slot, null)} />
+                  <p className="text-xs font-bold mt-2 text-center" style={{ color: "#0A1629" }}>{ph.title}</p>
+                  <p className="text-[11px] text-center" style={{ color: "#91929E" }}>{ph.hint}</p>
                 </div>
               ))}
             </div>
@@ -291,9 +320,10 @@ function Card({ icon, title, sub, children }: { icon: typeof Home; title: string
   );
 }
 
-function LayersCard({ title, sub, layers, calcLayers, editable, onChange, alpha, data, onAlpha }: {
+function LayersCard({ title, sub, layers, calcLayers, editable, onChange, alpha, data, onAlpha, allowEmpty, placeholders }: {
   title: string; sub: string; layers: AuditLayer[]; calcLayers?: { R: number }[]; editable: boolean;
   onChange: (l: AuditLayer[]) => void; alpha: [string, string][]; data: AuditData; onAlpha: (p: Partial<AuditData>) => void;
+  allowEmpty?: boolean; placeholders?: Record<string, string>;
 }) {
   const upd = (i: number, patch: Partial<AuditLayer>) => onChange(layers.map((l, j) => j === i ? { ...l, ...patch } : l));
   return (
@@ -306,6 +336,9 @@ function LayersCard({ title, sub, layers, calcLayers, editable, onChange, alpha,
               <th key={h} className="text-left px-1.5 text-[11px] font-bold" style={{ color: "#91929E" }}>{h}</th>))}</tr>
           </thead>
           <tbody>
+            {!layers.length && (
+              <tr><td colSpan={6} className="px-1.5 py-3 text-xs" style={{ color: "#91929E" }}>Qatlam yo&apos;q — hujjatda «Мавжуд эмас» deb yoziladi</td></tr>
+            )}
             {layers.map((l, i) => (
               <tr key={i}>
                 <td className="px-1.5 text-xs font-bold" style={{ color: "#91929E", width: 28 }}>{i + 1}</td>
@@ -316,7 +349,7 @@ function LayersCard({ title, sub, layers, calcLayers, editable, onChange, alpha,
                   onChange={e => upd(i, { lambda: e.target.value.replace(",", ".") })} className={`${INPUT} text-center`} style={INPUT_STYLE} /></td>
                 <td className="px-1.5 font-bold text-center" style={{ color: "#3F8CFF", width: 70 }}>{nf(calcLayers?.[i]?.R, 3)}</td>
                 <td className="px-1" style={{ width: 36 }}>
-                  {editable && layers.length > 1 && (
+                  {editable && (allowEmpty || layers.length > 1) && (
                     <button onClick={() => onChange(layers.filter((_, j) => j !== i))} title="O'chirish"
                       className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-[#FDECEC]"><Trash2 size={14} style={{ color: "#FF5C5C" }} /></button>
                   )}
@@ -332,11 +365,11 @@ function LayersCard({ title, sub, layers, calcLayers, editable, onChange, alpha,
               <Plus size={14} /> Qatlam qo&apos;shish
             </button>
           ) : <span />}
-          <div className="flex gap-2">
+          <div className="flex gap-2 flex-wrap">
             {alpha.map(([k, label]) => (
               <label key={k} style={{ width: 110 }}>
                 <span className="block text-[11px] font-bold mb-1" style={{ color: "#7D8592" }}>{label}</span>
-                <input inputMode="decimal" value={String(data[k] ?? "")} disabled={!editable}
+                <input inputMode="decimal" value={String(data[k] ?? "")} disabled={!editable} placeholder={placeholders?.[k]}
                   onChange={e => onAlpha({ [k]: e.target.value.replace(",", ".") } as Partial<AuditData>)} className={INPUT} style={INPUT_STYLE} />
               </label>
             ))}
@@ -381,7 +414,7 @@ function CalcPanel({ calc }: { calc: AuditCalc | null }) {
   const ok = (v: boolean | null) => v == null ? null : v
     ? <span className="inline-flex items-center gap-1 text-xs font-bold" style={{ color: "#16A34A" }}><CheckCircle2 size={13} /> мос</span>
     : <span className="inline-flex items-center gap-1 text-xs font-bold" style={{ color: "#EF4444" }}><XCircle size={13} /> мос эмас</span>;
-  const colors: Record<string, string> = { tom: "#6D5DD3", devor: "#3F8CFF", deraza: "#15C0E6", eshik: "#FFB020" };
+  const colors: Record<string, string> = { tom: "#6D5DD3", devor: "#3F8CFF", deraza: "#15C0E6", eshik: "#FFB020", pol: "#8D6E63" };
   const row = (label: React.ReactNode, value: React.ReactNode) => (
     <div className="flex items-center justify-between py-1.5 text-sm" style={{ borderBottom: "1px solid #F4F9FD" }}>
       <span style={{ color: "#7D8592" }}>{label}</span><span className="font-bold" style={{ color: "#0A1629" }}>{value}</span>
@@ -394,7 +427,10 @@ function CalcPanel({ calc }: { calc: AuditCalc | null }) {
         <div className="px-5 pb-5">
           {row(<>Devor R<sub>0</sub></>, <span className="flex items-center gap-2">{nf(calc.devor.R0, 3)} {ok(calc.taqqoslash.devor)}</span>)}
           {row(<>Tom R<sub>0</sub></>, <span className="flex items-center gap-2">{nf(calc.tom.R0, 3)} {ok(calc.taqqoslash.tom)}</span>)}
+          {row(<>Pol R<sub>0</sub></>, calc.pol.R0 == null ? <span style={{ color: "#91929E" }}>mavjud emas</span>
+            : <span className="flex items-center gap-2">{nf(calc.pol.R0, 3)} {ok(calc.taqqoslash.pol)}</span>)}
           {row("Derazalar", <span className="flex items-center gap-2">{calc.deraza_soni} ta · {nf(calc.deraza_maydon)} m² {ok(calc.taqqoslash.deraza)}</span>)}
+          {row("Umumiy hajm", `${nf(calc.hajm, 1)} m³`)}
           {row("Devor maydoni", `${nf(calc.devor_maydon)} m²`)}
           {row("Δt", `${nf(calc.dt, 1)} °C`)}
 
@@ -413,24 +449,6 @@ function CalcPanel({ calc }: { calc: AuditCalc | null }) {
         </div>
       </div>
 
-      {[["Devor izolyatsiyasi", calc.tavsiya_devor, calc.taqqoslash.devor], ["Tom izolyatsiyasi", calc.tavsiya_tom, calc.taqqoslash.tom]].map(([label, r, fine]) => {
-        const rec = r as AuditCalc["tavsiya_devor"];
-        return (
-          <div key={label as string} className="px-5 py-4" style={{ background: fine ? "#F4F9FD" : "#FFFFFF", borderRadius: 20, boxShadow: "0px 6px 58px rgba(196,203,214,0.103611)" }}>
-            <p className="font-bold text-sm" style={{ color: "#0A1629" }}>{label as string}</p>
-            {fine ? (
-              <p className="text-xs mt-1" style={{ color: "#91929E" }}>Me&apos;yorga mos — hujjatda bu tavsiya chiqmaydi</p>
-            ) : (
-              <div className="mt-2 text-sm">
-                {row("Kerakli qo'shimcha R", nf(rec.kerak_R, 3))}
-                {row("Yangi R", `${nf(rec.yangi_R)} (+${nf(rec.qoshimcha_R)})`)}
-                {row("Yo'qotish kamayadi", `${nf(rec.kamayish_kw, 1)} kVt (${rec.kamayish_foiz}%)`)}
-                {row("Tejash", <span style={{ color: "#16A34A" }}>{Math.round(rec.tejash_kwh).toLocaleString("ru-RU")} kWh · {rec.tejash_gkal} Gkal / yil</span>)}
-              </div>
-            )}
-          </div>
-        );
-      })}
     </aside>
   );
 }

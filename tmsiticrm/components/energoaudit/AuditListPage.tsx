@@ -8,6 +8,7 @@ import { apiFetch } from "@/lib/api";
 import { fmtDateTimeUz } from "@/lib/datetime";
 import { Zap, Plus, Search, Loader2, FileText, Download, Trash2, PencilLine, Eye, X, Image as ImageIcon } from "lucide-react";
 import { AuditListItem, AuditFull, downloadAuditDocx } from "./api";
+import { REGIONS, tumanlarOf } from "./regions";
 
 /** Energoaudit hisobotlari ro'yxati — bo'limning barcha xodimlari hammasini
  *  (kim to'ldirgani bilan) ko'radi. basePath — "/xodim/energoaudit" yoki "/bolimboshliq/energoaudit". */
@@ -102,7 +103,8 @@ export default function AuditListPage({ basePath }: { basePath: string }) {
                     <td className="px-3 py-3 text-xs" style={{ color: "#91929E" }}>{i + 1}</td>
                     <td className="px-3 py-3 font-semibold" style={{ color: "#0A1629", minWidth: 180 }}>{r.title}</td>
                     <td className="px-3 py-3 text-xs" style={{ color: "#3D4557", maxWidth: 320 }}>
-                      <span className="line-clamp-2">{r.bino_nomi || "—"}</span>
+                      {r.manzil && <span className="block font-semibold" style={{ color: "#0A1629" }}>{r.manzil}</span>}
+                      <span className="line-clamp-2">{r.bino_nomi || (r.manzil ? "" : "—")}</span>
                     </td>
                     <td className="px-3 py-3 whitespace-nowrap" style={{ color: "#3D4557" }}>{r.created_by_name || "—"}</td>
                     <td className="px-3 py-3 text-xs whitespace-nowrap" style={{ color: "#7D8592" }}>
@@ -146,16 +148,19 @@ export default function AuditListPage({ basePath }: { basePath: string }) {
 function CreateModal({ onClose, onCreated }: { onClose: () => void; onCreated: (id: number) => void }) {
   const [title, setTitle] = useState("");
   const [bino, setBino] = useState("");
+  const [viloyat, setViloyat] = useState("");
+  const [tuman, setTuman] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   async function create() {
     if (!title.trim()) { setError("Hisobot nomini kiriting"); return; }
+    if (!viloyat || !tuman) { setError("Viloyat va tumanni tanlang"); return; }
     setSaving(true); setError(null);
     try {
       const a = await apiFetch<AuditFull>("/energoaudit", {
         method: "POST",
-        body: JSON.stringify({ title: title.trim(), data: bino.trim() ? { bino_nomi: bino.trim(), sarlavha: title.trim() } : { sarlavha: title.trim() } }),
+        body: JSON.stringify({ title: title.trim(), data: { viloyat, tuman, ...(bino.trim() ? { bino_nomi: bino.trim() } : {}) } }),
       });
       onCreated(a.id);
     } catch (e) {
@@ -177,9 +182,27 @@ function CreateModal({ onClose, onCreated }: { onClose: () => void; onCreated: (
           <label className="block text-xs font-bold mb-1.5" style={{ color: "#7D8592" }}>Hisobot nomi (obyekt)</label>
           <input autoFocus value={title} onChange={e => setTitle(e.target.value)} placeholder="Масалан: Миробод тумани, 12-уй"
             className="w-full px-4 py-3 text-sm outline-none" style={{ background: "#F4F9FD", borderRadius: 12, border: "1px solid #D9E3F0" }} />
+          <div className="grid grid-cols-2 gap-3 mt-3">
+            <label>
+              <span className="block text-xs font-bold mb-1.5" style={{ color: "#7D8592" }}>Viloyat</span>
+              <select value={viloyat} onChange={e => { setViloyat(e.target.value); setTuman(""); }}
+                className="w-full px-3 py-3 text-sm outline-none" style={{ background: "#F4F9FD", borderRadius: 12, border: "1px solid #D9E3F0", color: viloyat ? "#0A1629" : "#91929E" }}>
+                <option value="">— tanlang —</option>
+                {REGIONS.map(r => <option key={r.nomi} value={r.nomi} style={{ color: "#0A1629" }}>{r.nomi}</option>)}
+              </select>
+            </label>
+            <label>
+              <span className="block text-xs font-bold mb-1.5" style={{ color: "#7D8592" }}>Tuman / shahar</span>
+              <select value={tuman} onChange={e => setTuman(e.target.value)} disabled={!viloyat}
+                className="w-full px-3 py-3 text-sm outline-none disabled:opacity-60" style={{ background: "#F4F9FD", borderRadius: 12, border: "1px solid #D9E3F0", color: tuman ? "#0A1629" : "#91929E" }}>
+                <option value="">{viloyat ? "— tanlang —" : "Avval viloyat"}</option>
+                {tumanlarOf(viloyat).map(t => <option key={t} value={t} style={{ color: "#0A1629" }}>{t}</option>)}
+              </select>
+            </label>
+          </div>
           <label className="block text-xs font-bold mt-3 mb-1.5" style={{ color: "#7D8592" }}>Bino (hisobot matni uchun)</label>
           <textarea value={bino} onChange={e => setBino(e.target.value)} rows={2}
-            placeholder="Масалан: Тошкент ш., Миробод т., ... 12-уйда жойлашган кўп қаватли турар-жой биносида"
+            placeholder="Масалан: Нукус кўчаси 12-уйда жойлашган кўп қаватли турар-жой биносида"
             className="w-full px-4 py-3 text-sm outline-none resize-none" style={{ background: "#F4F9FD", borderRadius: 12, border: "1px solid #D9E3F0" }} />
           <p className="text-[11px] mt-2" style={{ color: "#91929E" }}>Qolgan ma&apos;lumotlar keyingi oynada to&apos;ldiriladi — shablondagi namunaviy qiymatlar bilan boshlanadi.</p>
           {error && <p className="text-xs font-bold mt-2" style={{ color: "#FF5C5C" }}>{error}</p>}
