@@ -299,15 +299,15 @@ export default function AuditEditor({ id, basePath }: { id: number; basePath: st
                 </div>
               </div>
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                {rasm3Slots(photos).map(slot => (
-                  <PhotoSlot key={slot} src={photos[slot]} busy={photoBusy === slot} editable={editable}
-                    onPick={f => setPhoto(slot, f)} onRemove={() => setPhoto(slot, null)} />
-                ))}
-                {editable && rasm3Slots(photos).length < RASM3_MAX && (() => {
-                  // keyingi bo'sh raqam (rasm_3_1 … rasm_3_12)
-                  const used = new Set(Object.keys(photos));
-                  const next = Array.from({ length: RASM3_MAX }, (_, i) => `rasm_3_${i + 1}`).find(k => !used.has(k)) ?? "";
-                  return next ? <PhotoSlot key={`new-${next}`} busy={photoBusy === next} editable onPick={f => setPhoto(next, f)} onRemove={() => {}} /> : null;
+                {(() => {
+                  // Doim kamida 3 ta katak (rasm_3_1…3); hammasi to'lsa — yana bitta bo'sh katak (12 tagacha)
+                  const filled = rasm3Slots(photos);
+                  const free = Array.from({ length: RASM3_MAX }, (_, i) => `rasm_3_${i + 1}`).filter(k => !photos[k]);
+                  const empties = editable ? free.slice(0, Math.max(3 - filled.length, filled.length < RASM3_MAX ? 1 : 0)) : [];
+                  return [...filled, ...empties].map(slot => (
+                    <PhotoSlot key={slot} src={photos[slot]} busy={photoBusy === slot} editable={editable}
+                      onPick={f => setPhoto(slot, f)} onRemove={() => setPhoto(slot, null)} />
+                  ));
                 })()}
               </div>
             </div>
