@@ -191,7 +191,7 @@ export default function IjroDocDetail({ docs, depts, docId, onRefresh, kit }: {
   const masulText = (d: IjroDoc) => (d.masul_bolim_boshliqlari_nomi || "").split(", ")[0] || infoOf(d)[0]?.name || "—";
 
   return (
-    <div className="-mt-2 overflow-hidden" style={{ background: "#FFFFFF", borderRadius: 20, boxShadow: "0 6px 30px rgba(196,203,214,0.18)" }}>
+    <div className="-mt-2 overflow-hidden flex flex-col lg:h-[calc(100vh-40px)] lg:min-h-[560px]" style={{ background: "#FFFFFF", borderRadius: 20, boxShadow: "0 6px 30px rgba(196,203,214,0.18)" }}>
       {/* Holat tablari */}
       <div className="flex items-center overflow-x-auto" style={{ borderBottom: "1px solid #EEF1F6" }}>
         {TABS.map(t => {
@@ -207,9 +207,9 @@ export default function IjroDocDetail({ docs, depts, docId, onRefresh, kit }: {
         })}
       </div>
 
-      <div className="flex flex-col lg:flex-row" style={{ minHeight: "calc(100vh - 200px)" }}>
+      <div className="flex flex-col lg:flex-row lg:flex-1 lg:min-h-0">
         {/* Ro'yxat */}
-        <aside className="lg:w-[420px] flex-shrink-0 flex flex-col" style={{ borderRight: "1px solid #EEF1F6" }}>
+        <aside className="lg:w-[420px] flex-shrink-0 flex flex-col lg:min-h-0" style={{ borderRight: "1px solid #EEF1F6" }}>
           <div className="flex items-center gap-3 px-4 py-3.5" style={{ borderBottom: "1px solid #EEF1F6" }}>
             {searchOpen ? (
               <>
@@ -230,7 +230,7 @@ export default function IjroDocDetail({ docs, depts, docId, onRefresh, kit }: {
               </>
             )}
           </div>
-          <div className="flex-1 overflow-y-auto max-h-[340px] lg:max-h-[calc(100vh-260px)]">
+          <div className="flex-1 overflow-y-auto overscroll-contain max-h-[340px] lg:max-h-none lg:min-h-0">
             {shown.map(d => {
               const s = taskStatus(d), active = d.id === docId;
               return (
@@ -258,7 +258,7 @@ export default function IjroDocDetail({ docs, depts, docId, onRefresh, kit }: {
         </aside>
 
         {/* Hujjat */}
-        <section className="flex-1 min-w-0" style={{ background: "#F7F9FC" }}>
+        <section className="flex-1 min-w-0 flex flex-col lg:min-h-0" style={{ background: "#F7F9FC" }}>
           <div className="flex items-center gap-2 px-4 sm:px-6 py-3 bg-white" style={{ borderBottom: "1px solid #EEF1F6" }}>
             <button onClick={() => router.push("/ijro/taqvim")} className="flex items-center gap-2 px-3 py-2 text-[15px] rounded-lg hover:bg-[#F2F4F7]" style={{ color: "#344054" }}>
               <ArrowLeft size={18} /> Ortga
@@ -271,7 +271,7 @@ export default function IjroDocDetail({ docs, depts, docId, onRefresh, kit }: {
             </button>
           </div>
 
-          <div className="p-3 sm:p-4 flex flex-col gap-4">
+          <div className="p-3 sm:p-4 flex flex-col gap-4 lg:flex-1 lg:min-h-0 lg:overflow-y-auto overscroll-contain">
             {!data && !error ? (
               <div className="flex justify-center py-20"><Loader2 size={28} className="animate-spin" style={{ color: "#3F8CFF" }} /></div>
             ) : error ? (

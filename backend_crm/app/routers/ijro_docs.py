@@ -1,5 +1,5 @@
 """Ijro nazorati hujjatlari va topshiriqlari."""
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 from sqlalchemy.orm import Session, joinedload, selectinload, defer
 from typing import List, Optional
 import json
@@ -376,10 +376,69 @@ def yakunlash(
     return _make_bolim_out(ab, db)
 
 
+_MANBA_LABEL = {"pq_pf": "Prezident hujjatlari (PQ/PF)", "vm": "Vazirlar Mahkamasi", "qv": "Vazirlik (QV)", "direktor": "Institut direktori"}
+
+
+def _qaror_message(ab: models.IjroDocBolim, actor: models.Employee, qaror: str, izoh: Optional[str]) -> str:
+    """Nazoratdan yechish / qayta ishlashga qaytarish haqidagi Telegram xabari (HTML)."""
+    from html import escape
+    e = lambda v: escape(v, quote=False)   # apostrof (ko'rib) o'z holicha qolsin
+    from datetime import timedelta
+    d = ab.document
+    now_uz = (datetime.utcnow() + timedelta(hours=5)).strftime("%d.%m.%Y %H:%M")
+    head = ("✅ <b>Topshiriq nazoratdan yechildi</b>" if qaror == "yechish"
+            else "↩️ <b>Topshiriq qayta ishlashga qaytarildi</b>")
+    lines = [head, ""]
+    if d is not None:
+        raqam = d.hujjat_raqami or f"DOC-{d.id}"
+        lines.append(f"📄 Hujjat: <b>№ {e(raqam)}</b>" + (f" ({e(d.hujjat_sanasi)})" if d.hujjat_sanasi else ""))
+        if d.manba:
+            lines.append(f"🏛 Manba: {e(_MANBA_LABEL.get(d.manba.value, d.manba.value))}")
+        if d.sarlavha:
+            lines.append(f"📌 Topshiriq: {e(d.sarlavha)}")
+        if d.mazmun:
+            m = d.mazmun if len(d.mazmun) <= 400 else d.mazmun[:400].rstrip() + "…"
+            lines.append(f"📝 Mazmuni: {e(m)}")
+        if d.ijro_muddati:
+            lines.append(f"⏰ Muddat: {d.ijro_muddati.strftime('%d.%m.%Y')}")
+    if ab.bolim:
+        lines.append(f"🏢 Bo'lim: {e(ab.bolim.name)}")
+    lines.append("")
+    if qaror == "yechish":
+        lines.append(f"👤 Nazoratdan yechdi: <b>{e(actor.full_name)}</b> · {now_uz}")
+        if izoh:
+            lines.append(f"💬 Izoh: {e(izoh)}")
+    else:
+        lines.append(f"👤 Qaytardi: <b>{e(actor.full_name)}</b> · {now_uz}")
+        lines.append(f"❗ Sabab: {e(izoh or 'ko‘rsatilmagan')}")
+        lines.append("")
+        lines.append("Javobni to'g'rilab, CRM orqali qayta yuboring.")
+    return "\n".join(lines)
+
+
+def _qaror_recipients(db: Session, ab: models.IjroDocBolim, actor: models.Employee) -> list[int]:
+    """Ijrochi xodim, javobni yuborgan xodim va bo'lim boshlig'i(lari) — telegram_id'lari."""
+    people = [ab.xodim, ab.yakunlovchi]
+    people += db.query(models.Employee).filter(
+        models.Employee.department_id == ab.bolim_id, models.role_filter(*_BOLIM_ROLES)).all()
+    ids = []
+    for emp in people:
+        if emp is not None and emp.id != actor.id and emp.telegram_id and emp.telegram_id not in ids:
+            ids.append(emp.telegram_id)
+    return ids
+
+
+def _send_qaror(chat_ids: list[int], text: str) -> None:
+    from ..telegram import telegram_api
+    for cid in chat_ids:
+        telegram_api("sendMessage", {"chat_id": cid, "text": text, "parse_mode": "HTML", "disable_web_page_preview": True})
+
+
 @router.post("/bolim-inbox/{doc_bolim_id}/ijro-qaror", response_model=schemas.IjroDocBolimOut)
 def ijro_qaror(
     doc_bolim_id: int,
     data:    schemas.IjroReviewIn,
+    background: BackgroundTasks,
     db:      Session = Depends(get_db),
     current: models.Employee = Depends(get_current_employee),
 ):
@@ -429,6 +488,10 @@ def ijro_qaror(
 
     db.commit()
     db.refresh(ab)
+    # Bo'lim (ijrochi, javob yuborgan xodim, bo'lim boshlig'i) Telegram'da xabardor qilinadi — fonda
+    chat_ids = _qaror_recipients(db, ab, current)
+    if chat_ids:
+        background.add_task(_send_qaror, chat_ids, _qaror_message(ab, current, data.qaror, data.izoh))
     return _make_bolim_out(ab, db)
 
 

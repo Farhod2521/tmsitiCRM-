@@ -303,15 +303,15 @@ function NazoratSplit({ rows, docs, onAccept, onReturn, busyId, reloadKey }: {
     </div>
   );
   return (
-    <div className="flex flex-col lg:flex-row overflow-hidden" style={{ ...CARD, minHeight: "calc(100vh - 290px)" }}>
-      <aside className="lg:w-[400px] flex-shrink-0 flex flex-col" style={{ borderRight: "1px solid #EEF1F6" }}>
+    <div className="flex flex-col lg:flex-row overflow-hidden lg:h-[calc(100vh-250px)] lg:min-h-[520px]" style={CARD}>
+      <aside className="lg:w-[400px] flex-shrink-0 flex flex-col lg:min-h-0" style={{ borderRight: "1px solid #EEF1F6" }}>
         <label className="flex items-center gap-3 px-4 py-3.5" style={{ borderBottom: "1px solid #EEF1F6" }}>
           <Search size={18} style={{ color: "#667085" }} />
           <input value={q} onChange={e => setQ(e.target.value)} placeholder="Raqam, nom, bo'lim yoki ijrochi..."
             className="flex-1 min-w-0 bg-transparent outline-none text-sm" style={{ color: "#101828" }} />
           <span className="text-xs" style={{ color: "#667085" }}>{list.length}</span>
         </label>
-        <div className="flex-1 overflow-y-auto max-h-[340px] lg:max-h-[calc(100vh-340px)]">
+        <div className="flex-1 overflow-y-auto overscroll-contain max-h-[340px] lg:max-h-none lg:min-h-0">
           {list.map(r => {
             const k = kindOf(r), kc = KIND[k], on = sel?.id === r.id;
             const du = daysFromToday(r.doc.ijro_muddati), late = k !== "qabul" && du !== null && du < 0;
@@ -340,7 +340,7 @@ function NazoratSplit({ rows, docs, onAccept, onReturn, busyId, reloadKey }: {
           {!list.length && <p className="text-sm text-center py-10" style={{ color: "#98A2B3" }}>Topilmadi</p>}
         </div>
       </aside>
-      <section className="flex-1 min-w-0 p-3 sm:p-4 flex flex-col gap-4" style={{ background: "#F7F9FC" }}>
+      <section className="flex-1 min-w-0 lg:min-h-0 lg:overflow-y-auto overscroll-contain p-3 sm:p-4 flex flex-col gap-4" style={{ background: "#F7F9FC" }}>
         {!sel ? null : !data && !error ? (
           <div className="flex justify-center py-20"><Loader2 size={28} className="animate-spin" style={{ color: "#3F8CFF" }} /></div>
         ) : error ? (
