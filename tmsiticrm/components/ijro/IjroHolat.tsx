@@ -4,13 +4,14 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   BarChart3, MessageSquareText, CheckCircle2, AlertCircle, RotateCcw, Eye, Check, Loader2, Paperclip, X, ChevronDown, Inbox,
-  Users, AlarmClockOff, Timer,
+  Users, AlarmClockOff, Timer, XCircle, Search,
 } from "lucide-react";
 import { apiFetch } from "@/lib/api";
 import IjroHero from "@/components/ijro/IjroHero";
-import IjroDocModal from "@/components/ijro/IjroDocModal";
+import IjroDocModal, { useTracking, type Tracking } from "@/components/ijro/IjroDocModal";
+import { DocCards } from "@/components/ijro/IjroDocDetail";
 import type { IjroDoc } from "@/components/ijro/IjroNazorat";
-import { MANBA_LABEL, fmtShort, fmtLongDT, daysFromToday } from "@/components/ijro/ijroShared";
+import { MANBA_LABEL, fmtShort, fmtLongDT, daysFromToday, downloadB64, shortName } from "@/components/ijro/ijroShared";
 
 interface NRow {
   id: number; doc_id: number; bolim_id: number; bolim_nomi: string | null; boshliq_nomi: string | null;
@@ -78,7 +79,7 @@ function QaytaModal({ row, onClose, onDone }: { row: NRow; onClose: () => void; 
       <div className="w-full max-w-md p-6" style={{ background: "#FFFFFF", borderRadius: 18 }} onClick={e => e.stopPropagation()}>
         <div className="flex items-start justify-between gap-3">
           <div>
-            <h3 className="font-bold text-lg" style={{ color: "#101828" }}>Qayta nazoratga yuborish</h3>
+            <h3 className="font-bold text-lg" style={{ color: "#101828" }}>Qayta ishlashga yuborish</h3>
             <p className="text-sm mt-1" style={{ color: "#667085" }}>{row.bolim_nomi} · {row.doc.hujjat_raqami || `DOC-${row.doc_id}`}</p>
           </div>
           <button onClick={onClose} aria-label="Yopish"><X size={18} style={{ color: "#667085" }} /></button>
@@ -91,7 +92,7 @@ function QaytaModal({ row, onClose, onDone }: { row: NRow; onClose: () => void; 
           <button onClick={onClose} className="flex-1 py-2.5 text-sm font-semibold" style={{ background: "#F2F4F7", color: "#344054", borderRadius: 12 }}>Bekor qilish</button>
           <button onClick={send} disabled={busy} className="flex-1 py-2.5 text-sm font-semibold text-white flex items-center justify-center gap-2 disabled:opacity-60"
             style={{ background: "#F04438", borderRadius: 12 }}>
-            {busy ? <Loader2 size={15} className="animate-spin" /> : <RotateCcw size={15} />} Qaytarish
+            {busy ? <Loader2 size={15} className="animate-spin" /> : <RotateCcw size={15} />} Yuborish
           </button>
         </div>
       </div>
@@ -210,6 +211,150 @@ function Bar({ pct }: { pct: number }) {
   );
 }
 
+/* ── Javoblar ko'rinishi: chapda ro'yxat, o'ngda hujjat + bo'lim javobi ── */
+function JavobCard({ row, data, onAccept, onReturn, busy }: {
+  row: NRow; data: Tracking; onAccept: () => void; onReturn: () => void; busy: boolean;
+}) {
+  const b = data.bolimlar.find(x => x.id === row.id);
+  const k = kindOf(row), kc = KIND[k];
+  const logs = b?.review_log ?? [];
+  return (
+    <div className="bg-white" style={{ border: `1.5px solid ${k === "javob" ? "#FDDC8A" : "#EEF1F6"}`, borderRadius: 12 }}>
+      <div className="flex flex-wrap items-center gap-3 px-4 sm:px-5 py-4" style={{ borderBottom: "1px solid #EEF1F6" }}>
+        <span className="text-lg" style={{ color: "#101828" }}>Bo&apos;lim javobi</span>
+        <span className="px-2.5 py-1 text-xs font-semibold" style={{ background: kc.bg, color: kc.color, borderRadius: 999 }}>{kc.label}</span>
+        <span className="ml-auto text-sm font-semibold" style={{ color: "#344054" }}>{row.bolim_nomi}</span>
+      </div>
+      <div className="px-4 sm:px-5 py-4 flex flex-col gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <p className="text-sm" style={{ color: "#667085" }}>Ijrochi</p>
+            <p className="text-[15px] mt-1" style={{ color: "#101828" }}>{row.xodim_nomi || row.boshliq_nomi || "—"}</p>
+          </div>
+          <div>
+            <p className="text-sm" style={{ color: "#667085" }}>Javob yuborilgan</p>
+            <p className="text-[15px] mt-1" style={{ color: "#101828" }}>
+              {row.yakunlangan_at ? `${fmtLongDT(row.yakunlangan_at)}${row.yakunlagan_by_nomi ? ` · ${row.yakunlagan_by_nomi}` : ""}` : "Javob hali yuborilmagan"}
+            </p>
+          </div>
+        </div>
+        <div>
+          <p className="text-sm" style={{ color: "#667085" }}>Javob matni</p>
+          <p className="text-[15px] mt-1 leading-relaxed" style={{ color: "#101828", whiteSpace: "pre-wrap" }}>{b?.yakunlash_izohi || row.yakunlash_izohi || "—"}</p>
+        </div>
+        {b && b.yakunlash_fayllar.length > 0 && (
+          <div className="flex flex-wrap gap-2">
+            {b.yakunlash_fayllar.map(f => (
+              <button key={f.name} onClick={() => downloadB64(f.name, f.b64)} className="flex items-center gap-2 px-3.5 py-2.5 text-sm hover:bg-[#F7F9FC]"
+                style={{ border: "1px solid #E4E7EC", borderRadius: 10, color: "#344054" }}>
+                <Paperclip size={14} style={{ color: "#667085" }} /> {shortName(f.name, 26)}
+              </button>
+            ))}
+          </div>
+        )}
+        {logs.length > 0 && (
+          <div className="flex flex-col gap-2 mt-1">
+            <p className="text-sm" style={{ color: "#667085" }}>Nazorat tarixi</p>
+            {logs.map(l => (
+              <div key={l.id} className="flex items-start gap-2.5 px-3 py-2.5" style={{ background: l.qaror === "rad_etish" ? "#FEF3F2" : "#ECFDF3", borderRadius: 10 }}>
+                {l.qaror === "rad_etish" ? <XCircle size={16} style={{ color: "#D92D20", marginTop: 2 }} /> : <CheckCircle2 size={16} style={{ color: "#12B76A", marginTop: 2 }} />}
+                <span className="text-sm" style={{ color: "#344054" }}>
+                  <b>{l.qaror === "rad_etish" ? "Qayta ishlashga yuborildi" : "Nazoratdan yechildi"}</b>
+                  {l.izoh && <> — {l.izoh}</>}
+                  <span className="block text-xs mt-0.5" style={{ color: "#98A2B3" }}>{l.reviewed_by_nomi || ""}{l.reviewed_at ? ` · ${fmtLongDT(l.reviewed_at)}` : ""}</span>
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
+        {k === "javob" && (
+          <div className="flex flex-wrap gap-3 pt-2">
+            <button onClick={onAccept} disabled={busy}
+              className="flex items-center gap-2 px-5 py-2.5 text-[15px] hover:bg-[#EEF4FF] disabled:opacity-60"
+              style={{ border: "1px solid #C7D2FE", color: "#3F3FD8", borderRadius: 999 }}>
+              {busy ? <Loader2 size={18} className="animate-spin" /> : <CheckCircle2 size={18} />} Nazoratdan yechish
+            </button>
+            <button onClick={onReturn}
+              className="flex items-center gap-2 px-5 py-2.5 text-[15px] hover:bg-[#FEF3F2]"
+              style={{ border: "1px solid #FECDCA", color: "#D92D20", borderRadius: 999 }}>
+              <XCircle size={18} /> Qayta ishlashga yuborish
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function NazoratSplit({ rows, docs, onAccept, onReturn, busyId, reloadKey }: {
+  rows: NRow[]; docs: IjroDoc[]; onAccept: (r: NRow) => void; onReturn: (r: NRow) => void; busyId: number | null; reloadKey: number;
+}) {
+  const [selId, setSelId] = useState<number | null>(null);
+  const [q, setQ] = useState("");
+  const list = rows.filter(r => !q.trim() || [r.doc.hujjat_raqami, r.doc.sarlavha, r.doc.mazmun, r.bolim_nomi, r.xodim_nomi]
+    .filter(Boolean).join(" ").toLowerCase().includes(q.trim().toLowerCase()));
+  const sel = list.find(r => r.id === selId) ?? list[0] ?? null;
+  const { data, error } = useTracking(sel ? sel.doc_id : null, reloadKey);
+
+  if (!rows.length) return (
+    <div className="flex flex-col items-center gap-2 py-16" style={CARD}>
+      <Inbox size={32} style={{ color: "#D0D5DD" }} />
+      <p className="text-sm" style={{ color: "#98A2B3" }}>Bu bo&apos;limda topshiriq yo&apos;q</p>
+    </div>
+  );
+  return (
+    <div className="flex flex-col lg:flex-row overflow-hidden" style={{ ...CARD, minHeight: "calc(100vh - 290px)" }}>
+      <aside className="lg:w-[400px] flex-shrink-0 flex flex-col" style={{ borderRight: "1px solid #EEF1F6" }}>
+        <label className="flex items-center gap-3 px-4 py-3.5" style={{ borderBottom: "1px solid #EEF1F6" }}>
+          <Search size={18} style={{ color: "#667085" }} />
+          <input value={q} onChange={e => setQ(e.target.value)} placeholder="Raqam, nom, bo'lim yoki ijrochi..."
+            className="flex-1 min-w-0 bg-transparent outline-none text-sm" style={{ color: "#101828" }} />
+          <span className="text-xs" style={{ color: "#667085" }}>{list.length}</span>
+        </label>
+        <div className="flex-1 overflow-y-auto max-h-[340px] lg:max-h-[calc(100vh-340px)]">
+          {list.map(r => {
+            const k = kindOf(r), kc = KIND[k], on = sel?.id === r.id;
+            const du = daysFromToday(r.doc.ijro_muddati), late = k !== "qabul" && du !== null && du < 0;
+            return (
+              <button key={r.id} onClick={() => setSelId(r.id)} className="w-full text-left px-4 py-3.5 flex flex-col gap-1 hover:bg-[#F9FAFB]"
+                style={{ background: on ? "#EEF4FF" : undefined, borderBottom: "1px solid #EEF1F6" }}>
+                <span className="flex items-center gap-2">
+                  <b className="text-[15px]" style={{ color: "#101828" }}>{r.doc.hujjat_raqami || `DOC-${r.doc_id}`}</b>
+                  <span className="ml-auto text-xs" style={{ color: "#98A2B3" }}>{fmtShort(r.doc.hujjat_sanasi || r.doc.created_at)}</span>
+                </span>
+                <span className="flex items-center gap-2">
+                  <span className="flex-1 min-w-0 text-sm truncate" style={{ color: "#344054" }}>{r.bolim_nomi}</span>
+                  <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ background: kc.color }} title={kc.label} />
+                </span>
+                <span className="text-sm truncate" style={{ color: "#667085" }}>{r.doc.sarlavha || r.doc.mazmun || "—"}</span>
+                <span className="text-sm" style={{ color: "#101828" }}>
+                  Bajarish muddati : <span style={{ color: late ? "#D92D20" : undefined }}>{r.doc.ijro_muddati ? fmtShort(r.doc.ijro_muddati) : "—"}</span>
+                  {late && du !== null && <span className="text-xs" style={{ color: "#D92D20" }}> ({-du} kun)</span>}
+                </span>
+                <span className="mt-1 self-start px-2.5 py-1.5 text-[13px]" style={{ border: "1px solid #E4E7EC", borderRadius: 8, color: "#101828", background: "#FFFFFF" }}>
+                  {r.xodim_nomi || r.boshliq_nomi || "—"}
+                </span>
+              </button>
+            );
+          })}
+          {!list.length && <p className="text-sm text-center py-10" style={{ color: "#98A2B3" }}>Topilmadi</p>}
+        </div>
+      </aside>
+      <section className="flex-1 min-w-0 p-3 sm:p-4 flex flex-col gap-4" style={{ background: "#F7F9FC" }}>
+        {!sel ? null : !data && !error ? (
+          <div className="flex justify-center py-20"><Loader2 size={28} className="animate-spin" style={{ color: "#3F8CFF" }} /></div>
+        ) : error ? (
+          <p className="text-sm text-center py-16" style={{ color: "#D92D20" }}>{error}</p>
+        ) : data && (
+          <DocCards data={data} docs={docs}>
+            <JavobCard row={sel} data={data} busy={busyId === sel.id} onAccept={() => onAccept(sel)} onReturn={() => onReturn(sel)} />
+          </DocCards>
+        )}
+      </section>
+    </div>
+  );
+}
+
 /** Ijro roli — "Nazorat": topshiriqlar ijro holati. */
 export default function IjroHolat() {
   const router = useRouter();
@@ -223,18 +368,19 @@ export default function IjroHolat() {
   const [openDoc, setOpenDoc] = useState<number | null>(null);
   const [qayta, setQayta] = useState<NRow | null>(null);
   const [busyId, setBusyId] = useState<number | null>(null);
+  const [reloadKey, setReloadKey] = useState(0);   // qarordan keyin o'ngdagi hujjat ham yangilansin
 
   const load = useCallback(async () => {
     try {
       const [r, d] = await Promise.all([apiFetch<NRow[]>("/ijro-docs/nazorat"), apiFetch<IjroDoc[]>("/ijro-docs/")]);
-      setRows(r); setDocs(d); setError(null);
+      setRows(r); setDocs(d); setError(null); setReloadKey(k => k + 1);
     } catch (e) { setError(e instanceof Error ? e.message : "Yuklab bo'lmadi"); }
     finally { setLoading(false); }
   }, []);
   useEffect(() => { load(); }, [load]);
 
   async function accept(r: NRow) {
-    if (!confirm(`${r.bolim_nomi} javobini qabul qilasizmi? Topshiriq shu bo'lim uchun bajarildi deb belgilanadi.`)) return;
+    if (!confirm(`${r.bolim_nomi} javobini qabul qilib, nazoratdan yechasizmi? Topshiriq shu bo'lim uchun bajarildi deb belgilanadi.`)) return;
     setBusyId(r.id);
     try {
       await apiFetch(`/ijro-docs/bolim-inbox/${r.id}/ijro-qaror`, { method: "POST", body: JSON.stringify({ qaror: "yechish" }) });
@@ -407,9 +553,7 @@ export default function IjroHolat() {
           </div>
         </>
       ) : (
-        <div className="p-3 sm:p-4" style={CARD}>
-          <RowsTable rows={lists[tab]} tab={tab} onOpen={setOpenDoc} onAccept={accept} onReturn={setQayta} busyId={busyId} />
-        </div>
+        <NazoratSplit key={tab} rows={lists[tab]} docs={docs} onAccept={accept} onReturn={setQayta} busyId={busyId} reloadKey={reloadKey} />
       )}
 
       {openDoc !== null && <IjroDocModal docId={openDoc} onClose={() => setOpenDoc(null)} />}

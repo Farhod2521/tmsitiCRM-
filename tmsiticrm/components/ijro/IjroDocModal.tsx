@@ -11,6 +11,7 @@ import {
 
 export interface TrackBolim {
   id: number; bolim_id: number; bolim_nomi: string | null; holati: string;
+  review_log?: { id: number; qaror: string; izoh: string | null; reviewed_by_nomi: string | null; reviewed_at: string | null }[];
   izoh: string | null; qaror_at: string | null; qaror_by_nomi: string | null;
   xodim_nomi: string | null; yakunlash_izohi: string | null;
   yakunlash_fayllar: { name: string; b64: string }[]; yakunlangan_at: string | null; yakunlagan_by_nomi: string | null;
@@ -26,7 +27,7 @@ export const BOLIM_HOLAT: Record<string, { label: string; color: string; bg: str
   rad_etildi:        { label: "Rad etildi",    color: "#C4320A", bg: "#FDE7E4" },
 };
 
-export function useTracking(docId: number | null) {
+export function useTracking(docId: number | null, reloadKey = 0) {
   const [data, setData] = useState<Tracking | null>(null);
   const [error, setError] = useState<string | null>(null);
   useEffect(() => {
@@ -37,7 +38,7 @@ export function useTracking(docId: number | null) {
       .then(r => { if (alive) setData(r); })
       .catch(e => { if (alive) setError(e instanceof Error ? e.message : "Yuklab bo'lmadi"); });
     return () => { alive = false; };
-  }, [docId]);
+  }, [docId, reloadKey]);
   return { data, error };
 }
 
