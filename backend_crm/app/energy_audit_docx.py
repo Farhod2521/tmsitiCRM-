@@ -152,7 +152,16 @@ def _r0(layers, a_in, a_out) -> tuple[float, float]:
 def calculate(data: dict) -> dict:
     d = merged(data)
     ai = _num(d["alfa_ichki"], 8.7)
-    dt = _num(d["t_ichki"], 20) - _num(d["t_tashqi"], -15)
+    # Tashqi harorat va isitish davri — ШНҚ 2.01.01-22 4-jadvaldan (viloyat/tuman bo'yicha)
+    from .energy_climate import lookup
+    t_in = _num(d["t_ichki"], 20)
+    cl = lookup(d.get("viloyat"), d.get("tuman"))
+    if cl:
+        t_out = cl["t_hisob"]
+        dd = round((t_in - cl["t_ort"]) * cl["z"])
+    else:   # viloyat tanlanmagan eski hisobotlar — avvalgi qo'lda kiritilgan qiymatlar
+        t_out, dd = _num(d["t_tashqi"], -15), round(_num(d["dd"], 0))
+    dt = t_in - t_out
 
     wall_layers, roof_layers, floor_layers = _layers(d["devor_qatlamlar"]), _layers(d["tom_qatlamlar"]), _layers(d.get("pol_qatlamlar"))
     wall_rk, wall_r0 = _r0(wall_layers, ai, _num(d["alfa_devor"], 23))
@@ -200,7 +209,8 @@ def calculate(data: dict) -> dict:
         "eshik": rd >= n["eshik"],
     }
     return {
-        "dt": dt, "hajm": hajm,
+        "dt": dt, "hajm": hajm, "dd": dd, "t_tashqi": t_out,
+        "iqlim": ({**cl, "dd": dd, "t_ichki": t_in} if cl else None),
         "devor": {"qatlamlar": wall_layers, "Rk": wall_rk, "R0": wall_r0},
         "tom": {"qatlamlar": roof_layers, "Rk": roof_rk, "R0": roof_r0},
         "pol": {"qatlamlar": floor_layers, "Rk": floor_rk, "R0": floor_r0 if has_floor else None},
@@ -489,7 +499,7 @@ def build_docx(data: dict, photos: Optional[dict] = None, title: str = "") -> by
                                nfmt(_num(d["norma_pol"])), nfmt(_num(d["norma_deraza"])), nfmt(_num(d["norma_fonar"]))]):
         set_cell(t, 2, col, str(val))
     pol_r0 = c["pol"]["R0"]
-    for col, val in enumerate([d["bino_toifa"], fmt(_num(d["dd"]), 0), fmt(c["devor"]["R0"], 3), fmt(c["tom"]["R0"], 3),
+    for col, val in enumerate([d["bino_toifa"], fmt(c["dd"], 0), fmt(c["devor"]["R0"], 3), fmt(c["tom"]["R0"], 3),
                                "Мавжуд эмас" if pol_r0 is None else fmt(pol_r0, 3),
                                fmt(_num(d["deraza_R"]), 3), "Мавжуд эмас"]):
         set_cell(t, 3, col, val)

@@ -54,9 +54,7 @@ const S_DERAZA: FieldDef[] = [
 ];
 const S_NORMA: FieldDef[] = [
   { key: "bino_toifa", label: "Bino toifasi (jadvalda)", hint: "Кўп қаватли уй-жойлар" },
-  { key: "dd", label: "Dd, °C·sutka", num: true },
   { key: "t_ichki", label: "Ichki harorat tᵢ", num: true, unit: "°C" },
-  { key: "t_tashqi", label: "Tashqi harorat tₑ", num: true, unit: "°C" },
   { key: "norma_toifa", label: "Me'yor: bino toifasi", wide: true },
   { key: "norma_dd", label: "Me'yor: Dd oralig'i" },
   { key: "norma_devor", label: "R talab — devor", num: true },
@@ -276,7 +274,25 @@ export default function AuditEditor({ id, basePath }: { id: number; basePath: st
             alpha={[["alfa_pol_ichki", "αᵢ (ichki)"], ["alfa_pol", "αₑ (tashqi)"], ["pol_n", "n (koef.)"], ["pol_maydon", "Maydoni, m²"]]}
             placeholders={{ pol_maydon: calc ? `avto: ${nf(calc.pol_maydon_auto)}` : "", pol_n: "0.6" }}
             data={data} onAlpha={update} />
-          <Card icon={Scale} title="Me'yorlar va harorat" sub="16-jadval (ҚМҚ 2.01.04-18) va Δt">{S_NORMA.map(field)}</Card>
+          <Card icon={Scale} title="Me'yorlar va harorat" sub="2-jadval (ҚМҚ 2.01.04-18), Dd va Δt">
+            {S_NORMA.slice(0, 2).map(field)}
+            {(calc?.iqlim ? [
+              { key: "t_tashqi", label: "Tashqi hisobiy harorat tₑ (0,92)", unit: "°C", calc: (c: AuditCalc) => nf(c.t_tashqi, 1) },
+              { key: "z", label: "Isitish davri Z (t ≤ 12 °C)", unit: "sutka", calc: (c: AuditCalc) => String(c.iqlim?.z ?? "—") },
+              { key: "t_ort", label: "Davrning o'rtacha harorati", unit: "°C", calc: (c: AuditCalc) => nf(c.iqlim?.t_ort, 1) },
+              { key: "dd", label: "Dd = (tᵢ − t_o'rt) × Z", unit: "°C·sutka", calc: (c: AuditCalc) => String(c.dd) },
+            ] : [
+              { key: "t_tashqi", label: "Tashqi harorat tₑ (viloyat tanlanmagan)", num: true, unit: "°C" },
+              { key: "dd", label: "Dd, °C·sutka (viloyat tanlanmagan)", num: true },
+            ] as FieldDef[]).map(field)}
+            {calc?.iqlim && (
+              <p className="sm:col-span-2 lg:col-span-3 text-[11px] -mt-1" style={{ color: "#7D8592" }}>
+                Manba: ШНҚ 2.01.01-22, 4-жадвал — <b>{calc.iqlim.stansiya}</b> stansiyasi
+                {calc.iqlim.markaz ? " (tanlangan tuman jadvalda yo'q — viloyat markazi olindi)" : ""}
+              </p>
+            )}
+            {S_NORMA.slice(2).map(field)}
+          </Card>
 
           {/* Suratlar */}
           <section style={{ background: "#FFFFFF", borderRadius: 20, boxShadow: "0px 6px 58px rgba(196,203,214,0.103611)" }}>

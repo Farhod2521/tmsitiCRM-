@@ -23,7 +23,9 @@ export interface AuditListItem {
 export interface CalcLoss { key: string; nomi: string; A: number; R: number; n?: number; Q: number; kw: number; ulush: number; }
 export interface CalcLayer { nomi: string; qalinlik: number; lambda: number; R: number; }
 export interface AuditCalc {
-  dt: number; hajm: number;
+  dt: number; hajm: number; dd: number; t_tashqi: number;
+  /** ШНҚ 2.01.01-22 4-жадвал: stansiya va uning qiymatlari (viloyat tanlanmagan bo'lsa null) */
+  iqlim: { stansiya: string; t_hisob: number; z: number; t_ort: number; markaz: boolean; dd: number; t_ichki: number } | null;
   devor: { qatlamlar: CalcLayer[]; Rk: number; R0: number };
   tom: { qatlamlar: CalcLayer[]; Rk: number; R0: number };
   pol: { qatlamlar: CalcLayer[]; Rk: number; R0: number | null };
