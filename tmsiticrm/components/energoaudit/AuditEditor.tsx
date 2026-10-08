@@ -67,11 +67,14 @@ const S_NORMA: FieldDef[] = [
   { key: "norma_fonar", label: "R talab — fonar", num: true },
 ];
 const PHOTOS: { slot: string; title: string; hint: string }[] = [
-  { slot: "muqova", title: "Muqova — bino surati", hint: "Hisobotning birinchi sahifasida" },
   { slot: "rasm_1", title: "1-расм. Девор конструкциясининг қатламлари", hint: "Devor qatlamlari hisobidan oldin" },
   { slot: "rasm_2", title: "2-расм. Томёпма конструкциясининг қатламлари", hint: "Tomyopma hisobidan keyin" },
-  { slot: "rasm_3", title: "3-расм. Иссиқлик йўқотишларининг тепловизион тасвири", hint: "Issiqlik yo'qotishlaridan keyin" },
 ];
+// 3-rasm (tepловизор suratlari) — bir nechta; Word'da 3 ustunli jadvalga joylanadi
+const RASM3_MAX = 12;
+const rasm3Slots = (photos: Record<string, string>) =>
+  Object.keys(photos).filter(k => (k === "rasm_3" || k.startsWith("rasm_3_")) && photos[k])
+    .sort((a, b) => (a === "rasm_3" ? 0 : Number(a.split("_")[2])) - (b === "rasm_3" ? 0 : Number(b.split("_")[2])));
 
 const INPUT = "w-full px-3 py-2.5 text-sm outline-none disabled:opacity-70";
 const INPUT_STYLE = { background: "#F4F9FD", borderRadius: 10, border: "1px solid #E4EAF2", color: "#0A1629" } as const;
@@ -287,6 +290,26 @@ export default function AuditEditor({ id, basePath }: { id: number; basePath: st
                   <p className="text-[11px] text-center" style={{ color: "#91929E" }}>{ph.hint}</p>
                 </div>
               ))}
+            </div>
+            <div className="px-5 pb-5">
+              <div className="flex items-center justify-between gap-2 mb-2">
+                <div>
+                  <p className="text-xs font-bold" style={{ color: "#0A1629" }}>3-расм. Иссиқлик йўқотишларининг тепловизион тасвири</p>
+                  <p className="text-[11px]" style={{ color: "#91929E" }}>Bir nechta rasm · Word&apos;da 3 ustunli jadvalga joylanadi · {rasm3Slots(photos).length}/{RASM3_MAX}</p>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                {rasm3Slots(photos).map(slot => (
+                  <PhotoSlot key={slot} src={photos[slot]} busy={photoBusy === slot} editable={editable}
+                    onPick={f => setPhoto(slot, f)} onRemove={() => setPhoto(slot, null)} />
+                ))}
+                {editable && rasm3Slots(photos).length < RASM3_MAX && (() => {
+                  // keyingi bo'sh raqam (rasm_3_1 … rasm_3_12)
+                  const used = new Set(Object.keys(photos));
+                  const next = Array.from({ length: RASM3_MAX }, (_, i) => `rasm_3_${i + 1}`).find(k => !used.has(k)) ?? "";
+                  return next ? <PhotoSlot key={`new-${next}`} busy={photoBusy === next} editable onPick={f => setPhoto(next, f)} onRemove={() => {}} /> : null;
+                })()}
+              </div>
             </div>
           </section>
         </div>

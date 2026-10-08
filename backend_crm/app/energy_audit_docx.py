@@ -22,13 +22,20 @@ TEMPLATE_PATH = os.path.join(os.path.dirname(__file__), "templates", "energoaudi
 # Deraza/eshik maydonlari soni bo'yicha hisoblanadi (bitta element o'rtacha maydoni, m²)
 DERAZA_K, ESHIK_K, YOLAK_K = 2.2, 1.9, 1.5
 
-# Suratlar: muqova + hujjatdagi 3 ta rasm (sarlavhasi shablonda)
+# Suratlar (sarlavhasi shablonda): 1- va 2-rasm — bittadan, 3-rasm (tepловизор) — bir nechta
+RASM3_MAX = 12
 PHOTO_SLOTS = {
-    "muqova": "Muqova — bino surati",
     "rasm_1": "1-расм. Девор конструкциясининг қатламлари",
     "rasm_2": "2-расм. Томёпма конструкциясининг қатламлари",
-    "rasm_3": "3-расм. Иссиқлик йўқотишларининг тепловизион тасвири",
+    **{f"rasm_3_{i}": "3-расм. Иссиқлик йўқотишларининг тепловизион тасвири" for i in range(1, RASM3_MAX + 1)},
 }
+
+
+def rasm3_list(photos: dict) -> list[str]:
+    """3-rasm suratlari tartib bilan (eski yagona "rasm_3" ham hisobga olinadi)."""
+    out = [photos["rasm_3"]] if photos.get("rasm_3") else []
+    out += [photos[k] for k in sorted((k for k in photos if k.startswith("rasm_3_")), key=lambda k: int(k.rsplit("_", 1)[1])) if photos.get(k)]
+    return out
 
 DEFAULT_DATA: dict[str, Any] = {
     "viloyat": "",
@@ -339,6 +346,44 @@ def _put_picture(document, p_el, data_url: str, max_w: float, max_h: float) -> b
         return False
 
 
+def _photo_grid(document, anchor_p, images: list[str], cols: int = 3) -> bool:
+    """Rasmlarni 3 ustunli, chegarali jadvalga joylaydi (sahifa enidan chiqmaydi) va anchor paragraf
+    o'rniga qo'yadi. Har bir rasm katak ichiga nisbatini saqlab sig'diriladi."""
+    sec = document.sections[0]
+    usable = (sec.page_width - sec.left_margin - sec.right_margin) / 360000   # sm
+    cell_w = usable / cols
+    img_w, img_h = cell_w - 0.5, (cell_w - 0.5) * 0.78
+    rows = (len(images) + cols - 1) // cols
+    table = document.add_table(rows=rows, cols=cols)
+    tbl = table._tbl
+    # Jadval: to'liq kenglik, belgilangan (fixed) ustunlar, ingichka chegaralar
+    tblPr = tbl.tblPr
+    for tag in ("w:tblW", "w:tblLayout", "w:tblBorders", "w:jc"):
+        for e in tblPr.findall(qn(tag)):
+            tblPr.remove(e)
+    w = OxmlElement("w:tblW"); w.set(qn("w:w"), str(int(usable * 567))); w.set(qn("w:type"), "dxa"); tblPr.append(w)
+    jc = OxmlElement("w:jc"); jc.set(qn("w:val"), "center"); tblPr.append(jc)
+    lay = OxmlElement("w:tblLayout"); lay.set(qn("w:type"), "fixed"); tblPr.append(lay)
+    borders = OxmlElement("w:tblBorders")
+    for side in ("top", "left", "bottom", "right", "insideH", "insideV"):
+        b = OxmlElement(f"w:{side}"); b.set(qn("w:val"), "single"); b.set(qn("w:sz"), "4"); b.set(qn("w:color"), "A6A6A6")
+        borders.append(b)
+    tblPr.append(borders)
+    ok = 0
+    for i in range(rows * cols):
+        cell = table.rows[i // cols].cells[i % cols]
+        cell.width = Cm(cell_w)
+        p_el = cell.paragraphs[0]._p
+        if i < len(images) and _put_picture(document, p_el, images[i], img_w, img_h):
+            ok += 1
+    if not ok:
+        tbl.getparent().remove(tbl)
+        return False
+    anchor_p.addprevious(tbl)
+    anchor_p.getparent().remove(anchor_p)
+    return True
+
+
 def _pct_below(r: float, norm: float) -> int:
     return round((norm - r) / norm * 100) if norm else 0
 
@@ -359,11 +404,7 @@ def build_docx(data: dict, photos: Optional[dict] = None, title: str = "") -> by
     obyekt = (title or d.get("bino_nomi") or "").strip()
     set_text(P("cover_title"), f"{obyekt} ЭНЕРГОАУДИТИ ҲИСОБОТИ" if obyekt else "ЭНЕРГОАУДИТ ҲИСОБОТИ")
     set_text(P("cover_year"), f"Тошкент {datetime.now().year}")
-    cover_tbl = P("cover_tbl")
-    if photos.get("muqova"):
-        _put_picture(document, _cell(cover_tbl, 0, 0).find(qn("w:p")), photos["muqova"], 14.6, 10.0)
-    else:
-        remove(cover_tbl)   # suratsiz bo'sh ramka qolmasin
+    # Muqovadagi rasm ramkasi (cover_tbl) o'zgartirilmaydi — Word'da qo'lda qo'yiladi
 
     # ── 2.1–2.2 Umumiy ma'lumot
     joy = ", ".join(x for x in (str(d.get("viloyat") or "").strip(), str(d.get("tuman") or "").strip()) if x)
@@ -536,10 +577,12 @@ def build_docx(data: dict, photos: Optional[dict] = None, title: str = "") -> by
                                "мавжуд эшикларни қўшимча иссиқлик изоляциялаш тавсия этилади.")
 
     # ── Rasmlar (surat yo'q bo'lsa, sarlavhasi bilan birga olib tashlanadi)
-    for slot, pic, cap in (("rasm_1", "rasm1_pic", "rasm1_cap"), ("rasm_2", "rasm2_pic", "rasm2_cap"),
-                           ("rasm_3", "rasm3_pic", "rasm3_cap")):
+    for slot, pic, cap in (("rasm_1", "rasm1_pic", "rasm1_cap"), ("rasm_2", "rasm2_pic", "rasm2_cap")):
         if not (photos.get(slot) and _put_picture(document, P(pic), photos[slot], 15.5, 11.0)):
             remove(P(pic), P(cap))
+    r3 = rasm3_list(photos)
+    if not r3 or not _photo_grid(document, P("rasm3_pic"), r3):
+        remove(P("rasm3_pic"), P("rasm3_cap"))
 
     # Qolgan sariq belgilarni tozalash
     for hl in list(document.element.body.iter(qn("w:highlight"))):

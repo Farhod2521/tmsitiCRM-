@@ -145,7 +145,8 @@ def set_photo(audit_id: int, slot: str, payload: PhotoIn, db: Session = Depends(
     a = _get(db, audit_id)
     if not _can_edit(current, a):
         raise HTTPException(status_code=403, detail="Tahrirlashga ruxsat yo'q")
-    if slot not in PHOTO_SLOTS:
+    # eski hisobotlardagi suratlar (muqova, yagona rasm_3 va h.k.) faqat o'chirilishi mumkin
+    if slot not in PHOTO_SLOTS and not (payload.image is None and slot in (a.photos or {})):
         raise HTTPException(status_code=400, detail="Noto'g'ri surat joyi")
     if payload.image and (len(payload.image) > MAX_PHOTO_CHARS or not re.match(r"^data:image/(jpeg|png);base64,", payload.image)):
         raise HTTPException(status_code=400, detail="Surat JPG/PNG bo'lishi va 3 MB dan oshmasligi kerak")
