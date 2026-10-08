@@ -585,7 +585,37 @@ def create_note(
     db.refresh(note)
     # Ko'rib chiquvchilarga Telegram'da tugmali xabar (javobni kechiktirmaslik uchun fonda)
     background.add_task(note_flow.after_create, note.id)
-    return _note_out(note)
+    return _with_pending(db, note)
+
+
+_STAGE_LABEL = {"bolim_kutilmoqda": "Bo'lim boshlig'i", "kutilmoqda": "Kadrlar bo'limi", "kadr_tasdiqladi": "Zamdirektor"}
+
+
+def _with_pending(db: Session, n: models.AttendanceNote) -> schemas.AttendanceNoteOut:
+    """Ariza muallifi uchun: hozir kimda (qaysi bosqich va kim ko'rib chiqadi)."""
+    out = _note_out(n)
+    if n.review_status in _STAGE_LABEL:
+        out.pending_stage = _STAGE_LABEL[n.review_status]
+        names = [e.full_name for e in note_flow.stage_reviewers(db, n)]
+        out.pending_with = ", ".join(names) if names else None
+    return out
+
+
+@router.get("/notes/my-list", response_model=List[schemas.AttendanceNoteOut])
+def my_notes(
+    db:      Session = Depends(get_db),
+    current: models.Employee = Depends(get_current_employee),
+):
+    """"Mening arizalarim" — o'zi yozgan barcha davomat arizalari, eng yangisi birinchi,
+    har biri hozir kimda ekanligi bilan."""
+    notes = (
+        db.query(models.AttendanceNote)
+        .filter(models.AttendanceNote.employee_id == current.id)
+        .order_by(models.AttendanceNote.created_at.desc())
+        .limit(300)
+        .all()
+    )
+    return [_with_pending(db, n) for n in notes]
 
 
 @router.get("/notes/mine", response_model=schemas.AttendanceNoteOut | None)

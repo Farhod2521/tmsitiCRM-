@@ -33,6 +33,8 @@ interface AttendanceNote {
   object_latitude: number | null;
   object_longitude: number | null;
   created_at: string;
+  pending_stage?: string | null;   // hozir qaysi bosqichda (Bo'lim boshlig'i / Kadrlar bo'limi / Zamdirektor)
+  pending_with?: string | null;    // shu bosqichda kim ko'rib chiqadi
 }
 
 const NOTE_TYPE_LABEL: Record<NoteType, string> = {
@@ -133,6 +135,7 @@ export default function AttendanceCalendar() {
   const [showFace, setShowFace] = useState(false);
 
   const [myNote, setMyNote] = useState<AttendanceNote | null>(null);
+  const [sentNote, setSentNote] = useState<AttendanceNote | null>(null);   // "yuborildi — kimga" oynasi
   const [showNoteModal, setShowNoteModal] = useState(false);
   const [noteType, setNoteType] = useState<NoteType>("kechikish");
   const [noteText, setNoteText] = useState("");
@@ -215,6 +218,7 @@ export default function AttendanceCalendar() {
       });
       setMyNote(res);
       setShowNoteModal(false);
+      setSentNote(res);
     } catch (e) {
       setNoteError(e instanceof Error ? e.message : "Xatolik yuz berdi");
     } finally {
@@ -810,6 +814,39 @@ export default function AttendanceCalendar() {
                 className="w-full flex items-center justify-center gap-2 py-3 mt-4 text-sm font-bold text-white disabled:opacity-50"
                 style={{ background: NOTE_TYPE_COLOR[noteType], borderRadius: 12 }}>
                 {noteSaving ? <Loader2 size={14} className="animate-spin" /> : "Yuborish"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Ariza yuborildi: kimga ketgani ── */}
+      {sentNote && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
+          style={{ background: "rgba(10,22,41,0.5)", backdropFilter: "blur(3px)" }}
+          onClick={() => setSentNote(null)}>
+          <div className="w-full max-w-sm p-6 text-center" style={{ background: "#FFFFFF", borderRadius: 20, boxShadow: "0 20px 60px rgba(10,22,41,0.25)" }}
+            onClick={e => e.stopPropagation()}>
+            <div className="w-14 h-14 mx-auto flex items-center justify-center" style={{ background: "rgba(0,196,140,0.12)", borderRadius: 18 }}>
+              <CheckCircle2 size={28} style={{ color: "#00C48C" }} />
+            </div>
+            <h3 className="font-bold text-lg mt-3" style={{ color: "#0A1629" }}>Arizangiz yuborildi</h3>
+            {sentNote.pending_stage && (
+              <div className="mt-3 px-4 py-3 text-left" style={{ background: "#F4F9FD", borderRadius: 12 }}>
+                <p className="text-xs" style={{ color: "#91929E" }}>Hozir ko'rib chiqadi</p>
+                <p className="text-sm font-bold mt-0.5" style={{ color: "#0A1629" }}>{sentNote.pending_stage}</p>
+                {sentNote.pending_with && <p className="text-sm mt-0.5" style={{ color: "#3D4557" }}>{sentNote.pending_with}</p>}
+              </div>
+            )}
+            <p className="text-xs mt-3" style={{ color: "#91929E" }}>Holatini "Mening arizalarim" bo'limida kuzatib borasiz</p>
+            <div className="flex gap-2 mt-4">
+              <button onClick={() => setSentNote(null)}
+                className="flex-1 py-2.5 text-sm font-bold" style={{ background: "#F4F9FD", color: "#7D8592", borderRadius: 12 }}>
+                Yopish
+              </button>
+              <button onClick={() => { window.location.href = `/${window.location.pathname.split("/")[1]}/arizalarim`; }}
+                className="flex-1 py-2.5 text-sm font-bold text-white" style={{ background: "#3F8CFF", borderRadius: 12 }}>
+                Mening arizalarim
               </button>
             </div>
           </div>

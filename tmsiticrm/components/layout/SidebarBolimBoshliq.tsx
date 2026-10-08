@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { Target, User, LogOut, ClipboardList, ClipboardCheck, CalendarCheck, X, MessageSquareWarning, Zap } from "lucide-react";
+import { Target, User, LogOut, ClipboardList, ClipboardCheck, CalendarCheck, X, MessageSquareWarning, Zap, ScrollText } from "lucide-react";
 import { checkAuditAccess } from "@/components/energoaudit/api";
 import LottiePlayer from "@/components/ui/LottiePlayer";
 import MobileTopBar from "@/components/layout/MobileTopBar";
@@ -17,6 +17,7 @@ const BASE_NAV = [
   { href: "/bolimboshliq/kpi",     icon: Target,         label: "KPI"           },
   { href: "/bolimboshliq/tabel",   icon: ClipboardList,  label: "Tabel"         },
   { href: "/bolimboshliq/davomat", icon: CalendarCheck,  label: "Davomat"       },
+  { href: "/bolimboshliq/arizalarim", icon: ScrollText,   label: "Mening arizalarim" },
   { href: "/bolimboshliq/izohlar", icon: MessageSquareWarning, label: "Izohlar"  },
   { href: "/bolimboshliq/profile", icon: User,           label: "Profil"        },
 ];

@@ -374,6 +374,8 @@ class AttendanceNoteOut(BaseModel):
     reviewed_at: Optional[datetime] = None
     zamdirektor_by_nomi: Optional[str] = None
     zamdirektor_at: Optional[datetime] = None
+    pending_stage: Optional[str] = None       # ariza hozir qaysi bosqichda: "Bo'lim boshlig'i" / "Kadrlar bo'limi" / "Zamdirektor"
+    pending_with: Optional[str] = None        # shu bosqichda ko'rib chiquvchi(lar) F.I.Sh.
     model_config = {"from_attributes": True}
 
 class AttendanceNoteReviewIn(BaseModel):

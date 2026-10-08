@@ -23,7 +23,8 @@ import {
   FileBarChart2,
   Timer,
   MessageSquareWarning,
-  FolderCheck, Send
+  FolderCheck, Send,
+  ScrollText,
 } from "lucide-react";
 import LottiePlayer from "@/components/ui/LottiePlayer";
 import MobileTopBar from "@/components/layout/MobileTopBar";
@@ -60,6 +61,7 @@ const direktorNavItems = [
   { href: "/superadmin/nazorat",      icon: FileCheck,       label: "Ijro nazorati", enabled: true },
   { href: "/superadmin/ichki-hujjatlar", icon: FolderCheck,  label: "Xodim hujjatlari", enabled: true },
   { href: "/superadmin/davomat",      icon: ClipboardCheck,  label: "Davomat",       enabled: true },
+  { href: "/superadmin/arizalarim",   icon: ScrollText,      label: "Mening arizalarim", enabled: true },
   { href: "/superadmin/izohlar",      icon: MessageSquareWarning, label: "Izohlar",  enabled: true },
   { href: "/superadmin/profile",      icon: User,            label: "Profil",        enabled: true },
 ];
