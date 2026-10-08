@@ -58,11 +58,13 @@ const CARD = { background: "#FFFFFF", boxShadow: "0px 6px 58px rgba(196,203,214,
 const POPUP = { background: "#FFFFFF", borderRadius: 16, boxShadow: "0 16px 40px rgba(10,22,41,0.16)", border: "1px solid #F4F9FD" };
 
 interface HeaderProps {
-  title: string;
+  title: string;               // bo'sh bo'lsa — sarlavha o'rnida keng qidiruv maydoni
   subtitle?: string;
+  searchPlaceholder?: string;
+  onSearch?: (q: string) => void;   // qidiruvda Enter bosilganda
 }
 
-export default function Header({ title, subtitle }: HeaderProps) {
+export default function Header({ title, subtitle, searchPlaceholder, onSearch }: HeaderProps) {
   const router = useRouter();
   const [user, setUser] = useState<LoginResponse | null>(null);
   const [bellOpen, setBellOpen] = useState(false);
@@ -97,22 +99,34 @@ export default function Header({ title, subtitle }: HeaderProps) {
 
   return (
     <header className="flex items-center justify-between flex-wrap gap-4 mb-6 lg:mb-8">
-      <div className="min-w-0">
-        <h1 className="font-bold text-xl sm:text-2xl lg:text-[28px] truncate" style={{ color: "#0A1629", lineHeight: "1.3" }}>
-          {title}
-        </h1>
-        {subtitle && (
-          <p className="text-xs sm:text-sm truncate" style={{ color: "#91929E", marginTop: 2 }}>{subtitle}</p>
-        )}
-      </div>
+      {title ? (
+        <div className="min-w-0">
+          <h1 className="font-bold text-xl sm:text-2xl lg:text-[28px] truncate" style={{ color: "#0A1629", lineHeight: "1.3" }}>
+            {title}
+          </h1>
+          {subtitle && (
+            <p className="text-xs sm:text-sm truncate" style={{ color: "#91929E", marginTop: 2 }}>{subtitle}</p>
+          )}
+        </div>
+      ) : (
+        /* Sarlavhasiz (bosh sahifa) — chapda keng qidiruv */
+        <div className="hidden md:flex items-center gap-2 px-4 py-3 flex-1 max-w-[520px]" style={CARD}>
+          <Search size={18} style={{ color: "#91929E" }} />
+          <input type="text" placeholder={searchPlaceholder ?? "Qidirish..."}
+            onKeyDown={e => { if (e.key === "Enter" && onSearch) onSearch((e.target as HTMLInputElement).value); }}
+            className="bg-transparent outline-none text-sm flex-1 min-w-0" style={{ color: "#0A1629" }} />
+        </div>
+      )}
 
-      <div className="flex items-center gap-2 sm:gap-3 flex-shrink-0">
+      <div className="flex items-center gap-2 sm:gap-3 flex-shrink-0 ml-auto">
         {/* Search — faqat md+ ekranlarda */}
+        {title && (
         <div className="hidden md:flex items-center gap-2 px-4 py-3" style={{ ...CARD, minWidth: 200 }}>
           <Search size={18} style={{ color: "#91929E" }} />
           <input type="text" placeholder="Qidirish..."
             className="bg-transparent outline-none text-sm flex-1 min-w-0" style={{ color: "#0A1629" }} />
         </div>
+        )}
 
         {/* Search icon — faqat mobil/tablet */}
         <div className="md:hidden relative w-10 h-10 sm:w-12 sm:h-12 flex items-center justify-center cursor-pointer hover:opacity-80 transition-opacity flex-shrink-0"

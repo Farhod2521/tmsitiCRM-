@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useState } from "react";
-import { Star, User, LogOut, X, ClipboardCheck, Target, CalendarCheck, ScrollText } from "lucide-react";
+import { Star, User, LogOut, X, ClipboardCheck, Target, CalendarCheck, ScrollText, LayoutDashboard, CalendarDays, FileText } from "lucide-react";
 import LottiePlayer from "@/components/ui/LottiePlayer";
 import MobileTopBar from "@/components/layout/MobileTopBar";
 import NavCount from "@/components/layout/NavCount";
@@ -12,7 +12,10 @@ import { clearAuth } from "@/lib/auth";
 import RoleSwitchNav from "@/components/layout/RoleSwitchNav";
 
 const navItems = [
-  { href: "/ijro/nazorat", icon: ClipboardCheck, label: "Ijro nazorati" },
+  { href: "/ijro/nazorat",      icon: LayoutDashboard, label: "Bosh sahifa"        },
+  { href: "/ijro/topshiriqlar", icon: ClipboardCheck,  label: "Topshiriqlar"       },
+  { href: "/ijro/taqvim",       icon: CalendarDays,    label: "Taqvim"             },
+  { href: "/ijro/hujjatlarim",  icon: FileText,        label: "Mening hujjatlarim" },
   { href: "/ijro/kpi",     icon: Target,         label: "KPI"           },
   { href: "/ijro/ball",    icon: Star,           label: "Ball berish"   },
   { href: "/ijro/davomat", icon: CalendarCheck,  label: "Davomat"       },
