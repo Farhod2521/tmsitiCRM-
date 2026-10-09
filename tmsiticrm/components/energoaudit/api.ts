@@ -35,6 +35,8 @@ export interface AuditCalc {
   yoqotishlar: CalcLoss[]; jami_kw: number;
   taqqoslash: { devor: boolean; tom: boolean; pol: boolean | null; deraza: boolean; eshik: boolean };
   koef: { deraza: number; eshik: number; yolak: number };
+  quyosh_kw: number;   // 4.8: tom maydoni × 0,6 × 0,2
+  gelio_litr: number;  // 4.8: xonadonlar × 4 × 40
 }
 
 export interface AuditFull extends AuditListItem {

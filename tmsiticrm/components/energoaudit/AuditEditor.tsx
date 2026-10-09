@@ -25,6 +25,7 @@ const S_UMUMIY: FieldDef[] = [
   { key: "qurilgan_yil", label: "Qurilgan yil", num: true },
   { key: "umumiy_maydon", label: "Umumiy maydoni", num: true, unit: "m²" },
   { key: "qavatlar_soni", label: "Qavatlar soni", num: true },
+  { key: "xonadon_soni", label: "Xonadonlar soni", num: true, unit: "ta" },
   { key: "fasad_izolyatsiya", label: "Fasad issiqlik himoyasi", hint: "мавжуд эмас" },
   { key: "isitish_turi", label: "Isitish tizimi turi", hint: "марказий иситиш тизими" },
   { key: "issiq_suv", label: "Issiq suv ta'minoti", hint: "Автоном (алоҳида)" },
@@ -470,6 +471,8 @@ function CalcPanel({ calc }: { calc: AuditCalc | null }) {
             : <span className="flex items-center gap-2">{nf(calc.pol.R0, 3)} {ok(calc.taqqoslash.pol)}</span>)}
           {row("Derazalar", <span className="flex items-center gap-2">{calc.deraza_soni} ta · {nf(calc.deraza_maydon)} m² {ok(calc.taqqoslash.deraza)}</span>)}
           {row("Umumiy hajm", `${nf(calc.hajm, 1)} m³`)}
+          {row("Quyosh FES (tom × 0,6 × 0,2)", `${nf(calc.quyosh_kw, 1)} kVt`)}
+          {row("Geliokollektor (xonadon × 4 × 40)", calc.gelio_litr ? `${calc.gelio_litr} l` : "—")}
           {row("Devor maydoni", `${nf(calc.devor_maydon)} m²`)}
           {row("Δt", `${nf(calc.dt, 1)} °C`)}
 

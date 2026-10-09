@@ -44,6 +44,7 @@ DEFAULT_DATA: dict[str, Any] = {
     "qurilgan_yil": 1973,
     "umumiy_maydon": 2906,
     "qavatlar_soni": 3,
+    "xonadon_soni": 0,               # 0 — geliokollektor tavsiyasi chiqmaydi
     "fasad_izolyatsiya": "мавжуд эмас",
     "isitish_turi": "марказий",
     "issiq_suv": "маҳаллий",
@@ -97,6 +98,7 @@ E = dict(
     q_jami=126, ulush=(128, 129, 130, 131),
     rasm3_pic=132, rasm3_cap=133,
     xulosa1=135, xulosa2=136, t_devor=140, t_tom=143, t_deraza=145, t_eshik=147,
+    t47_sar=156, t47_matn=157,
 )
 
 
@@ -222,6 +224,10 @@ def calculate(data: dict) -> dict:
         "yoqotishlar": losses, "jami_kw": round(total_w / 1000, 1),
         "taqqoslash": compare,
         "koef": {"deraza": DERAZA_K, "eshik": ESHIK_K, "yolak": YOLAK_K},
+        # 4.8 Qayta tiklanuvchi energiya: quyosh FES = tom maydoni × 0,6 × 0,2 kVt;
+        # geliokollektor = xonadonlar × 4 kishi × 40 l
+        "quyosh_kw": round(roof_a * 0.6 * 0.2, 1),
+        "gelio_litr": int(round(_num(d.get("xonadon_soni")) * 4 * 40)),
     }
 
 
@@ -585,6 +591,16 @@ def build_docx(data: dict, photos: Optional[dict] = None, title: str = "") -> by
         set_text(P("t_eshik"), f"Кириш эшикларининг иссиқлик қаршилиги {fmt(rdoor, 2)} {U} бўлиб, меъёрий {nfmt(ndd)} {U} дан паст. "
                                "Эшикларни энергия самарадорлиги юқори бўлган, зич ёпиладиган конструкцияларга алмаштириш ёки "
                                "мавжуд эшикларни қўшимча иссиқлик изоляциялаш тавсия этилади.")
+
+    # ── 4.8 Qayta tiklanuvchi energiya manbalari (shablonda yo'q — 4.7 namunasida qo'shiladi)
+    last = insert_after(P("t47_matn"), P("t47_sar"), ["4.8. Қайта тикланувчи энергия манбааларидан фойдаланиш"])
+    last = insert_after(last, P("t47_matn"), [
+        "Электр энергиясини қайта тикланувчи энергия манбаларидан олиш мақсадида бино томи майдонидан келиб чиқиб, "
+        f"{fmt(c['quyosh_kw'], 1)} кВт қувватли қуёш фотоэлектрик тизимини ўрнатиш имконияти мавжуд."])
+    if c["gelio_litr"] > 0:
+        insert_after(last, P("t47_matn"), [
+            "Қайта тикланувчи энергия манбаларидан фойдаланган ҳолда иссиқ сув олиш мақсадида "
+            f"{c['gelio_litr']} л ҳажмдаги гелиоколлектор ўрнатиш тавсия этилади."])
 
     # ── Rasmlar (surat yo'q bo'lsa, sarlavhasi bilan birga olib tashlanadi)
     for slot, pic, cap in (("rasm_1", "rasm1_pic", "rasm1_cap"), ("rasm_2", "rasm2_pic", "rasm2_cap")):
