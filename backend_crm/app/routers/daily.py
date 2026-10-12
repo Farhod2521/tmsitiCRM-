@@ -420,7 +420,7 @@ def after_review(corr_id: int) -> None:
         for m in json.loads(c.tg_msgs or "[]"):
             chat_id, msg_id = m[0], m[1]
             if len(m) > 2 and m[2] == "p":   # rasmli xabar — rasm holat lentasi bilan almashadi
-                if not (photo and telegram_edit_photo(chat_id, msg_id, photo, caption, no_kb)):
+                if not (photo and telegram_edit_photo(chat_id, msg_id, photo, "", no_kb)):
                     telegram_api("editMessageCaption", {"chat_id": chat_id, "message_id": msg_id, "caption": caption,
                                                         "parse_mode": "HTML", "reply_markup": no_kb})
             else:
@@ -428,7 +428,7 @@ def after_review(corr_id: int) -> None:
                                                  "parse_mode": "HTML", "reply_markup": no_kb})
         who = c.corrector
         if who and who.telegram_id and (c.reviewer is None or who.id != c.reviewer.id):
-            if not (photo and telegram_send_file(who.telegram_id, "davomat.jpg", photo, "image/jpeg", caption)):
+            if not (photo and telegram_send_file(who.telegram_id, "davomat.jpg", photo, "image/jpeg")):
                 telegram_api("sendMessage", {"chat_id": who.telegram_id, "text": text, "parse_mode": "HTML"})
     finally:
         db.close()
@@ -445,7 +445,7 @@ def _notify_zam(corr_id: int) -> None:
             return
         import json
         from ..telegram import telegram_send_file, file_id_of
-        text, caption = correction_message(c), correction_caption(c)
+        text = correction_message(c)
         photo = correction_photo(c)
         kb = correction_keyboard(c.id) if c.status == "kutilmoqda" else None
         zams = db.query(models.Employee).filter(models.role_filter(R.zamdirektor),
@@ -455,7 +455,7 @@ def _notify_zam(corr_id: int) -> None:
             if c.corrector is not None and z.id == c.corrector.id:
                 continue
             if photo:   # dizayn rasm, ostida Tasdiqlash / Bekor qilish tugmalari
-                res = telegram_send_file(z.telegram_id, "davomat.jpg", photo, "image/jpeg", caption,
+                res = telegram_send_file(z.telegram_id, "davomat.jpg", photo, "image/jpeg", "",
                                          file_id=fid, reply_markup=kb)
                 fid = fid or file_id_of(res)
                 if res and res.get("message_id"):

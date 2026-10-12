@@ -28,7 +28,7 @@ from datetime import datetime, timedelta, timezone
 
 from app.database import SessionLocal
 from app import models
-from app.routers.daily import (correction_message, correction_caption, correction_photo,
+from app.routers.daily import (correction_message, correction_photo,
                                 correction_keyboard, _day_note, _late)
 from app.telegram import telegram_api, telegram_send_file
 
@@ -83,7 +83,6 @@ def main():
         res = None
         if photo:   # haqiqiydagidek: dizayn rasm + ostida tugmalar
             res = telegram_send_file(me.telegram_id, "davomat.jpg", photo, "image/jpeg",
-                                     "🧪 <i>TEST xabar</i>\n\n" + correction_caption(c),
                                      reply_markup=correction_keyboard(0))
         if not res:
             res = telegram_api("sendMessage", {"chat_id": me.telegram_id, "text": "🧪 <i>TEST xabar</i>\n\n" + text,

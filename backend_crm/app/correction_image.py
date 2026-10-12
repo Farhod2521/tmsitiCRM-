@@ -168,7 +168,7 @@ def render(*, full_name: str, department: str, date: str, old_time: Optional[str
         for i, ln in enumerate(lines):
             draw.text((230, y0 + i * lh), ln, font=f, fill=TEXT, anchor="lm")
     else:
-        draw.text((230, 943), "Xodim bu kun uchun izoh yozmagan", font=_font(22, "Italic"), fill=GRAY, anchor="lm")
+        draw.text((230, 943), "Sababsiz", font=_font(24, "SemiBold"), fill=RED, anchor="lm")
 
     # 5) Kadr sababi
     f, lines = _fit_lines(draw, reason or "Ko'rsatilmagan", 890, 2, range(24, 16, -1), "Medium")
