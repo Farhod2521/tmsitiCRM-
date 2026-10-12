@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { apiFetch } from "@/lib/api";
 import { fmtDateTimeUz } from "@/lib/datetime";
-import { X, Loader2, Clock3, DoorOpen, History, Save } from "lucide-react";
+import { X, Loader2, Clock3, DoorOpen, History, Save, MessageSquareText, Send } from "lucide-react";
 
 interface CorrectionLog {
   old_check_in: string | null;
@@ -19,8 +19,18 @@ interface CorrectionInfo {
   full_name: string;
   date: string;
   current: string | null;
+  current_late?: number | null;
   turniket: string | null;
+  note?: string | null;
+  reason_required?: boolean;
   history: CorrectionLog[];
+}
+
+export function fmtLate(m: number | null | undefined) {
+  if (m == null) return null;
+  if (m <= 0) return "kechikmagan";
+  const h = Math.floor(m / 60), mm = m % 60;
+  return `${h ? `${h} soat ` : ""}${mm || !h ? `${mm} daq` : ""} kechikkan`.replace("  ", " ");
 }
 
 function fmtDay(iso: string) {
@@ -28,7 +38,7 @@ function fmtDay(iso: string) {
   return `${d}.${m}.${y}`;
 }
 
-/** Superadmin: xodimning kelish vaqtini tuzatish (masalan, turniket bo'yicha —
+/** Superadmin va kadr: xodimning kelish vaqtini tuzatish (kadr — sabab majburiy, zamdirektorga xabar boradi) (masalan, turniket bo'yicha —
  *  ishga kelgan, lekin "Ishga keldim"ni bosishni unutgan). Har bir o'zgarish jurnalga yoziladi. */
 export default function CheckInCorrectionModal({ employeeId, date, onClose, onSaved }: {
   employeeId: number;
@@ -70,6 +80,7 @@ export default function CheckInCorrectionModal({ employeeId, date, onClose, onSa
 
   async function save() {
     if (!/^\d{2}:\d{2}$/.test(time)) { setError("Vaqtni kiriting (SS:DD)"); return; }
+    if (info?.reason_required && !reason.trim()) { setError("Sababni yozing — u zamdirektorga yuboriladi"); return; }
     setSaving(true); setError(null);
     try {
       await apiFetch<CorrectionInfo>("/attendance/daily/correction", {
@@ -114,6 +125,9 @@ export default function CheckInCorrectionModal({ employeeId, date, onClose, onSa
               <div className="p-3" style={{ background: "#FAFCFF", border: "1px solid #F0F3F8", borderRadius: 12 }}>
                 <p className="text-[11px] font-bold" style={{ color: "#91929E" }}>Tizimda</p>
                 <p className="text-lg font-bold mt-0.5" style={{ color: info.current ? "#0A1629" : "#C4CBD6" }}>{info.current ?? "belgilanmagan"}</p>
+                {info.current && fmtLate(info.current_late) && (
+                  <p className="text-[11px] font-bold mt-0.5" style={{ color: (info.current_late ?? 0) > 0 ? "#E5484D" : "#00A578" }}>{fmtLate(info.current_late)}</p>
+                )}
               </div>
               <div className="p-3" style={{ background: "#FAFCFF", border: "1px solid #F0F3F8", borderRadius: 12 }}>
                 <p className="text-[11px] font-bold flex items-center gap-1" style={{ color: "#91929E" }}><DoorOpen size={12} /> Turniket</p>
@@ -128,17 +142,32 @@ export default function CheckInCorrectionModal({ employeeId, date, onClose, onSa
               </div>
             </div>
 
+            {/* Xodimning shu kungi izohi (ariza) */}
+            <div className="mt-3 p-3" style={{ background: info.note ? "#FFF8E8" : "#FAFCFF", border: `1px solid ${info.note ? "#FCE3A8" : "#F0F3F8"}`, borderRadius: 12 }}>
+              <p className="text-[11px] font-bold flex items-center gap-1" style={{ color: info.note ? "#B4780C" : "#91929E" }}>
+                <MessageSquareText size={12} /> Xodimning izohi
+              </p>
+              <p className="text-[13px] mt-0.5" style={{ color: info.note ? "#3D4557" : "#A8B0BD" }}>{info.note ?? "Shu kunga izoh yozilmagan"}</p>
+            </div>
+
             <label className="block text-xs font-bold mt-4 mb-1.5" style={{ color: "#7D8592" }}>Yangi kelish vaqti</label>
             <input type="time" value={time} onChange={e => { setTime(e.target.value); setSource(e.target.value === info.turniket ? "turniket" : "qolda"); }}
               className="w-full px-4 py-3 text-base font-bold outline-none"
               style={{ background: "#F4F9FD", borderRadius: 12, border: "1px solid #D9E3F0", color: "#0A1629" }} />
 
-            <label className="block text-xs font-bold mt-3 mb-1.5" style={{ color: "#7D8592" }}>Sabab</label>
+            <label className="block text-xs font-bold mt-3 mb-1.5" style={{ color: "#7D8592" }}>
+              Sabab{info.reason_required && <span style={{ color: "#E5484D" }}> *</span>}
+            </label>
             <textarea value={reason} onChange={e => setReason(e.target.value)} rows={2}
               placeholder="Masalan: turniket bo'yicha keldi, &quot;Ishga keldim&quot;ni bosishni unutgan"
               className="w-full px-4 py-3 text-sm outline-none resize-none"
               style={{ background: "#F4F9FD", borderRadius: 12, border: "1px solid #D9E3F0", color: "#0A1629" }} />
 
+            {info.reason_required && (
+              <p className="text-[11px] mt-1.5 flex items-center gap-1" style={{ color: "#6D5DD3" }}>
+                <Send size={11} /> O&apos;zgarish va sabab zamdirektorga (sayt va Telegram) yuboriladi
+              </p>
+            )}
             {error && <p className="text-xs font-bold mt-2" style={{ color: "#FF5C5C" }}>{error}</p>}
 
             {info.history.length > 0 && (

@@ -68,6 +68,19 @@ def my_notifications(
         add("izoh_admin", "izohlar", "Tasdig'ingizni kutayotgan davomat izohlari",
             db.query(Note).filter(Note.review_status == "kadr_tasdiqladi").count())
 
+    # ── Davomat tuzatishlari (kadr/superadmin to'g'rilagan kelish vaqtlari) ─────
+    if current.has_role(R.zamdirektor, R.direktor):
+        C = models.AttendanceCorrection
+        seen = db.get(models.CorrectionSeen, current.id)
+        q = db.query(C).filter(C.corrected_by != current.id)
+        if seen:
+            q = q.filter(C.created_at > seen.seen_at)
+        n_corr = q.count()
+        if n_corr:
+            items.append(schemas.NotificationItem(key="davomat_tuzatish", section="davomat",
+                                                  title="Yangi davomat vaqti tuzatishlari", count=n_corr,
+                                                  href="/superadmin/davomat-tuzatish"))
+
     # ── Ichki hujjatlar ───────────────────────────────────────────────────────
     Doc, DS = models.InternalDocument, models.InternalDocumentStatus
     if role == R.zamdirektor:

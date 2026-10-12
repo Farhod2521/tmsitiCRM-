@@ -6,7 +6,7 @@ import { apiFetch } from "@/lib/api";
 
 export interface NotificationItem {
   key: string;
-  section: "izohlar" | "hujjatlar" | "ijro";
+  section: "izohlar" | "hujjatlar" | "ijro" | "davomat";
   title: string;
   count: number;
   href: string;

@@ -24,7 +24,7 @@ import {
   Timer,
   MessageSquareWarning,
   FolderCheck, Send,
-  ScrollText,
+  ScrollText, Clock3,
 } from "lucide-react";
 import LottiePlayer from "@/components/ui/LottiePlayer";
 import MobileTopBar from "@/components/layout/MobileTopBar";
@@ -42,6 +42,7 @@ const navItems = [
   { href: "/superadmin/nazorat",      icon: FileCheck,       label: "Ijro nazorati", enabled: true  },
   { href: "/superadmin/ichki-hujjatlar", icon: FolderCheck,  label: "Xodim hujjatlari", enabled: true },
   { href: "/superadmin/davomat",      icon: ClipboardCheck,  label: "Davomat",     enabled: true  },
+  { href: "/superadmin/davomat-tuzatish", icon: Clock3,      label: "Davomat tuzatishlari", enabled: true },
   { href: "/superadmin/izohlar",      icon: MessageSquareWarning, label: "Izohlar", enabled: true  },
   { href: "/superadmin/sozlamalar",   icon: Settings,        label: "Sozlamalar",  enabled: true  },
   { href: "/superadmin/xodimlar",     icon: Users,           label: "Xodimlar",    enabled: true  },
@@ -61,6 +62,7 @@ const direktorNavItems = [
   { href: "/superadmin/nazorat",      icon: FileCheck,       label: "Ijro nazorati", enabled: true },
   { href: "/superadmin/ichki-hujjatlar", icon: FolderCheck,  label: "Xodim hujjatlari", enabled: true },
   { href: "/superadmin/davomat",      icon: ClipboardCheck,  label: "Davomat",       enabled: true },
+  { href: "/superadmin/davomat-tuzatish", icon: Clock3,      label: "Davomat tuzatishlari", enabled: true },
   { href: "/superadmin/arizalarim",   icon: ScrollText,      label: "Mening arizalarim", enabled: true },
   { href: "/superadmin/izohlar",      icon: MessageSquareWarning, label: "Izohlar",  enabled: true },
   { href: "/superadmin/profile",      icon: User,            label: "Profil",        enabled: true },
@@ -79,7 +81,7 @@ export default function Sidebar() {
 
   const isActive = (href: string) => {
     if (href === "/superadmin") return pathname === "/superadmin";
-    return pathname.startsWith(href);
+    return pathname === href || pathname.startsWith(href + "/");   // "/davomat" ≠ "/davomat-tuzatish"
   };
 
   function handleLogout() {

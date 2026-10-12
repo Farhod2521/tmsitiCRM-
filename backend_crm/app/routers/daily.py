@@ -6,7 +6,7 @@ import io
 from datetime import date as date_cls, datetime
 from typing import List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 from fastapi.responses import StreamingResponse
 from openpyxl import Workbook
 from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
@@ -202,7 +202,7 @@ def daily_list(
     return _build(db, date or datetime.now(TZ_UZ).strftime("%Y-%m-%d"))
 
 
-# ── Kelish vaqtini tuzatish (faqat superadmin) ────────────────────────────────
+# ── Kelish vaqtini tuzatish (superadmin va kadr) ─────────────────────────────
 
 class CorrectionIn(BaseModel):
     employee_id: int
@@ -219,6 +219,8 @@ class CorrectionLog(BaseModel):
     reason: Optional[str] = None
     corrected_by: Optional[str] = None
     created_at: datetime
+    late_before: Optional[int] = None
+    late_after: Optional[int] = None
 
 
 class CorrectionInfo(BaseModel):
@@ -226,13 +228,91 @@ class CorrectionInfo(BaseModel):
     full_name: str
     date: str
     current: Optional[str] = None      # tizimdagi kelish vaqti
+    current_late: Optional[int] = None # shu vaqt bo'yicha kechikish (daqiqa)
     turniket: Optional[str] = None     # turniketdagi kirish vaqti
+    note: Optional[str] = None         # xodimning shu kungi izohi (ariza): "Kechikaman — yo'l to'silgan"
+    reason_required: bool = False      # kadr — sabab yozishi shart
     history: List[CorrectionLog]
 
 
+_CORRECTOR_ROLES = {R.superadmin, R.kadr}
+_NOTE_LABEL = {"kechikish": "Kechikaman", "kelmaslik": "Kelmayman", "obyektda": "Obyektda", "ruxsat": "Ruxsat so'radi"}
+_NOTE_STATUS = {"bolim_kutilmoqda": "bo'lim boshlig'ida", "kutilmoqda": "kadrda", "kadr_tasdiqladi": "zamdirektorda",
+                "sababli": "sababli", "sababsiz": "sababsiz"}
+
+
 def _require_superadmin(current: models.Employee) -> None:
-    if current.role != R.superadmin:
-        raise HTTPException(status_code=403, detail="Kelish vaqtini faqat superadmin tuzata oladi")
+    """Kelish vaqtini tuzatish — superadmin va kadr (kadr sabab yozishi shart)."""
+    if current.role not in _CORRECTOR_ROLES:
+        raise HTTPException(status_code=403, detail="Kelish vaqtini faqat kadr yoki superadmin tuzata oladi")
+
+
+def _day_note(db: Session, emp_id: int, day: str) -> Optional[str]:
+    """Xodimning shu kunni qamragan oxirgi izohi (ariza) — qisqa matn."""
+    n = (db.query(models.AttendanceNote)
+         .filter(models.AttendanceNote.employee_id == emp_id,
+                 models.AttendanceNote.date_from <= day, models.AttendanceNote.date_to >= day)
+         .order_by(models.AttendanceNote.created_at.desc()).first())
+    if not n:
+        return None
+    extra = f" (~{n.expected_time} da keladi)" if n.note_type == "kechikish" and n.expected_time else ""
+    status = _NOTE_STATUS.get(n.review_status, n.review_status)
+    return f"{_NOTE_LABEL.get(n.note_type, n.note_type)}{extra}: {(n.text or '').strip() or '—'} [{status}]"
+
+
+def _late(day: str, hhmm: Optional[str]) -> Optional[int]:
+    if not hhmm:
+        return None
+    return late_minutes_for(datetime.strptime(f"{day} {hhmm}", "%Y-%m-%d %H:%M"))
+
+
+def fmt_late(m: Optional[int]) -> str:
+    if m is None:
+        return "belgilanmagan"
+    if m <= 0:
+        return "kechikmagan"
+    h, mm = divmod(m, 60)
+    return (f"{h} soat " if h else "") + (f"{mm} daqiqa" if mm or not h else "") + " kechikkan"
+
+
+def _notify_zam(corr_id: int) -> None:
+    """Kadr/superadmin kelish vaqtini to'g'rilaganda — zamdirektor(lar)ga Telegram xabari (fonda)."""
+    from html import escape as _esc
+    escape = lambda v: _esc(v, quote=False)   # apostrof (yo'l) o'z holicha
+    from ..database import SessionLocal
+    from ..telegram import telegram_api
+    db = SessionLocal()
+    try:
+        c = db.get(models.AttendanceCorrection, corr_id)
+        if not c or not c.employee:
+            return
+        e, who = c.employee, c.corrector
+        d = datetime.strptime(c.date, "%Y-%m-%d")
+        wd = ["Dushanba", "Seshanba", "Chorshanba", "Payshanba", "Juma", "Shanba", "Yakshanba"][d.weekday()]
+        role_lbl = {"kadr": "Kadrlar bo'limi", "superadmin": "Administrator"}.get(who.role.value if who else "", "")
+        from datetime import timedelta
+        when = (c.created_at + timedelta(hours=5)).strftime("%d.%m.%Y %H:%M") if c.created_at else ""
+        lines = [
+            "🕘 <b>Davomat vaqti to'g'rilandi</b>",
+            "",
+            f"👤 Xodim: <b>{escape(e.full_name)}</b>" + (f" · {escape(e.department.name)}" if e.department else ""),
+            f"📅 Sana: {d:%d.%m.%Y} ({wd})",
+            f"⏱ Tizimdagi vaqt: <b>{c.old_check_in or '—'}</b> — {fmt_late(c.late_before)}",
+            f"✅ Yangi vaqt: <b>{c.new_check_in}</b> — {fmt_late(c.late_after)}",
+        ]
+        if c.note_text:
+            lines.append(f"📝 Xodim izohi: <i>{escape(c.note_text)}</i>")
+        lines.append(f"✍️ Sabab: {escape(c.reason or 'ko‘rsatilmagan')}")
+        lines += ["", f"👩‍💼 To'g'riladi: <b>{escape(who.full_name if who else '—')}</b>"
+                  + (f" ({role_lbl})" if role_lbl else "") + (f" · {when}" if when else "")]
+        text = "\n".join(lines)
+        zams = db.query(models.Employee).filter(models.role_filter(R.zamdirektor),
+                                                models.Employee.telegram_id.isnot(None)).all()
+        for z in zams:
+            if who is None or z.id != who.id:
+                telegram_api("sendMessage", {"chat_id": z.telegram_id, "text": text, "parse_mode": "HTML"})
+    finally:
+        db.close()
 
 
 def _hhmm(dt: datetime) -> str:
@@ -246,13 +326,15 @@ def _correction_info(db: Session, emp: models.Employee, day: str) -> CorrectionI
     logs = (db.query(models.AttendanceCorrection)
             .filter(models.AttendanceCorrection.employee_id == emp.id, models.AttendanceCorrection.date == day)
             .order_by(models.AttendanceCorrection.created_at.desc()).all())
+    cur = _hhmm(att.check_in) if att else None
     return CorrectionInfo(
         employee_id=emp.id, full_name=emp.full_name, date=day,
-        current=_hhmm(att.check_in) if att else None,
+        current=cur, current_late=_late(day, cur),
         turniket=tur.check_in if tur else None,
+        note=_day_note(db, emp.id, day),
         history=[CorrectionLog(old_check_in=l.old_check_in, new_check_in=l.new_check_in, source=l.source,
                                reason=l.reason, corrected_by=l.corrector.full_name if l.corrector else None,
-                               created_at=l.created_at) for l in logs],
+                               created_at=l.created_at, late_before=l.late_before, late_after=l.late_after) for l in logs],
     )
 
 
@@ -267,12 +349,15 @@ def get_correction(
     emp = db.get(models.Employee, employee_id)
     if not emp:
         raise HTTPException(status_code=404, detail="Xodim topilmadi")
-    return _correction_info(db, emp, date)
+    info = _correction_info(db, emp, date)
+    info.reason_required = current.role == R.kadr
+    return info
 
 
 @router.put("/correction", response_model=CorrectionInfo)
 def set_correction(
     data: CorrectionIn,
+    background: BackgroundTasks,
     db: Session = Depends(get_db),
     current: models.Employee = Depends(get_current_employee),
 ):
@@ -291,6 +376,8 @@ def set_correction(
         raise HTTPException(status_code=400, detail="Kelajakdagi sana uchun vaqt qo'yib bo'lmaydi")
     if data.source not in ("turniket", "qolda"):
         raise HTTPException(status_code=400, detail="Noto'g'ri manba")
+    if current.role == R.kadr and not (data.reason or "").strip():
+        raise HTTPException(status_code=400, detail="Vaqtni to'g'rilash sababini yozing — u zamdirektorga yuboriladi")
 
     new_dt = datetime.combine(d, t)   # mahalliy (UTC+5) vaqt, naive — check_in bilan bir xil
     att = db.query(models.Attendance).filter(models.Attendance.employee_id == emp.id,
@@ -303,12 +390,86 @@ def set_correction(
     else:
         db.add(models.Attendance(employee_id=emp.id, date=data.date, check_in=new_dt,
                                  latitude=0.0, longitude=0.0, distance_m=None))
-    db.add(models.AttendanceCorrection(
+    corr = models.AttendanceCorrection(
         employee_id=emp.id, date=data.date, old_check_in=old, new_check_in=t.strftime("%H:%M"),
         source=data.source, reason=(data.reason or "").strip() or None, corrected_by=current.id,
-    ))
+        late_before=_late(data.date, old), late_after=_late(data.date, t.strftime("%H:%M")),
+        note_text=_day_note(db, emp.id, data.date),
+    )
+    db.add(corr)
     db.commit()
+    background.add_task(_notify_zam, corr.id)
     return _correction_info(db, emp, data.date)
+
+
+# ── Zamdirektor: "Davomat tuzatishlari" ──────────────────────────────────────
+
+_CORR_VIEW_ROLES = {R.superadmin, R.direktor, R.zamdirektor, R.kadr}
+
+
+class CorrectionRow(BaseModel):
+    id: int
+    employee_id: int
+    full_name: str
+    position: Optional[str] = None
+    department: Optional[str] = None
+    date: str
+    old_check_in: Optional[str] = None
+    new_check_in: str
+    late_before: Optional[int] = None
+    late_after: Optional[int] = None
+    reason: Optional[str] = None
+    note_text: Optional[str] = None
+    source: str
+    corrected_by: Optional[str] = None
+    corrected_by_role: Optional[str] = None
+    created_at: datetime
+    new: bool = False
+
+
+@router.get("/corrections", response_model=List[CorrectionRow])
+def list_corrections(
+    month: Optional[str] = None,       # "2026-10"; bo'sh — oxirgi 200 ta
+    db: Session = Depends(get_db),
+    current: models.Employee = Depends(get_current_employee),
+):
+    """Barcha kelish vaqti tuzatishlari — kim, qachon, nimadan nimaga, nima sababdan."""
+    if not current.has_role(*_CORR_VIEW_ROLES):
+        raise HTTPException(status_code=403, detail="Ruxsat yo'q")
+    C = models.AttendanceCorrection
+    q = db.query(C)
+    if month:
+        q = q.filter(C.date.like(f"{month}-%"))
+    rows = q.order_by(C.created_at.desc()).limit(500).all()
+    seen = db.get(models.CorrectionSeen, current.id)
+    out = []
+    for c in rows:
+        e = c.employee
+        out.append(CorrectionRow(
+            id=c.id, employee_id=c.employee_id, full_name=e.full_name if e else "—", position=e.position if e else None,
+            department=e.department.name if e and e.department else None, date=c.date,
+            old_check_in=c.old_check_in, new_check_in=c.new_check_in,
+            late_before=c.late_before if c.late_before is not None else _late(c.date, c.old_check_in),
+            late_after=c.late_after if c.late_after is not None else _late(c.date, c.new_check_in),
+            reason=c.reason, note_text=c.note_text, source=c.source,
+            corrected_by=c.corrector.full_name if c.corrector else None,
+            corrected_by_role=c.corrector.role.value if c.corrector else None,
+            created_at=c.created_at,
+            new=bool(c.corrected_by != current.id and (seen is None or (c.created_at and c.created_at > seen.seen_at))),
+        ))
+    return out
+
+
+@router.post("/corrections/seen")
+def mark_corrections_seen(db: Session = Depends(get_db), current: models.Employee = Depends(get_current_employee)):
+    """Sahifa ochilganda — barcha tuzatishlar ko'rildi (bildirishnoma soni nolga tushadi)."""
+    s = db.get(models.CorrectionSeen, current.id)
+    if s:
+        s.seen_at = datetime.utcnow()
+    else:
+        db.add(models.CorrectionSeen(employee_id=current.id, seen_at=datetime.utcnow()))
+    db.commit()
+    return {"ok": True}
 
 
 @router.get("/xlsx")

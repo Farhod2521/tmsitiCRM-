@@ -199,13 +199,13 @@ export default function AutoTabelTable() {
   const [ballInfoOpen, setBallInfoOpen] = useState(false);
   // Qo'lda tuzatish — faqat kadr va superadmin (backendda ham shunday)
   const [canEdit, setCanEdit] = useState(false);
-  // Kelish vaqtini tuzatish (o'tgan kunlar ham) — faqat superadmin
+  // Kelish vaqtini tuzatish (o'tgan kunlar ham) — superadmin va kadr (kadr sabab yozadi, zamdirektorga xabar boradi)
   const [isSuperadmin, setIsSuperadmin] = useState(false);
   const [correcting, setCorrecting] = useState<{ employeeId: number; date: string } | null>(null);
   useEffect(() => {
     const role = getUser()?.role ?? "";
     setCanEdit(["kadr", "superadmin"].includes(role));
-    setIsSuperadmin(role === "superadmin");
+    setIsSuperadmin(role === "superadmin" || role === "kadr");   // kelish vaqtini tuzatish — superadmin va kadr
   }, []);
 
   const todayIso = (() => {

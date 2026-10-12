@@ -692,8 +692,23 @@ class AttendanceCorrection(Base):
     reason       = Column(Text, nullable=True)
     corrected_by = Column(Integer, ForeignKey("employees.id"), nullable=True)
     created_at   = Column(DateTime, default=datetime.utcnow)
+    # Zamdirektorga ko'rsatish uchun: tuzatishdan oldin/keyingi kechikish (daqiqa)
+    # va xodimning shu kungi izohi (ariza) — o'sha paytdagi holati
+    late_before  = Column(Integer, nullable=True)
+    late_after   = Column(Integer, nullable=True)
+    note_text    = Column(Text, nullable=True)
 
     corrector    = relationship("Employee", foreign_keys=[corrected_by])
+    employee     = relationship("Employee", foreign_keys=[employee_id])
+
+
+class CorrectionSeen(Base):
+    """Rahbar (zamdirektor/direktor) "Davomat tuzatishlari"ni oxirgi marta qachon
+    ko'rgani — undan keyingilari yangi (bildirishnoma) hisoblanadi."""
+    __tablename__ = "attendance_correction_seen"
+
+    employee_id = Column(Integer, ForeignKey("employees.id"), primary_key=True)
+    seen_at     = Column(DateTime, nullable=False, default=datetime.utcnow)
 
 
 class Holiday(Base):

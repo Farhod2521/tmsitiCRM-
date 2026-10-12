@@ -1,6 +1,6 @@
 "use client";
 
-import { Bell, ChevronDown, Search, LogOut, User, Phone, ChevronRight, CheckCheck, MessageSquareWarning, FileText, ClipboardCheck, Repeat, Check, Loader2 } from "lucide-react";
+import { Bell, ChevronDown, Search, LogOut, User, Phone, ChevronRight, CheckCheck, MessageSquareWarning, FileText, ClipboardCheck, Clock3, Repeat, Check, Loader2 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -38,6 +38,7 @@ const SECTION_ICON: Record<NotificationItem["section"], { icon: typeof Bell; col
   izohlar:   { icon: MessageSquareWarning, color: "#FF8C42", bg: "rgba(255,140,66,0.12)" },
   hujjatlar: { icon: FileText,             color: "#6D5DD3", bg: "rgba(109,93,211,0.12)" },
   ijro:      { icon: ClipboardCheck,       color: "#3F8CFF", bg: "rgba(63,140,255,0.12)" },
+  davomat:   { icon: Clock3,               color: "#6D5DD3", bg: "rgba(109,93,211,0.12)" },
 };
 
 // Tashqariga bosilganda yopiladigan ochiluvchi oyna uchun

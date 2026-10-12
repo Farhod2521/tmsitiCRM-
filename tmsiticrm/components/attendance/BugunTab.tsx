@@ -95,9 +95,9 @@ export default function BugunTab() {
   const [downloading, setDownloading] = useState(false);
   const [menu, setMenu] = useState<{ row: DailyRow; x: number; y: number } | null>(null);
   const [correcting, setCorrecting] = useState<DailyRow | null>(null);
-  // Kelish vaqtini tuzatish — faqat superadmin (backendda ham shunday)
+  // Kelish vaqtini tuzatish — superadmin va kadr (backendda ham shunday)
   const [isSuperadmin, setIsSuperadmin] = useState(false);
-  useEffect(() => { setIsSuperadmin(getUser()?.role === "superadmin"); }, []);
+  useEffect(() => { setIsSuperadmin(["superadmin", "kadr"].includes(getUser()?.role ?? "")); }, []);
 
   const load = useCallback(async (d: string) => {
     setLoading(true);

@@ -95,7 +95,7 @@ class EmployeeFileOut(BaseModel):
 # ── Bildirishnomalar (header qo'ng'iroqchasi) ────────────────────────────────
 class NotificationItem(BaseModel):
     key:     str
-    section: str   # "izohlar" | "hujjatlar" | "ijro" — menyudagi son uchun
+    section: str   # "izohlar" | "hujjatlar" | "ijro" | "davomat" — menyudagi son uchun
     title:   str
     count:   int
     href:    str   # frontend sahifasi
