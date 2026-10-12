@@ -697,9 +697,16 @@ class AttendanceCorrection(Base):
     late_before  = Column(Integer, nullable=True)
     late_after   = Column(Integer, nullable=True)
     note_text    = Column(Text, nullable=True)
+    # Kadr tuzatishi zamdirektor tasdiqlagandan keyingina kuchga kiradi:
+    # "kutilmoqda" | "tasdiqlandi" | "rad_etildi" (eski yozuvlar — NULL = tasdiqlangan)
+    status       = Column(String(20), nullable=True, default="tasdiqlandi")
+    reviewed_by  = Column(Integer, ForeignKey("employees.id"), nullable=True)
+    reviewed_at  = Column(DateTime, nullable=True)
+    tg_msgs      = Column(Text, nullable=True)   # JSON [[chat_id, message_id], ...] — tugmali xabarlar
 
     corrector    = relationship("Employee", foreign_keys=[corrected_by])
     employee     = relationship("Employee", foreign_keys=[employee_id])
+    reviewer     = relationship("Employee", foreign_keys=[reviewed_by])
 
 
 class CorrectionSeen(Base):

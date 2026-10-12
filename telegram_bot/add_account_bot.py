@@ -384,6 +384,32 @@ async def attendance_note_decision(update: Update, context: ContextTypes.DEFAULT
                 pass
 
 
+async def correction_decision(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """callback_data: "dc:<ok|no>:<tuzatish_id>" — zamdirektor kadr to'g'rilagan
+    kelish vaqtini tasdiqlaydi yoki bekor qiladi. Qaror va xabarlarni yangilash backendda."""
+    q = update.callback_query
+    try:
+        _, action, corr_id = q.data.split(":")
+        payload = {"telegram_id": q.from_user.id, "correction_id": int(corr_id), "approve": action == "ok"}
+    except (ValueError, AttributeError):
+        await q.answer("Noto'g'ri tugma", show_alert=True)
+        return
+    try:
+        async with httpx.AsyncClient(timeout=15) as client:
+            resp = await client.post(f"{BACKEND_URL}/bot/attendance-corrections/review", json=payload, headers=_HEADERS)
+        data = resp.json()
+    except Exception:
+        log.exception("attendance-corrections/review xatosi")
+        await q.answer("Server bilan bog'lanib bo'lmadi. Keyinroq urinib ko'ring.", show_alert=True)
+        return
+    await q.answer(data.get("message") or ("Qabul qilindi" if data.get("ok") else "Xatolik"), show_alert=not data.get("ok"))
+    if not data.get("ok") and "allaqachon" in (data.get("message") or ""):
+        try:
+            await q.edit_message_reply_markup(reply_markup=None)
+        except TelegramError:
+            pass
+
+
 # ─── "Ishga keldim" — jonli lokatsiya orqali ─────────────────────────────────
 
 KELDIM_HELP = (
@@ -505,6 +531,7 @@ def build_app() -> Application:
     )
     app.add_handler(conv)
     app.add_handler(CallbackQueryHandler(attendance_note_decision, pattern=r"^an:"))
+    app.add_handler(CallbackQueryHandler(correction_decision, pattern=r"^dc:"))
     app.add_handler(CommandHandler("keldim", keldim_help))
     app.add_handler(CallbackQueryHandler(keldim_button, pattern=r"^keldim$"))
     # Yangi lokatsiya xabari ham, jonli lokatsiya yangilanishi (edited_message) ham

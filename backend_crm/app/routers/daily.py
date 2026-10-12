@@ -126,7 +126,7 @@ def _build(db: Session, day: str, with_avatars: bool = True) -> DailyOut:
     turniket = {t.employee_id: t.check_in for t in db.query(models.TurniketAttendance)
                 .filter(models.TurniketAttendance.date == day).all() if t.check_in}
     corrected_ids = {c.employee_id for c in db.query(models.AttendanceCorrection.employee_id)
-                     .filter(models.AttendanceCorrection.date == day).all()}
+                     .filter(models.AttendanceCorrection.date == day, applied_filter()).all()}
     holidays = holiday_map(db, day, day)
     day_off = holidays.get(day) or ("Dam olish kuni" if d.weekday() >= 5 else None)
 
@@ -221,6 +221,8 @@ class CorrectionLog(BaseModel):
     created_at: datetime
     late_before: Optional[int] = None
     late_after: Optional[int] = None
+    status: str = "tasdiqlandi"
+    reviewed_by: Optional[str] = None
 
 
 class CorrectionInfo(BaseModel):
@@ -232,6 +234,7 @@ class CorrectionInfo(BaseModel):
     turniket: Optional[str] = None     # turniketdagi kirish vaqti
     note: Optional[str] = None         # xodimning shu kungi izohi (ariza): "Kechikaman — yo'l to'silgan"
     reason_required: bool = False      # kadr — sabab yozishi shart
+    pending: Optional[str] = None      # zamdirektor tasdig'ini kutayotgan yangi vaqt (bo'lsa)
     history: List[CorrectionLog]
 
 
@@ -298,7 +301,85 @@ def correction_message(c: models.AttendanceCorrection) -> str:
     lines.append(f"✍️ Sabab: {escape(c.reason or 'ko‘rsatilmagan')}")
     lines += ["", f"👩‍💼 To'g'riladi: <b>{escape(who.full_name if who else '—')}</b>"
               + (f" ({role_lbl})" if role_lbl else "") + (f" · {when}" if when else "")]
+    st = c.status or "tasdiqlandi"
+    rv = c.reviewer
+    rv_when = (c.reviewed_at + timedelta(hours=5)).strftime("%d.%m.%Y %H:%M") if c.reviewed_at else ""
+    if st == "kutilmoqda":
+        lines += ["", "⏳ <b>Tasdig'ingiz kutilmoqda</b> — tasdiqlanmaguncha vaqt o'zgarmaydi"]
+    elif st == "rad_etildi":
+        lines += ["", f"❌ <b>Bekor qilindi</b> — {escape(rv.full_name) if rv else '—'}" + (f" · {rv_when}" if rv_when else "")
+                  + "\nVaqt o'zgartirilmadi."]
+    elif rv is not None and rv.id != (who.id if who else None):
+        lines += ["", f"✅ <b>Tasdiqlandi</b> — {escape(rv.full_name)}" + (f" · {rv_when}" if rv_when else "")]
     return "\n".join(lines)
+
+
+def correction_keyboard(corr_id: int) -> dict:
+    return {"inline_keyboard": [[
+        {"text": "✅ Tasdiqlash", "callback_data": f"dc:ok:{corr_id}"},
+        {"text": "❌ Bekor qilish", "callback_data": f"dc:no:{corr_id}"},
+    ]]}
+
+
+def applied_filter():
+    """Kuchga kirgan tuzatishlar (tasdiqlangan yoki eski — status bo'sh)."""
+    from sqlalchemy import or_
+    C = models.AttendanceCorrection
+    return or_(C.status.is_(None), C.status == "tasdiqlandi")
+
+
+def apply_correction(db: Session, c: models.AttendanceCorrection) -> None:
+    """Tuzatishni davomatga yozadi (yozuv bo'lmasa — yaratadi)."""
+    new_dt = datetime.strptime(f"{c.date} {c.new_check_in}", "%Y-%m-%d %H:%M")
+    att = db.query(models.Attendance).filter(models.Attendance.employee_id == c.employee_id,
+                                             models.Attendance.date == c.date).first()
+    if att:
+        att.check_in = new_dt
+    else:
+        db.add(models.Attendance(employee_id=c.employee_id, date=c.date, check_in=new_dt,
+                                 latitude=0.0, longitude=0.0, distance_m=None))
+
+
+_REVIEW_ROLES = {R.zamdirektor, R.direktor, R.superadmin}
+
+
+class ReviewError(Exception):
+    pass
+
+
+def review_correction(db: Session, c: models.AttendanceCorrection, actor: models.Employee, approve: bool) -> str:
+    """Zamdirektor qarori: tasdiqlansa — vaqt davomatga yoziladi, aks holda o'zgarmaydi."""
+    if not actor.has_role(*_REVIEW_ROLES):
+        raise ReviewError("Tuzatishni faqat zamdirektor yoki direktor tasdiqlay oladi")
+    if (c.status or "tasdiqlandi") != "kutilmoqda":
+        raise ReviewError("Bu tuzatish allaqachon ko'rib chiqilgan")
+    c.status = "tasdiqlandi" if approve else "rad_etildi"
+    c.reviewed_by, c.reviewed_at = actor.id, datetime.utcnow()
+    if approve:
+        apply_correction(db, c)
+    db.commit()
+    return "✅ Tasdiqlandi — vaqt o'zgartirildi" if approve else "❌ Bekor qilindi — vaqt o'zgarmadi"
+
+
+def after_review(corr_id: int) -> None:
+    """Qarordan keyin (fonda): tugmali xabarlarni yangilash va kadrga natijani yuborish."""
+    import json
+    from ..database import SessionLocal
+    from ..telegram import telegram_api
+    db = SessionLocal()
+    try:
+        c = db.get(models.AttendanceCorrection, corr_id)
+        if not c:
+            return
+        text = correction_message(c)
+        for chat_id, msg_id in json.loads(c.tg_msgs or "[]"):
+            telegram_api("editMessageText", {"chat_id": chat_id, "message_id": msg_id, "text": text,
+                                             "parse_mode": "HTML", "reply_markup": {"inline_keyboard": []}})
+        who = c.corrector
+        if who and who.telegram_id and (c.reviewer is None or who.id != c.reviewer.id):
+            telegram_api("sendMessage", {"chat_id": who.telegram_id, "text": text, "parse_mode": "HTML"})
+    finally:
+        db.close()
 
 
 def _notify_zam(corr_id: int) -> None:
@@ -310,12 +391,23 @@ def _notify_zam(corr_id: int) -> None:
         c = db.get(models.AttendanceCorrection, corr_id)
         if not c or not c.employee:
             return
+        import json
         text = correction_message(c)
+        pending = c.status == "kutilmoqda"
         zams = db.query(models.Employee).filter(models.role_filter(R.zamdirektor),
                                                 models.Employee.telegram_id.isnot(None)).all()
+        sent = []
         for z in zams:
             if c.corrector is None or z.id != c.corrector.id:
-                telegram_api("sendMessage", {"chat_id": z.telegram_id, "text": text, "parse_mode": "HTML"})
+                payload = {"chat_id": z.telegram_id, "text": text, "parse_mode": "HTML"}
+                if pending:
+                    payload["reply_markup"] = correction_keyboard(c.id)
+                res = telegram_api("sendMessage", payload)
+                if res and res.get("message_id"):
+                    sent.append([z.telegram_id, res["message_id"]])
+        if sent:
+            c.tg_msgs = json.dumps(sent)
+            db.commit()
     finally:
         db.close()
 
@@ -332,14 +424,18 @@ def _correction_info(db: Session, emp: models.Employee, day: str) -> CorrectionI
             .filter(models.AttendanceCorrection.employee_id == emp.id, models.AttendanceCorrection.date == day)
             .order_by(models.AttendanceCorrection.created_at.desc()).all())
     cur = _hhmm(att.check_in) if att else None
+    pend = next((l for l in logs if l.status == "kutilmoqda"), None)
     return CorrectionInfo(
+        pending=pend.new_check_in if pend else None,
         employee_id=emp.id, full_name=emp.full_name, date=day,
         current=cur, current_late=_late(day, cur),
         turniket=tur.check_in if tur else None,
         note=_day_note(db, emp.id, day),
         history=[CorrectionLog(old_check_in=l.old_check_in, new_check_in=l.new_check_in, source=l.source,
                                reason=l.reason, corrected_by=l.corrector.full_name if l.corrector else None,
-                               created_at=l.created_at, late_before=l.late_before, late_after=l.late_after) for l in logs],
+                               created_at=l.created_at, late_before=l.late_before, late_after=l.late_after,
+                               status=l.status or "tasdiqlandi",
+                               reviewed_by=l.reviewer.full_name if l.reviewer else None) for l in logs],
     )
 
 
@@ -384,24 +480,26 @@ def set_correction(
     if current.role == R.kadr and not (data.reason or "").strip():
         raise HTTPException(status_code=400, detail="Vaqtni to'g'rilash sababini yozing — u zamdirektorga yuboriladi")
 
-    new_dt = datetime.combine(d, t)   # mahalliy (UTC+5) vaqt, naive — check_in bilan bir xil
     att = db.query(models.Attendance).filter(models.Attendance.employee_id == emp.id,
                                              models.Attendance.date == data.date).first()
     old = _hhmm(att.check_in) if att else None
     if old == t.strftime("%H:%M"):
         return _correction_info(db, emp, data.date)
-    if att:
-        att.check_in = new_dt
-    else:
-        db.add(models.Attendance(employee_id=emp.id, date=data.date, check_in=new_dt,
-                                 latitude=0.0, longitude=0.0, distance_m=None))
+    C = models.AttendanceCorrection
+    if db.query(C).filter(C.employee_id == emp.id, C.date == data.date, C.status == "kutilmoqda").first():
+        raise HTTPException(status_code=400, detail="Bu kun uchun zamdirektor tasdig'ini kutayotgan tuzatish bor")
+    needs_ok = current.role == R.kadr   # kadr tuzatishi — zamdirektor tasdiqlagach kuchga kiradi
     corr = models.AttendanceCorrection(
+        status="kutilmoqda" if needs_ok else "tasdiqlandi",
+        reviewed_by=None if needs_ok else current.id, reviewed_at=None if needs_ok else datetime.utcnow(),
         employee_id=emp.id, date=data.date, old_check_in=old, new_check_in=t.strftime("%H:%M"),
         source=data.source, reason=(data.reason or "").strip() or None, corrected_by=current.id,
         late_before=_late(data.date, old), late_after=_late(data.date, t.strftime("%H:%M")),
         note_text=_day_note(db, emp.id, data.date),
     )
     db.add(corr)
+    if not needs_ok:
+        apply_correction(db, corr)
     db.commit()
     background.add_task(_notify_zam, corr.id)
     return _correction_info(db, emp, data.date)
@@ -430,6 +528,9 @@ class CorrectionRow(BaseModel):
     corrected_by_role: Optional[str] = None
     created_at: datetime
     new: bool = False
+    status: str = "tasdiqlandi"
+    reviewed_by: Optional[str] = None
+    reviewed_at: Optional[datetime] = None
 
 
 @router.get("/corrections", response_model=List[CorrectionRow])
@@ -460,9 +561,30 @@ def list_corrections(
             corrected_by=c.corrector.full_name if c.corrector else None,
             corrected_by_role=c.corrector.role.value if c.corrector else None,
             created_at=c.created_at,
+            status=c.status or "tasdiqlandi",
+            reviewed_by=c.reviewer.full_name if c.reviewer else None, reviewed_at=c.reviewed_at,
             new=bool(c.corrected_by != current.id and (seen is None or (c.created_at and c.created_at > seen.seen_at))),
         ))
     return out
+
+
+class CorrectionReviewIn(BaseModel):
+    approve: bool
+
+
+@router.post("/corrections/{corr_id}/review", response_model=CorrectionRow)
+def review_correction_api(corr_id: int, data: CorrectionReviewIn, background: BackgroundTasks,
+                          db: Session = Depends(get_db), current: models.Employee = Depends(get_current_employee)):
+    """Saytdan tasdiqlash/bekor qilish (Telegram tugmalari bilan bir xil mantiq)."""
+    c = db.get(models.AttendanceCorrection, corr_id)
+    if not c:
+        raise HTTPException(status_code=404, detail="Tuzatish topilmadi")
+    try:
+        review_correction(db, c, current, data.approve)
+    except ReviewError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    background.add_task(after_review, c.id)
+    return next(r for r in list_corrections(None, db, current) if r.id == c.id)
 
 
 @router.post("/corrections/seen")

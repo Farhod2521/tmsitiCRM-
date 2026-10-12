@@ -93,6 +93,30 @@ def relink_account(data: RelinkIn, db: Session = Depends(get_db)):
     return schemas.BotLinkOut(ok=True, full_name=emp.full_name, phone=emp.phone)
 
 
+class CorrectionDecisionIn(BaseModel):
+    telegram_id: int
+    correction_id: int
+    approve: bool
+
+
+@router.post("/attendance-corrections/review")
+def bot_review_correction(data: CorrectionDecisionIn, background: BackgroundTasks, db: Session = Depends(get_db)):
+    """Telegram'dagi "✅ Tasdiqlash / ❌ Bekor qilish" (davomat vaqti tuzatishi)."""
+    from .daily import review_correction, after_review, ReviewError
+    if data.correction_id == 0:
+        return {"ok": True, "message": "🧪 Test xabar — hech narsa o'zgarmadi"}
+    actor = db.query(models.Employee).filter(models.Employee.telegram_id == data.telegram_id).first()
+    c = db.get(models.AttendanceCorrection, data.correction_id)
+    if not actor or not c:
+        return {"ok": False, "message": "Topilmadi"}
+    try:
+        msg = review_correction(db, c, actor, data.approve)
+    except ReviewError as e:
+        return {"ok": False, "message": str(e)}
+    background.add_task(after_review, c.id)
+    return {"ok": True, "message": msg}
+
+
 @router.post("/attendance-notes/review", response_model=schemas.BotNoteReviewOut)
 def bot_review_note(data: schemas.BotNoteReviewIn, background: BackgroundTasks, db: Session = Depends(get_db)):
     """Telegram'dagi "Tasdiqlash"/"Rad etish" inline tugmasi bosilganda bot

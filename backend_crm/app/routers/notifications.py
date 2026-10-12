@@ -71,14 +71,10 @@ def my_notifications(
     # ── Davomat tuzatishlari (kadr/superadmin to'g'rilagan kelish vaqtlari) ─────
     if current.has_role(R.zamdirektor, R.direktor):
         C = models.AttendanceCorrection
-        seen = db.get(models.CorrectionSeen, current.id)
-        q = db.query(C).filter(C.corrected_by != current.id)
-        if seen:
-            q = q.filter(C.created_at > seen.seen_at)
-        n_corr = q.count()
+        n_corr = db.query(C).filter(C.status == "kutilmoqda", C.corrected_by != current.id).count()
         if n_corr:
             items.append(schemas.NotificationItem(key="davomat_tuzatish", section="davomat",
-                                                  title="Yangi davomat vaqti tuzatishlari", count=n_corr,
+                                                  title="Tasdig'ingizni kutayotgan davomat tuzatishlari", count=n_corr,
                                                   href="/superadmin/davomat-tuzatish"))
 
     # ── Ichki hujjatlar ───────────────────────────────────────────────────────

@@ -13,7 +13,15 @@ interface CorrectionLog {
   reason: string | null;
   corrected_by: string | null;
   created_at: string;
+  status?: "kutilmoqda" | "tasdiqlandi" | "rad_etildi";
+  reviewed_by?: string | null;
 }
+
+export const CORR_STATUS = {
+  kutilmoqda:  { label: "Tasdiq kutilmoqda", color: "#B4780C", bg: "rgba(255,189,33,0.16)" },
+  tasdiqlandi: { label: "Tasdiqlangan",      color: "#00A578", bg: "rgba(0,165,120,0.12)" },
+  rad_etildi:  { label: "Bekor qilingan",    color: "#E5484D", bg: "rgba(255,92,92,0.12)" },
+} as const;
 interface CorrectionInfo {
   employee_id: number;
   full_name: string;
@@ -23,6 +31,7 @@ interface CorrectionInfo {
   turniket: string | null;
   note?: string | null;
   reason_required?: boolean;
+  pending?: string | null;
   history: CorrectionLog[];
 }
 
@@ -53,6 +62,7 @@ export default function CheckInCorrectionModal({ employeeId, date, onClose, onSa
   const [reason, setReason] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [sent, setSent] = useState(false);   // kadr: zamdirektor tasdig'iga yuborildi
 
   useEffect(() => {
     apiFetch<CorrectionInfo>(`/attendance/daily/correction?employee_id=${employeeId}&date=${date}`)
@@ -88,7 +98,7 @@ export default function CheckInCorrectionModal({ employeeId, date, onClose, onSa
         body: JSON.stringify({ employee_id: employeeId, date, time, source, reason: reason.trim() || null }),
       });
       onSaved();
-      onClose();
+      if (info?.reason_required) setSent(true); else onClose();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Xatolik");
     } finally {
@@ -142,6 +152,18 @@ export default function CheckInCorrectionModal({ employeeId, date, onClose, onSa
               </div>
             </div>
 
+            {info.pending && (
+              <div className="mt-3 p-3 text-[13px]" style={{ background: "rgba(255,189,33,0.14)", border: "1px solid #FCE3A8", borderRadius: 12, color: "#8A5A00" }}>
+                ⏳ <b>{info.current ?? "—"} → {info.pending}</b> o&apos;zgarishi zamdirektor tasdig&apos;ini kutmoqda.
+                Tasdiqlanmaguncha vaqt o&apos;zgarmaydi.
+              </div>
+            )}
+            {sent && (
+              <div className="mt-3 p-3 text-[13px]" style={{ background: "rgba(0,165,120,0.1)", border: "1px solid #A6EBC5", borderRadius: 12, color: "#027A48" }}>
+                ✅ Zamdirektor tasdig&apos;iga yuborildi. Tasdiqlansa — vaqt o&apos;zgaradi va sizga Telegram&apos;da xabar keladi.
+              </div>
+            )}
+
             {/* Xodimning shu kungi izohi (ariza) */}
             <div className="mt-3 p-3" style={{ background: info.note ? "#FFF8E8" : "#FAFCFF", border: `1px solid ${info.note ? "#FCE3A8" : "#F0F3F8"}`, borderRadius: 12 }}>
               <p className="text-[11px] font-bold flex items-center gap-1" style={{ color: info.note ? "#B4780C" : "#91929E" }}>
@@ -165,7 +187,7 @@ export default function CheckInCorrectionModal({ employeeId, date, onClose, onSa
 
             {info.reason_required && (
               <p className="text-[11px] mt-1.5 flex items-center gap-1" style={{ color: "#6D5DD3" }}>
-                <Send size={11} /> O&apos;zgarish va sabab zamdirektorga (sayt va Telegram) yuboriladi
+                <Send size={11} /> Zamdirektor tasdiqlagandan keyingina vaqt o&apos;zgaradi (sayt va Telegram orqali)
               </p>
             )}
             {error && <p className="text-xs font-bold mt-2" style={{ color: "#FF5C5C" }}>{error}</p>}
@@ -177,6 +199,11 @@ export default function CheckInCorrectionModal({ employeeId, date, onClose, onSa
                   {info.history.map((h, i) => (
                     <li key={i} className="text-xs p-2.5" style={{ background: "#FAFCFF", borderRadius: 10, color: "#3D4557" }}>
                       <b>{h.old_check_in ?? "—"}</b> → <b style={{ color: "#6D5DD3" }}>{h.new_check_in}</b>
+                      {h.status && (
+                        <span className="ml-1.5 px-1.5 py-0.5 text-[10.5px] font-bold" style={{ background: CORR_STATUS[h.status].bg, color: CORR_STATUS[h.status].color, borderRadius: 6 }}>
+                          {CORR_STATUS[h.status].label}{h.reviewed_by && h.status !== "kutilmoqda" ? ` · ${h.reviewed_by}` : ""}
+                        </span>
+                      )}
                       <span style={{ color: "#91929E" }}> · {h.source === "turniket" ? "turniket" : "qo'lda"} · {h.corrected_by ?? "—"} · {fmtDateTimeUz(h.created_at)}</span>
                       {h.reason && <p className="mt-0.5" style={{ color: "#7D8592" }}>{h.reason}</p>}
                     </li>
@@ -189,10 +216,10 @@ export default function CheckInCorrectionModal({ employeeId, date, onClose, onSa
 
         <div className="flex items-center justify-end gap-2 px-6 py-4" style={{ borderTop: "1px solid #F4F9FD" }}>
           <button onClick={onClose} className="px-4 py-2.5 text-sm font-bold" style={{ background: "#F4F9FD", color: "#7D8592", borderRadius: 12 }}>Bekor qilish</button>
-          <button onClick={save} disabled={saving || !changed}
+          <button onClick={save} disabled={saving || !changed || !!info?.pending || sent}
             className="flex items-center gap-2 px-5 py-2.5 text-sm font-bold text-white disabled:opacity-50"
             style={{ background: "#6D5DD3", borderRadius: 12 }}>
-            {saving ? <Loader2 size={15} className="animate-spin" /> : <Save size={15} />} Saqlash
+            {saving ? <Loader2 size={15} className="animate-spin" /> : <Save size={15} />} {info?.reason_required ? "Tasdiqqa yuborish" : "Saqlash"}
           </button>
         </div>
       </div>

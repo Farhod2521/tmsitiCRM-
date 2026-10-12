@@ -4,9 +4,10 @@ import { useEffect, useMemo, useState } from "react";
 import Header from "@/components/layout/Header";
 import { apiFetch } from "@/lib/api";
 import { fmtDateTimeUz } from "@/lib/datetime";
-import { fmtLate } from "@/components/attendance/CheckInCorrectionModal";
+import { fmtLate, CORR_STATUS } from "@/components/attendance/CheckInCorrectionModal";
 import {
   ChevronLeft, ChevronRight, Loader2, ArrowRight, MessageSquareText, PenLine, Search, Clock3, DoorOpen, UserCheck, Inbox,
+  CheckCircle2, XCircle,
 } from "lucide-react";
 
 interface CorrectionRow {
@@ -27,7 +28,11 @@ interface CorrectionRow {
   corrected_by_role: string | null;
   created_at: string;
   new: boolean;
+  status: "kutilmoqda" | "tasdiqlandi" | "rad_etildi";
+  reviewed_by: string | null;
+  reviewed_at: string | null;
 }
+type Tab = "kutilmoqda" | "tasdiqlandi" | "rad_etildi" | "barchasi";
 
 const MONTHS = ["Yanvar", "Fevral", "Mart", "Aprel", "May", "Iyun", "Iyul", "Avgust", "Sentabr", "Oktabr", "Noyabr", "Dekabr"];
 const WD = ["Yakshanba", "Dushanba", "Seshanba", "Chorshanba", "Payshanba", "Juma", "Shanba"];
@@ -61,6 +66,18 @@ export default function CorrectionsPage() {
   const [error, setError] = useState<string | null>(null);
   const [q, setQ] = useState("");
   const [onlyNew, setOnlyNew] = useState(false);
+  const [tab, setTab] = useState<Tab>("kutilmoqda");
+  const [busy, setBusy] = useState<number | null>(null);
+
+  async function decide(r: CorrectionRow, approve: boolean) {
+    if (!approve && !confirm(`${r.full_name} — ${r.old_check_in ?? "—"} → ${r.new_check_in} tuzatishini bekor qilasizmi? Vaqt o'zgarmaydi.`)) return;
+    setBusy(r.id);
+    try {
+      const upd = await apiFetch<CorrectionRow>(`/attendance/daily/corrections/${r.id}/review`, { method: "POST", body: JSON.stringify({ approve }) });
+      setRows(rs => rs.map(x => x.id === r.id ? { ...upd, new: false } : x));
+    } catch (e) { alert(e instanceof Error ? e.message : "Xatolik"); }
+    finally { setBusy(null); }
+  }
 
   useEffect(() => {
     const month = `${ym.y}-${String(ym.m + 1).padStart(2, "0")}`;
@@ -78,8 +95,9 @@ export default function CorrectionsPage() {
   }, [ym]);
 
   const shown = useMemo(() => rows.filter(r =>
+    (tab === "barchasi" || r.status === tab) &&
     (!onlyNew || r.new) && (!q.trim() || [r.full_name, r.department, r.reason, r.corrected_by].filter(Boolean).join(" ").toLowerCase().includes(q.trim().toLowerCase()))),
-  [rows, onlyNew, q]);
+  [rows, onlyNew, q, tab]);
   const stats = {
     jami: rows.length,
     yangi: rows.filter(r => r.new).length,
@@ -90,7 +108,7 @@ export default function CorrectionsPage() {
 
   return (
     <div>
-      <Header title="Davomat tuzatishlari" subtitle="Kadr to'g'rilagan kelish vaqtlari — kimniki, nimadan nimaga, nima sababdan" />
+      <Header title="Davomat tuzatishlari" subtitle="Kadr to'g'rilagan kelish vaqtlari — tasdiqlaganingizdan keyingina kuchga kiradi" />
 
       {/* Yuqori panel */}
       <div className="flex flex-wrap items-center gap-3 mb-4">
@@ -101,7 +119,7 @@ export default function CorrectionsPage() {
         </div>
         {[
           { label: "Jami tuzatish", v: stats.jami, c: "#3F8CFF" },
-          { label: "Yangi", v: stats.yangi, c: "#6D5DD3" },
+          { label: "Tasdiq kutilmoqda", v: rows.filter(r => r.status === "kutilmoqda").length, c: "#B4780C" },
           { label: "Kechikish olib tashlangan", v: stats.olib, c: "#E5484D" },
           { label: "Xodimlar", v: stats.xodim, c: "#00A578" },
         ].map(s => (
@@ -122,6 +140,20 @@ export default function CorrectionsPage() {
         </div>
       </div>
 
+      <div className="flex flex-wrap gap-2 mb-4">
+        {([["kutilmoqda", "Tasdiq kutilmoqda"], ["tasdiqlandi", "Tasdiqlangan"], ["rad_etildi", "Bekor qilingan"], ["barchasi", "Barchasi"]] as [Tab, string][]).map(([k, l]) => {
+          const n = k === "barchasi" ? rows.length : rows.filter(r => r.status === k).length;
+          const on = tab === k;
+          return (
+            <button key={k} onClick={() => setTab(k)} className="px-4 py-2.5 text-sm font-bold"
+              style={{ background: on ? "#0A1629" : "#FFFFFF", color: on ? "#FFFFFF" : "#3D4557", borderRadius: 12, boxShadow: "0 4px 16px rgba(196,203,214,0.15)" }}>
+              {l}
+              <span className="ml-2 px-1.5 py-0.5 text-xs rounded-md" style={{ background: on ? "rgba(255,255,255,0.2)" : "#F4F9FD" }}>{n}</span>
+            </button>
+          );
+        })}
+      </div>
+
       {loading ? (
         <div className="flex justify-center py-20"><Loader2 size={26} className="animate-spin" style={{ color: "#3F8CFF" }} /></div>
       ) : error ? (
@@ -129,12 +161,12 @@ export default function CorrectionsPage() {
       ) : !shown.length ? (
         <div className="flex flex-col items-center gap-2 py-16" style={CARD}>
           <Inbox size={34} style={{ color: "#D0D9E8" }} />
-          <p className="text-sm font-bold" style={{ color: "#91929E" }}>Bu oyda davomat vaqti tuzatilmagan</p>
+          <p className="text-sm font-bold" style={{ color: "#91929E" }}>{tab === "kutilmoqda" ? "Tasdig'ingizni kutayotgan tuzatish yo'q" : "Bu oyda tuzatish yo'q"}</p>
         </div>
       ) : (
         <div className="flex flex-col gap-3">
           {shown.map(r => (
-            <div key={r.id} className="p-4 sm:p-5" style={{ ...CARD, border: r.new ? "1.5px solid #CFC8F5" : "1.5px solid transparent" }}>
+            <div key={r.id} className="p-4 sm:p-5" style={{ ...CARD, border: r.status === "kutilmoqda" ? "1.5px solid #FCE3A8" : r.new ? "1.5px solid #CFC8F5" : "1.5px solid transparent" }}>
               <div className="flex flex-col lg:flex-row lg:items-center gap-4">
                 {/* Xodim */}
                 <div className="flex items-center gap-3 lg:w-[260px] flex-shrink-0 min-w-0">
@@ -174,6 +206,23 @@ export default function CorrectionsPage() {
                 <span className="flex items-center gap-1.5"><UserCheck size={13} /> To&apos;g&apos;riladi: <b style={{ color: "#0A1629" }}>{r.corrected_by ?? "—"}</b>{r.corrected_by_role && ROLE[r.corrected_by_role] ? ` (${ROLE[r.corrected_by_role]})` : ""}</span>
                 <span className="flex items-center gap-1.5"><Clock3 size={13} /> {fmtDateTimeUz(r.created_at)}</span>
                 {r.source === "turniket" && <span className="flex items-center gap-1.5"><DoorOpen size={13} /> Turniket ma&apos;lumoti bo&apos;yicha</span>}
+                <span className="px-2 py-0.5 text-[11px] font-bold" style={{ background: CORR_STATUS[r.status].bg, color: CORR_STATUS[r.status].color, borderRadius: 6 }}>
+                  {CORR_STATUS[r.status].label}{r.reviewed_by && r.status !== "kutilmoqda" ? ` · ${r.reviewed_by}${r.reviewed_at ? `, ${fmtDateTimeUz(r.reviewed_at)}` : ""}` : ""}
+                </span>
+                {r.status === "kutilmoqda" && (
+                  <span className="ml-auto flex items-center gap-2">
+                    <button onClick={() => decide(r, true)} disabled={busy === r.id}
+                      className="flex items-center gap-1.5 px-4 py-2 text-[13px] font-bold text-white disabled:opacity-50 hover:opacity-90"
+                      style={{ background: "#00C48C", borderRadius: 10 }}>
+                      {busy === r.id ? <Loader2 size={14} className="animate-spin" /> : <CheckCircle2 size={14} />} Tasdiqlash
+                    </button>
+                    <button onClick={() => decide(r, false)} disabled={busy === r.id}
+                      className="flex items-center gap-1.5 px-4 py-2 text-[13px] font-bold disabled:opacity-50 hover:bg-[#FFF5F5]"
+                      style={{ border: "1.5px solid #FF5C5C", color: "#FF5C5C", borderRadius: 10, background: "#FFFFFF" }}>
+                      <XCircle size={14} /> Bekor qilish
+                    </button>
+                  </span>
+                )}
               </div>
             </div>
           ))}

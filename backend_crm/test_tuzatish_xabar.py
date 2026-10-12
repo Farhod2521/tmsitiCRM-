@@ -28,7 +28,7 @@ from datetime import datetime, timedelta, timezone
 
 from app.database import SessionLocal
 from app import models
-from app.routers.daily import correction_message, _day_note, _late
+from app.routers.daily import correction_message, correction_keyboard, _day_note, _late
 from app.telegram import telegram_api
 
 TZ_UZ = timezone(timedelta(hours=5))
@@ -61,7 +61,7 @@ def main():
         # Saqlanmaydigan (vaqtinchalik) yozuv — faqat xabar matni uchun
         c = models.AttendanceCorrection(
             employee_id=emp.id, date=a.sana, old_check_in=eski, new_check_in=a.yangi, source="qolda",
-            reason=a.sabab, corrected_by=me.id, created_at=datetime.utcnow(),
+            reason=a.sabab, corrected_by=me.id, created_at=datetime.utcnow(), status="kutilmoqda",
             late_before=_late(a.sana, eski), late_after=_late(a.sana, a.yangi),
             note_text=_day_note(db, emp.id, a.sana),
         )
@@ -74,7 +74,9 @@ def main():
             return
         if not me.telegram_id:
             sys.exit(f"❌ {me.full_name} Telegram'ga bog'lanmagan — avval profil orqali bog'lang")
-        res = telegram_api("sendMessage", {"chat_id": me.telegram_id, "text": "🧪 <i>TEST xabar</i>\n\n" + text, "parse_mode": "HTML"})
+        # Tugmalar ham xuddi haqiqiydagidek; test (id=0) bosilsa — bot "Test xabar" deb javob beradi
+        res = telegram_api("sendMessage", {"chat_id": me.telegram_id, "text": "🧪 <i>TEST xabar</i>\n\n" + text,
+                                           "parse_mode": "HTML", "reply_markup": correction_keyboard(0)})
         print(f"✅ Yuborildi → {me.full_name} (telegram_id={me.telegram_id})" if res
               else "❌ Yuborilmadi — TELEGRAM_BOT_TOKEN va botga /start bosilganini tekshiring")
     finally:
