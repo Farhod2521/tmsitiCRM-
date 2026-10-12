@@ -20,7 +20,7 @@ from docx.shared import Cm
 TEMPLATE_PATH = os.path.join(os.path.dirname(__file__), "templates", "energoaudit_uyjoy.docx")
 
 # Deraza/eshik maydonlari soni bo'yicha hisoblanadi (bitta element o'rtacha maydoni, m²)
-DERAZA_K, ESHIK_K, YOLAK_K = 2.2, 1.9, 1.5
+DERAZA_K, ESHIK_K, YOLAK_K = 3.78, 1.9, 1.5
 
 # Suratlar (sarlavhasi shablonda): 1- va 2-rasm — bittadan, 3-rasm (tepловизор) — bir nechta
 RASM3_MAX = 12

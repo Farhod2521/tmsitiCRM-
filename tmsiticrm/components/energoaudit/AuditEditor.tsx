@@ -46,7 +46,7 @@ const S_OLCHAM: FieldDef[] = [
 ];
 const S_DERAZA: FieldDef[] = [
   { key: "deraza_soni", label: "Derazalar soni", num: true, unit: "ta" },
-  { key: "deraza_maydon", label: "Derazalar maydoni (soni × 2,2)", unit: "m²", calc: c => nf(c.deraza_maydon_asosiy) },
+  { key: "deraza_maydon", label: "Derazalar maydoni (soni × 3,78)", unit: "m²", calc: c => nf(c.deraza_maydon_asosiy) },
   { key: "yolak_deraza_soni", label: "Yo'lak derazalari soni", num: true, unit: "ta" },
   { key: "yolak_deraza_maydon", label: "Yo'lak derazalari maydoni (soni × 1,5)", unit: "m²", calc: c => nf(c.yolak_deraza_maydon) },
   { key: "eshik_soni", label: "Eshiklar soni", num: true, unit: "ta" },
