@@ -455,11 +455,9 @@ def build_docx(data: dict, photos: Optional[dict] = None, title: str = "") -> by
     # ── Muqova
     obyekt = (title or d.get("bino_nomi") or "").strip()
     tip = str(d.get("bino_tipi") or "").strip().rstrip("-")
-    if tip:
-        set_text(P("cover_tip"), f"{tip}-типга кирувчи")
-    else:
-        remove(P("cover_tip"))
-    _cover_title(P("cover_title"), obyekt)
+    # Tip alohida qatorda emas — obyekt nomidan keyin qavs ichida: "… уйлар (9-типга кирувчи)"
+    remove(P("cover_tip"))
+    _cover_title(P("cover_title"), " ".join(x for x in (obyekt, f"({tip}-типга кирувчи)" if tip else "") if x))
     set_text(P("cover_year"), f"Тошкент {datetime.now().year}")
     # Muqovadagi rasm ramkasi (cover_tbl) o'zgartirilmaydi — Word'da qo'lda qo'yiladi
 
@@ -624,7 +622,7 @@ def build_docx(data: dict, photos: Optional[dict] = None, title: str = "") -> by
                                "олган ҳолда, изоляция қалинлиги иссиқлик-техник ҳисоб асосида танланиши лозим.")
     if cmp_["tom"]:
         set_text(P("t_tom"), f"Чордоқ ораёпмасининг иссиқлик қаршилиги {fmt(rr0, 2)} {U}, меъёрий қиймати {nfmt(nr)} {U}. "
-                             "Том конструкцияси меъёрий талабга мос; мавжуд иссиқлик изоляцияси қатламининг ҳолатини даврий текшириб бориш тавсия этилади.")
+                             "Том конструкцияси меъёрий талабга мос, мавжуд иссиқлик изоляцияси қатламининг ҳолатини даврий текшириб бориш тавсия этилади.")
     else:
         set_text(P("t_tom"), f"Чордоқ ораёпмасининг иссиқлик қаршилиги {fmt(rr0, 2)} {U}, меъёрий қиймати эса {nfmt(nr)} {U}. "
                              "Шунинг учун том/чордоқ қисми орқали иссиқлик йўқотишларини камайтириш мақсадида мавжуд иссиқлик "
@@ -634,7 +632,7 @@ def build_docx(data: dict, photos: Optional[dict] = None, title: str = "") -> by
     ndw, ndd = _num(d["norma_deraza"]), _num(d["norma_eshik"])
     if cmp_["deraza"]:
         set_text(P("t_deraza"), f"Деразаларнинг иссиқлик қаршилиги {fmt(rwin, 2)} {U}, меъёрий қиймати {nfmt(ndw)} {U}. "
-                                "Деразалар меъёрий талабга мос; зичловчи қистирмаларни даврий алмаштириб бориш тавсия этилади.")
+                                "Деразалар меъёрий талабга мос, зичловчи қистирмаларни даврий алмаштириб бориш тавсия этилади.")
     else:
         set_text(P("t_deraza"), f"Деразаларнинг иссиқлик қаршилиги {fmt(rwin, 2)} {U}, меъёрий қиймати {nfmt(ndw)} {U}. "
                                 "Шунинг учун эски деразаларни икки ёки уч камерали энергия тежамкор ойнавандликка эга "
@@ -662,7 +660,7 @@ def build_docx(data: dict, photos: Optional[dict] = None, title: str = "") -> by
         insert_after(last, protos["tejash"], [
             f"{what[key]} иссиқлик узатилишига келтирилган қаршилигини меъёр даражасида таъминлаш орқали йилига "
             f"{fmt(x['Q'], 1)} − {fmt(x['Qn'], 1)} = {fmt(x['tejash'], 1)} {KWH} энергия тежалади "
-            f"(иссиқлик йўқотиши {fmt(x['tejash_ulush'], 1)} %га камаяди)."])
+            f"(иссиқлик йўқотиши {fmt(x['tejash_ulush'], 1)} %га камайишга эришилади)."])
 
     # ── 4.8 Qayta tiklanuvchi energiya manbalari
     set_text(P("t48_quyosh"), "Электр энергиясини қайта тикланувчи энергия манбаларидан олиш мақсадида бино томи майдонидан "
