@@ -20,7 +20,8 @@ export interface AuditListItem {
   can_edit: boolean;
 }
 
-export interface CalcLoss { key: string; nomi: string; A: number; R: number; n?: number; Q: number; kw: number; ulush: number; }
+/** Q — yillik yo'qotish (kVt·soat) = 0,024 × A × Dd / R₀; Qn — me'yoriy Rn bilan; tejash = Q − Qn */
+export interface CalcLoss { key: string; nomi: string; A: number; R: number; n?: number; Q: number; Rn: number; Qn: number; tejash: number; tejash_ulush: number; ulush: number; }
 export interface CalcLayer { nomi: string; qalinlik: number; lambda: number; R: number; }
 export interface AuditCalc {
   dt: number; hajm: number; dd: number; t_tashqi: number;
@@ -32,7 +33,7 @@ export interface AuditCalc {
   deraza_soni: number; deraza_maydon: number; deraza_maydon_asosiy: number; yolak_deraza_maydon: number;
   eshik_soni: number; eshik_maydon: number;
   devor_maydon: number; devor_maydon_auto: number; tom_maydon: number; pol_maydon: number; pol_maydon_auto: number;
-  yoqotishlar: CalcLoss[]; jami_kw: number;
+  yoqotishlar: CalcLoss[]; jami_kwh: number; jami_tejash: number;
   taqqoslash: { devor: boolean; tom: boolean; pol: boolean | null; deraza: boolean; eshik: boolean };
   koef: { deraza: number; eshik: number; yolak: number };
   quyosh_kw: number;   // 4.8: tom maydoni × 0,6 × 0,2

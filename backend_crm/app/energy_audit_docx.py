@@ -1,4 +1,4 @@
-"""Energoaudit hisoboti — "Хисобот Уй-жойлар шаблон (2).docx" asosida.
+"""Energoaudit hisoboti — "Хисобот Уй-жойлар шаблон (4).docx" asosida.
 
 Shablondagi sariq (highlight) joylar formadan to'ldiriladi, hisob-kitoblar
 (R₀, Q, ulushlar, "мос/мос эмас", xulosa va tavsiyalardagi qiymatlar) shu yerda
@@ -38,6 +38,7 @@ def rasm3_list(photos: dict) -> list[str]:
     return out
 
 DEFAULT_DATA: dict[str, Any] = {
+    "bino_tipi": "",                 # "9" → muqovada va 2.1 da "9-типга кирувчи"
     "viloyat": "",
     "tuman": "",
     "bino_nomi": "",
@@ -86,20 +87,31 @@ DEFAULT_DATA: dict[str, Any] = {
 
 # Shablon elementlari (body ichidagi tartib raqami)
 E = dict(
-    cover_title=17, cover_tbl=19, cover_year=20,
-    intro=32, yil=34, maydon=35, qavat=36, fasad=37, isitish=38, issiq_suv=39, resurs=41,
-    hajm=44, pastki=45, devor_tavsif=46, deraza_matn=47, deraza_tbl=50, tom_matn=52,
-    rasm1_pic=69, rasm1_cap=70,
-    devor_q=(72, 73, 74), devor_r=(77, 78, 79), devor_rk=81, devor_r0=83,
-    tom_sar=85, tom_q=(86, 87, 88), tom_r=(90, 91, 92), tom_rk=94, tom_r0=96,
-    rasm2_pic=97, rasm2_cap=98, pol_after=99,
-    deraza_R=100, norma_tbl=104,
-    q_devor=(117, 118), q_tom=(119, 121), q_deraza=(122, 123), q_eshik=(124, 125),
-    q_jami=126, ulush=(128, 129, 130, 131),
-    rasm3_pic=132, rasm3_cap=133,
-    xulosa1=135, xulosa2=136, t_devor=140, t_tom=143, t_deraza=145, t_eshik=147,
-    t47_sar=156, t47_matn=157,
+    cover_tip=16, cover_title=17, cover_tbl=19, cover_year=20,
+    intro=32, yil=36, maydon=37, qavat=38, fasad=39, isitish=40, issiq_suv=41, resurs=43,
+    hajm=46, pastki=47, devor_tavsif=48, deraza_matn=49, deraza_tbl=52, tom_matn=54,
+    rasm1_pic=70, rasm1_cap=71,
+    devor_q=(73, 74, 75), devor_r=(78, 79, 80), devor_rk=82, devor_r0=84,
+    tom_sar=86, tom_q=(87, 88, 89), tom_r=(91, 92, 93), tom_rk=95, tom_r0=97,
+    rasm2_pic=98, rasm2_cap=99, pol_after=100,
+    deraza_R=101, norma_tbl=105,
+    q_birlik=114,
+    q_devor=(119, 120), q_tom=(121, 123), q_deraza=(124, 125), q_eshik=(126, 127),
+    q_jami=128, ulush=(130, 131, 132, 133),
+    rasm3_pic=134, rasm3_cap=135,
+    xulosa1=137, xulosa2=138,
+    # 4.1–4.4: asosiy matn + (shablondagi) "Бунда…", Q, "…тежалади" qatorlari
+    t_devor=142, t_devor_x=(143, 144, 145),
+    t_tom=148, t_tom_x=(149, 150, 151),
+    t_deraza=153, t_deraza_x=(154, 155),
+    t_eshik=158, t_eshik_x=(159,),
+    t_intro_proto=143, t_q_proto=144, t_tejash_proto=145,
+    t48_quyosh=172, t48_gelio=173,
+    hujjatlar=180,
 )
+
+# Q = 0,024 · A · Dd / R₀ — kVt·soat/yil (24 soat / 1000)
+Q_K = 0.024
 
 
 # ── Hisob-kitob ──────────────────────────────────────────────────────────────
@@ -185,24 +197,30 @@ def calculate(data: dict) -> dict:
     rw, rd = _num(d["deraza_R"], 0.62), _num(d["eshik_R"], 0.56)
 
     def q(a, r):
-        return round(a * dt / r, 1) if r > 0 else 0.0
-
-    losses = [
-        {"key": "tom", "nomi": "Том", "A": roof_a, "R": roof_r0, "Q": q(roof_a, roof_r0)},
-        {"key": "devor", "nomi": "Деворлар", "A": wall_a, "R": wall_r0, "Q": q(wall_a, wall_r0)},
-        {"key": "deraza", "nomi": "Деразалар", "A": win_a, "R": rw, "Q": q(win_a, rw)},
-        {"key": "eshik", "nomi": "Эшиклар", "A": a_door, "R": rd, "Q": q(a_door, rd)},
-    ]
-    if has_floor:
-        n_pol = _num(d.get("pol_n"), 0.6)
-        losses.append({"key": "pol", "nomi": "Пол", "A": floor_a, "R": floor_r0, "n": n_pol,
-                       "Q": round(n_pol * q(floor_a, floor_r0), 1)})
-    total_w = sum(x["Q"] for x in losses)
-    for x in losses:
-        x["kw"] = round(x["Q"] / 1000, 2)
-        x["ulush"] = round(x["Q"] / total_w * 100, 1) if total_w else 0.0
+        """Yillik issiqlik yo'qotishi, kVt·soat: 0,024 × A × Dd / R₀."""
+        return round(Q_K * a * dd / r, 1) if r > 0 else 0.0
 
     n = {k: _num(d[f"norma_{k}"]) for k in ("devor", "tom", "pol", "deraza", "eshik")}
+    losses = [
+        {"key": "tom", "nomi": "Том", "A": roof_a, "R": roof_r0},
+        {"key": "devor", "nomi": "Деворлар", "A": wall_a, "R": wall_r0},
+        {"key": "deraza", "nomi": "Деразалар", "A": win_a, "R": rw},
+        {"key": "eshik", "nomi": "Эшиклар", "A": a_door, "R": rd},
+    ]
+    if has_floor:
+        losses.append({"key": "pol", "nomi": "Пол", "A": floor_a, "R": floor_r0, "n": _num(d.get("pol_n"), 0.6)})
+    for x in losses:
+        k = x.get("n", 1.0)
+        x["Q"] = round(k * q(x["A"], x["R"]), 1)
+        # Me'yoriy qarshilikka yetkazilganda: Qn = 0,024 × A × Dd / Rn, tejash = Q − Qn
+        x["Rn"] = n[x["key"]]
+        x["Qn"] = round(k * q(x["A"], x["Rn"]), 1) if x["Rn"] > x["R"] else x["Q"]
+        x["tejash"] = round(x["Q"] - x["Qn"], 1)
+        x["tejash_ulush"] = round(x["tejash"] / x["Q"] * 100, 1) if x["Q"] else 0.0
+    total_q = sum(x["Q"] for x in losses)
+    for x in losses:
+        x["ulush"] = round(x["Q"] / total_q * 100, 1) if total_q else 0.0
+
     compare = {
         "devor": wall_r0 >= n["devor"],
         "tom": roof_r0 >= n["tom"],
@@ -221,7 +239,8 @@ def calculate(data: dict) -> dict:
         "eshik_soni": n_door, "eshik_maydon": a_door,
         "devor_maydon": wall_a, "devor_maydon_auto": wall_auto, "tom_maydon": roof_a,
         "pol_maydon": floor_a, "pol_maydon_auto": floor_auto,
-        "yoqotishlar": losses, "jami_kw": round(total_w / 1000, 1),
+        "yoqotishlar": losses, "jami_kwh": round(total_q, 1),
+        "jami_tejash": round(sum(x["tejash"] for x in losses), 1),
         "taqqoslash": compare,
         "koef": {"deraza": DERAZA_K, "eshik": ESHIK_K, "yolak": YOLAK_K},
         # 4.8 Qayta tiklanuvchi energiya: quyosh FES = tom maydoni × 0,6 × 0,2 kVt;
@@ -400,6 +419,24 @@ def _photo_grid(document, anchor_p, images: list[str], cols: int = 3) -> bool:
     return True
 
 
+def _cover_title(p, obyekt: str) -> None:
+    """"(объект номи)" + qator ko'chishi + "ЭНЕРГОАУДИТИ ҲИСОБОТИ" — birinchi run matni almashadi."""
+    runs = p.findall(qn("w:r"))
+    first = runs[0] if runs else None
+    ts = list(first.iter(qn("w:t"))) if first is not None else []
+    if not ts:
+        set_text(p, f"{obyekt} ЭНЕРГОАУДИТИ ҲИСОБОТИ" if obyekt else "ЭНЕРГОАУДИТ ҲИСОБОТИ")
+        return
+    if obyekt:
+        ts[0].text = obyekt
+        for t in ts[1:]:
+            t.text = ""
+    else:
+        p.remove(first)
+        for br in list(p.iter(qn("w:br")))[:1]:
+            br.getparent().remove(br)
+
+
 def _pct_below(r: float, norm: float) -> int:
     return round((norm - r) / norm * 100) if norm else 0
 
@@ -413,12 +450,16 @@ def build_docx(data: dict, photos: Optional[dict] = None, title: str = "") -> by
     document = docx.Document(TEMPLATE_PATH)
     els = list(document.element.body.iterchildren())
     P = lambda key: els[E[key]]
-    dt = fmt(c["dt"], 1)
     U = "м²·°С/Вт"
 
     # ── Muqova
     obyekt = (title or d.get("bino_nomi") or "").strip()
-    set_text(P("cover_title"), f"{obyekt} ЭНЕРГОАУДИТИ ҲИСОБОТИ" if obyekt else "ЭНЕРГОАУДИТ ҲИСОБОТИ")
+    tip = str(d.get("bino_tipi") or "").strip().rstrip("-")
+    if tip:
+        set_text(P("cover_tip"), f"{tip}-типга кирувчи")
+    else:
+        remove(P("cover_tip"))
+    _cover_title(P("cover_title"), obyekt)
     set_text(P("cover_year"), f"Тошкент {datetime.now().year}")
     # Muqovadagi rasm ramkasi (cover_tbl) o'zgartirilmaydi — Word'da qo'lda qo'yiladi
 
@@ -426,8 +467,14 @@ def build_docx(data: dict, photos: Optional[dict] = None, title: str = "") -> by
     joy = ", ".join(x for x in (str(d.get("viloyat") or "").strip(), str(d.get("tuman") or "").strip()) if x)
     bino = str(d.get("bino_nomi") or "").strip()
     obj = ", ".join(x for x in (joy, bino) if x) or "бинода"
-    set_text(P("intro"), f"Энергоаудит {obj} Қурилиш ва уй-жой коммунал хўжалиги вазирлиги ҳузуридаги Техник меъёрлаш "
-                         "ва стандартлаштириш илмий-тадқиқот институти томонидан ўтказилди.")
+    set_text(P("intro"), "Энергоаудит Ўзбекистон Республикаси Президентининг «Мамлакат тараққиётининг 2030 йилгача "
+                         "мўлжалланган устувор йўналишлари доирасида ислоҳотларни изчил давом эттириш ва янги босқичга "
+                         "олиб чиқишнинг қўшимча чора-тадбирлари тўғрисида» 2026 йил 17 февралдаги ПФ-21-сон Фармонида "
+                         "берилган топшириқ ижроси юзасидан "
+                         + (f"{tip}-типга кирувчи " if tip else "")
+                         + f"жойлашуви, конструктив элементлари, ҳажм-режавий ечимлари ҳамда энергетик кўрсаткичлари "
+                         f"бир хил бўлган {obj} Қурилиш ва уй-жой коммунал хўжалиги вазирлиги ҳузуридаги Техник "
+                         "меъёрлаш ва стандартлаштириш илмий-тадқиқот институти томонидан ўтказилди.")
     set_text(P("yil"), f"Қурилган йил – {fmt(_num(d['qurilgan_yil']), 0)} йил")
     set_text(P("maydon"), f"Умумий майдони – {fmt(_num(d['umumiy_maydon']))} м²")
     set_text(P("qavat"), f"Қаватлар сони – {fmt(_num(d['qavatlar_soni']), 0)}")
@@ -438,7 +485,7 @@ def build_docx(data: dict, photos: Optional[dict] = None, title: str = "") -> by
                           f"қилиниши аниқланди. Бунда иссиқлик энергияси {d['issiqlik_manbai']} орқали таъминланади.")
 
     # ── 2.3 Hajm-reja yechimlari
-    set_text(P("hajm"), f"Бино {fmt(_num(d['qavatlar_soni']), 0)} қаватдан иборат бўлиб, режада {fmt(_num(d['uzunlik']))} × "
+    set_text(P("hajm"), f"Кўп квартирали уй {fmt(_num(d['qavatlar_soni']), 0)} қаватдан иборат бўлиб, режада {fmt(_num(d['uzunlik']))} × "
                         f"{fmt(_num(d['kenglik']))} м ўлчамга эга. Бинонинг умумий майдони {fmt(_num(d['umumiy_maydon']))} м², "
                         f"умумий ҳажми {fmt(c['hajm'], 1)} м³.")
     set_text(P("pastki"), f"Ташқи тўсувчи конструкциялар ташқи деворлар, дераза ва эшиклар, {d['pastki_konstruksiya']} ҳамда "
@@ -517,8 +564,16 @@ def build_docx(data: dict, photos: Optional[dict] = None, title: str = "") -> by
 
     # ── 2.4.2 Issiqlik yo'qotishlari
     by = {x["key"]: x for x in c["yoqotishlar"]}
-    q_line = lambda x: (f"Q = {fmt(x['n'], 2) + ' × ' if 'n' in x else ''}{fmt(x['A'])} × {dt} / {fmt(x['R'], 3)}"
-                        f" = {fmt(x['Q'], 1)} Вт")
+    DD = fmt(c["dd"], 0)
+    KWH = "кВт·соат"
+
+    def q_line(x, r=None):
+        r = x["R"] if r is None else r
+        val = x["Q"] if r == x["R"] else x["Qn"]
+        return (f"Q = {fmt(x['n'], 2) + ' × ' if 'n' in x else ''}0,024 × {fmt(x['A'])} × {DD} / {fmt(r, 3)}"
+                f" = {fmt(val, 1)} {KWH}")
+
+    set_text(P("q_birlik"), f"Q – иссиқлик йўқотиши, {KWH} (йилига);")
     for key, label in (("devor", "Деворлардан иссиқлик йўқотилиши"), ("tom", "Том орқали иссиқлик йўқотилиши"),
                        ("deraza", "Деразалар орқали иссиқлик йўқотилиши"), ("eshik", "Эшиклар орқали иссиқлик йўқотилиши")):
         li, qi = E[f"q_{key}"]
@@ -527,8 +582,8 @@ def build_docx(data: dict, photos: Optional[dict] = None, title: str = "") -> by
         li, qi = E["q_eshik"]
         last = insert_after(els[qi], els[li], ["Пол орқали иссиқлик йўқотилиши"])
         insert_after(last, els[qi], [q_line(by["pol"])])
-    set_text(P("q_jami"), f"Тўсувчи конструкциялардан умумий йўқотишлар {fmt(c['jami_kw'], 1)} кВт")
-    share = lambda x: f"{x['nomi']} – {fmt(x['kw'], 2)} кВт ({fmt(x['ulush'], 1)} %)"
+    set_text(P("q_jami"), f"Тўсувчи конструкциялардан умумий йиллик иссиқлик йўқотишлари {fmt(c['jami_kwh'], 1)} {KWH}")
+    share = lambda x: f"{x['nomi']} – {fmt(x['Q'], 1)} {KWH} ({fmt(x['ulush'], 1)} %)"
     for i, key in zip(E["ulush"], ("tom", "devor", "deraza", "eshik")):
         set_text(els[i], share(by[key]))
     if "pol" in by:
@@ -592,15 +647,33 @@ def build_docx(data: dict, photos: Optional[dict] = None, title: str = "") -> by
                                "Эшикларни энергия самарадорлиги юқори бўлган, зич ёпиладиган конструкцияларга алмаштириш ёки "
                                "мавжуд эшикларни қўшимча иссиқлик изоляциялаш тавсия этилади.")
 
-    # ── 4.8 Qayta tiklanuvchi energiya manbalari (shablonda yo'q — 4.7 namunasida qo'shiladi)
-    last = insert_after(P("t47_matn"), P("t47_sar"), ["4.8. Қайта тикланувчи энергия манбааларидан фойдаланиш"])
-    last = insert_after(last, P("t47_matn"), [
-        "Электр энергиясини қайта тикланувчи энергия манбаларидан олиш мақсадида бино томи майдонидан келиб чиқиб, "
-        f"{fmt(c['quyosh_kw'], 1)} кВт қувватли қуёш фотоэлектрик тизимини ўрнатиш имконияти мавжуд."])
+    # Har bir tavsiyadan keyin: me'yoriy R bilan yo'qotish va yillik tejash.
+    # Shablondagi namunaviy qatorlar o'chiriladi, o'rniga hisoblangani qo'yiladi.
+    protos = {k: copy.deepcopy(P(f"t_{k}_proto")) for k in ("intro", "q", "tejash")}
+    what = {"devor": "Ташқи деворларнинг", "tom": "Чордоқ ораёпмасининг", "deraza": "Деразаларнинг", "eshik": "Кириш эшикларининг"}
+    for key in ("devor", "tom", "deraza", "eshik"):
+        x = by[key]
+        remove(*[els[i] for i in E[f"t_{key}_x"]])
+        if x["tejash"] <= 0:
+            continue   # me'yorga mos — tejash hisobi chiqmaydi
+        last = insert_after(P(f"t_{key}"), protos["intro"], [
+            f"Меъёрий қаршилик ({nfmt(x['Rn'])} {U}) таъминланганда иссиқлик йўқотилиши қуйидагича ҳисобланади:"])
+        last = insert_after(last, protos["q"], [q_line(x, x["Rn"])])
+        insert_after(last, protos["tejash"], [
+            f"{what[key]} иссиқлик узатилишига келтирилган қаршилигини меъёр даражасида таъминлаш орқали йилига "
+            f"{fmt(x['Q'], 1)} − {fmt(x['Qn'], 1)} = {fmt(x['tejash'], 1)} {KWH} энергия тежалади "
+            f"(иссиқлик йўқотиши {fmt(x['tejash_ulush'], 1)} %га камаяди)."])
+
+    # ── 4.8 Qayta tiklanuvchi energiya manbalari
+    set_text(P("t48_quyosh"), "Электр энергиясини қайта тикланувчи энергия манбаларидан олиш мақсадида бино томи майдонидан "
+                              f"келиб чиқиб, {fmt(c['quyosh_kw'], 1)} кВт қувватли қуёш фотоэлектрик тизимини ўрнатиш имконияти мавжуд.")
     if c["gelio_litr"] > 0:
-        insert_after(last, P("t47_matn"), [
-            "Қайта тикланувчи энергия манбаларидан фойдаланган ҳолда иссиқ сув олиш мақсадида "
-            f"{c['gelio_litr']} л ҳажмдаги гелиоколлектор ўрнатиш тавсия этилади."])
+        set_text(P("t48_gelio"), "Қайта тикланувчи энергия манбаларидан фойдаланган ҳолда иссиқ сув олиш мақсадида "
+                                 f"{c['gelio_litr']} л ҳажмдаги гелиоколлектор ўрнатиш тавсия этилади.")
+    else:
+        remove(P("t48_gelio"))
+
+    set_text(P("hujjatlar"), "VI. Энергоаудитдан ўтқазишда қўлланилган хужжатлар")   # shablonda "VII." (V dan keyin)
 
     # ── Rasmlar (surat yo'q bo'lsa, sarlavhasi bilan birga olib tashlanadi)
     for slot, pic, cap in (("rasm_1", "rasm1_pic", "rasm1_cap"), ("rasm_2", "rasm2_pic", "rasm2_cap")):

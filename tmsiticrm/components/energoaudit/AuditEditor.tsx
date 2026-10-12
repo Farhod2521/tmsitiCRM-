@@ -19,6 +19,7 @@ type FieldDef = {
 };
 
 const S_UMUMIY: FieldDef[] = [
+  { key: "bino_tipi", label: "Bino tipi (…-типга кирувчи)", hint: "9" },
   { key: "viloyat", label: "Viloyat", select: "viloyat" },
   { key: "tuman", label: "Tuman / shahar", select: "tuman" },
   { key: "bino_nomi", label: "Bino (matnda)", hint: "… кўчаси 12-уйда жойлашган кўп қаватли турар-жой биносида", wide: true, area: true },
@@ -474,9 +475,9 @@ function CalcPanel({ calc }: { calc: AuditCalc | null }) {
           {row("Quyosh FES (tom × 0,6 × 0,2)", `${nf(calc.quyosh_kw, 1)} kVt`)}
           {row("Geliokollektor (xonadon × 4 × 40)", calc.gelio_litr ? `${calc.gelio_litr} l` : "—")}
           {row("Devor maydoni", `${nf(calc.devor_maydon)} m²`)}
-          {row("Δt", `${nf(calc.dt, 1)} °C`)}
+          {row("Dd (isitish davri gradus-sutkasi)", `${nf(calc.dd, 0)} °C·sutka`)}
 
-          <p className="text-xs font-bold mt-4 mb-2" style={{ color: "#3D4557" }}>Issiqlik yo&apos;qotishlari — jami {nf(calc.jami_kw, 1)} kVt</p>
+          <p className="text-xs font-bold mt-4 mb-2" style={{ color: "#3D4557" }}>Yillik issiqlik yo&apos;qotishlari — jami {nf(calc.jami_kwh, 1)} kVt·soat</p>
           <div className="flex h-3 overflow-hidden mb-3" style={{ borderRadius: 6, background: "#F4F9FD" }}>
             {calc.yoqotishlar.map(x => <div key={x.key} style={{ width: `${x.ulush}%`, background: colors[x.key] }} title={`${x.nomi}: ${x.ulush}%`} />)}
           </div>
@@ -485,9 +486,16 @@ function CalcPanel({ calc }: { calc: AuditCalc | null }) {
               <span className="flex items-center gap-2" style={{ color: "#3D4557" }}>
                 <span className="w-2.5 h-2.5 rounded-sm" style={{ background: colors[x.key] }} />{x.nomi}
               </span>
-              <span className="font-bold" style={{ color: "#0A1629" }}>{nf(x.kw, 2)} kVt <span className="font-normal text-xs" style={{ color: "#91929E" }}>({nf(x.ulush, 1)}%)</span></span>
+              <span className="font-bold text-right" style={{ color: "#0A1629" }}>{nf(x.Q, 1)} kVt·soat <span className="font-normal text-xs" style={{ color: "#91929E" }}>({nf(x.ulush, 1)}%)</span>
+                {x.tejash > 0 && <span className="block text-[11px] font-semibold" style={{ color: "#16A34A" }}>me&apos;yorda: −{nf(x.tejash, 1)} kVt·soat/yil</span>}
+              </span>
             </div>
           ))}
+          {calc.jami_tejash > 0 && (
+            <div className="mt-3 p-3 text-sm" style={{ background: "rgba(22,163,74,0.08)", borderRadius: 12, color: "#15803D" }}>
+              Me&apos;yorga yetkazilsa jami tejash: <b>{nf(calc.jami_tejash, 1)} kVt·soat/yil</b>
+            </div>
+          )}
         </div>
       </div>
 
