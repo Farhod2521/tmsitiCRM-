@@ -24,7 +24,7 @@ import {
   Timer,
   MessageSquareWarning,
   FolderCheck, Send,
-  ScrollText, Clock3,
+  ScrollText, Clock3, History,
 } from "lucide-react";
 import LottiePlayer from "@/components/ui/LottiePlayer";
 import MobileTopBar from "@/components/layout/MobileTopBar";
@@ -43,6 +43,7 @@ const navItems = [
   { href: "/superadmin/ichki-hujjatlar", icon: FolderCheck,  label: "Xodim hujjatlari", enabled: true },
   { href: "/superadmin/davomat",      icon: ClipboardCheck,  label: "Davomat",     enabled: true  },
   { href: "/superadmin/davomat-tuzatish", icon: Clock3,      label: "Davomat tuzatishlari", enabled: true },
+  { href: "/superadmin/davomat-loglar",  icon: History,         label: "Davomat loglari", enabled: true },
   { href: "/superadmin/izohlar",      icon: MessageSquareWarning, label: "Izohlar", enabled: true  },
   { href: "/superadmin/sozlamalar",   icon: Settings,        label: "Sozlamalar",  enabled: true  },
   { href: "/superadmin/xodimlar",     icon: Users,           label: "Xodimlar",    enabled: true  },

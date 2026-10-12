@@ -238,16 +238,16 @@ class CorrectionInfo(BaseModel):
     history: List[CorrectionLog]
 
 
-_CORRECTOR_ROLES = {R.superadmin, R.kadr}
+_CORRECTOR_ROLES = {R.superadmin, R.kadr, R.zamdirektor}
 _NOTE_LABEL = {"kechikish": "Kechikaman", "kelmaslik": "Kelmayman", "obyektda": "Obyektda", "ruxsat": "Ruxsat so'radi"}
 _NOTE_STATUS = {"bolim_kutilmoqda": "bo'lim boshlig'ida", "kutilmoqda": "kadrda", "kadr_tasdiqladi": "zamdirektorda",
                 "sababli": "sababli", "sababsiz": "sababsiz"}
 
 
 def _require_superadmin(current: models.Employee) -> None:
-    """Kelish vaqtini tuzatish — superadmin va kadr (kadr sabab yozishi shart)."""
+    """Kelish vaqtini tuzatish — superadmin, zamdirektor va kadr (kadr sabab yozishi shart)."""
     if current.role not in _CORRECTOR_ROLES:
-        raise HTTPException(status_code=403, detail="Kelish vaqtini faqat kadr yoki superadmin tuzata oladi")
+        raise HTTPException(status_code=403, detail="Kelish vaqtini faqat kadr, zamdirektor yoki superadmin tuzata oladi")
 
 
 def _day_note(db: Session, emp_id: int, day: str) -> Optional[str]:
@@ -557,13 +557,15 @@ def set_correction(
         employee_id=emp.id, date=data.date, old_check_in=old, new_check_in=t.strftime("%H:%M"),
         source=data.source, reason=(data.reason or "").strip() or None, corrected_by=current.id,
         late_before=_late(data.date, old), late_after=_late(data.date, t.strftime("%H:%M")),
-        note_text=_day_note(db, emp.id, data.date),
+        note_text=_day_note(db, emp.id, data.date), corrector_role=current.role.value,
     )
     db.add(corr)
     if not needs_ok:
         apply_correction(db, corr)
     db.commit()
-    background.add_task(_notify_zam, corr.id)
+    # Zamdirektor tuzatishi — darhol kuchga kiradi, hech kimga xabar ketmaydi (faqat jurnalda)
+    if current.role != R.zamdirektor:
+        background.add_task(_notify_zam, corr.id)
     return _correction_info(db, emp, data.date)
 
 
@@ -621,7 +623,7 @@ def list_corrections(
             late_after=c.late_after if c.late_after is not None else _late(c.date, c.new_check_in),
             reason=c.reason, note_text=c.note_text, source=c.source,
             corrected_by=c.corrector.full_name if c.corrector else None,
-            corrected_by_role=c.corrector.role.value if c.corrector else None,
+            corrected_by_role=c.corrector_role or (c.corrector.role.value if c.corrector else None),
             created_at=c.created_at,
             status=c.status or "tasdiqlandi",
             reviewed_by=c.reviewer.full_name if c.reviewer else None, reviewed_at=c.reviewed_at,

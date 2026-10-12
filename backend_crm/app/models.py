@@ -703,6 +703,7 @@ class AttendanceCorrection(Base):
     reviewed_by  = Column(Integer, ForeignKey("employees.id"), nullable=True)
     reviewed_at  = Column(DateTime, nullable=True)
     tg_msgs      = Column(Text, nullable=True)   # JSON [[chat_id, message_id], ...] — tugmali xabarlar
+    corrector_role = Column(String(20), nullable=True)   # tuzatgan paytdagi faol rol: kadr | zamdirektor | superadmin
 
     corrector    = relationship("Employee", foreign_keys=[corrected_by])
     employee     = relationship("Employee", foreign_keys=[employee_id])
