@@ -275,10 +275,34 @@ def fmt_late(m: Optional[int]) -> str:
     return (f"{h} soat " if h else "") + (f"{mm} daqiqa" if mm or not h else "") + " kechikkan"
 
 
-def _notify_zam(corr_id: int) -> None:
-    """Kadr/superadmin kelish vaqtini to'g'rilaganda — zamdirektor(lar)ga Telegram xabari (fonda)."""
+def correction_message(c: models.AttendanceCorrection) -> str:
+    """Zamdirektorga boradigan Telegram xabari (HTML). c.employee va c.corrector yuklangan bo'lishi kerak."""
+    from datetime import timedelta
     from html import escape as _esc
     escape = lambda v: _esc(v, quote=False)   # apostrof (yo'l) o'z holicha
+    e, who = c.employee, c.corrector
+    d = datetime.strptime(c.date, "%Y-%m-%d")
+    wd = ["Dushanba", "Seshanba", "Chorshanba", "Payshanba", "Juma", "Shanba", "Yakshanba"][d.weekday()]
+    role_lbl = {"kadr": "Kadrlar bo'limi", "superadmin": "Administrator"}.get(who.role.value if who else "", "")
+    when = (c.created_at + timedelta(hours=5)).strftime("%d.%m.%Y %H:%M") if c.created_at else ""
+    lines = [
+        "🕘 <b>Davomat vaqti to'g'rilandi</b>",
+        "",
+        f"👤 Xodim: <b>{escape(e.full_name)}</b>" + (f" · {escape(e.department.name)}" if e.department else ""),
+        f"📅 Sana: {d:%d.%m.%Y} ({wd})",
+        f"⏱ Tizimdagi vaqt: <b>{c.old_check_in or '—'}</b> — {fmt_late(c.late_before)}",
+        f"✅ Yangi vaqt: <b>{c.new_check_in}</b> — {fmt_late(c.late_after)}",
+    ]
+    if c.note_text:
+        lines.append(f"📝 Xodim izohi: <i>{escape(c.note_text)}</i>")
+    lines.append(f"✍️ Sabab: {escape(c.reason or 'ko‘rsatilmagan')}")
+    lines += ["", f"👩‍💼 To'g'riladi: <b>{escape(who.full_name if who else '—')}</b>"
+              + (f" ({role_lbl})" if role_lbl else "") + (f" · {when}" if when else "")]
+    return "\n".join(lines)
+
+
+def _notify_zam(corr_id: int) -> None:
+    """Kadr/superadmin kelish vaqtini to'g'rilaganda — zamdirektor(lar)ga Telegram xabari (fonda)."""
     from ..database import SessionLocal
     from ..telegram import telegram_api
     db = SessionLocal()
@@ -286,30 +310,11 @@ def _notify_zam(corr_id: int) -> None:
         c = db.get(models.AttendanceCorrection, corr_id)
         if not c or not c.employee:
             return
-        e, who = c.employee, c.corrector
-        d = datetime.strptime(c.date, "%Y-%m-%d")
-        wd = ["Dushanba", "Seshanba", "Chorshanba", "Payshanba", "Juma", "Shanba", "Yakshanba"][d.weekday()]
-        role_lbl = {"kadr": "Kadrlar bo'limi", "superadmin": "Administrator"}.get(who.role.value if who else "", "")
-        from datetime import timedelta
-        when = (c.created_at + timedelta(hours=5)).strftime("%d.%m.%Y %H:%M") if c.created_at else ""
-        lines = [
-            "🕘 <b>Davomat vaqti to'g'rilandi</b>",
-            "",
-            f"👤 Xodim: <b>{escape(e.full_name)}</b>" + (f" · {escape(e.department.name)}" if e.department else ""),
-            f"📅 Sana: {d:%d.%m.%Y} ({wd})",
-            f"⏱ Tizimdagi vaqt: <b>{c.old_check_in or '—'}</b> — {fmt_late(c.late_before)}",
-            f"✅ Yangi vaqt: <b>{c.new_check_in}</b> — {fmt_late(c.late_after)}",
-        ]
-        if c.note_text:
-            lines.append(f"📝 Xodim izohi: <i>{escape(c.note_text)}</i>")
-        lines.append(f"✍️ Sabab: {escape(c.reason or 'ko‘rsatilmagan')}")
-        lines += ["", f"👩‍💼 To'g'riladi: <b>{escape(who.full_name if who else '—')}</b>"
-                  + (f" ({role_lbl})" if role_lbl else "") + (f" · {when}" if when else "")]
-        text = "\n".join(lines)
+        text = correction_message(c)
         zams = db.query(models.Employee).filter(models.role_filter(R.zamdirektor),
                                                 models.Employee.telegram_id.isnot(None)).all()
         for z in zams:
-            if who is None or z.id != who.id:
+            if c.corrector is None or z.id != c.corrector.id:
                 telegram_api("sendMessage", {"chat_id": z.telegram_id, "text": text, "parse_mode": "HTML"})
     finally:
         db.close()
