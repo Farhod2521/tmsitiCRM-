@@ -86,7 +86,8 @@ def send_telegram_photo_to(chat_id, image_bytes: bytes, caption: str = "") -> bo
 
 
 def telegram_send_file(chat_id, filename: str, data: bytes, ctype: str = "application/octet-stream",
-                       caption: str = "", reply_to: int | None = None, file_id: str | None = None) -> dict | None:
+                       caption: str = "", reply_to: int | None = None, file_id: str | None = None,
+                       reply_markup: dict | None = None) -> dict | None:
     """Faylni (rasm — sendPhoto, qolgani — sendDocument) yuboradi. file_id berilsa —
     qayta yuklamasdan o'sha nusxa. Natija: Telegram javobi (result) yoki None."""
     import uuid
@@ -97,6 +98,10 @@ def telegram_send_file(chat_id, filename: str, data: bytes, ctype: str = "applic
         fields.update(caption=caption[:1000], parse_mode="HTML")
     if reply_to:
         fields["reply_to_message_id"] = str(reply_to)
+    if reply_markup:
+        if file_id:
+            return telegram_api(method, {**fields, field: file_id, "reply_markup": reply_markup})
+        fields["reply_markup"] = json.dumps(reply_markup)
     if file_id:
         return telegram_api(method, {**fields, field: file_id})
     token = os.getenv("TELEGRAM_BOT_TOKEN")
@@ -118,6 +123,37 @@ def telegram_send_file(chat_id, filename: str, data: bytes, ctype: str = "applic
         return result.get("result") if result.get("ok") else None
     except Exception as e:
         _log.warning("Telegram fayl yuborilmadi (%s): %s", method, e)
+        return None
+
+
+def telegram_edit_photo(chat_id, message_id: int, data: bytes, caption: str = "",
+                        reply_markup: dict | None = None, filename: str = "photo.jpg",
+                        ctype: str = "image/jpeg") -> dict | None:
+    """Yuborilgan rasmli xabarning rasmini (va izohini) almashtiradi — editMessageMedia."""
+    import uuid
+    token = os.getenv("TELEGRAM_BOT_TOKEN")
+    if not token:
+        return None
+    media = {"type": "photo", "media": "attach://photo"}
+    if caption:
+        media.update(caption=caption[:1000], parse_mode="HTML")
+    fields = {"chat_id": str(chat_id), "message_id": str(message_id), "media": json.dumps(media),
+              "reply_markup": json.dumps(reply_markup or {"inline_keyboard": []})}
+    boundary = uuid.uuid4().hex
+    body = b"".join(
+        [f'--{boundary}\r\nContent-Disposition: form-data; name="{k}"\r\n\r\n{v}\r\n'.encode("utf-8") for k, v in fields.items()]
+        + [f'--{boundary}\r\nContent-Disposition: form-data; name="photo"; filename="{filename}"\r\n'
+           f"Content-Type: {ctype}\r\n\r\n".encode("utf-8") + data + b"\r\n",
+           f"--{boundary}--\r\n".encode("utf-8")]
+    )
+    req = urllib.request.Request(f"https://api.telegram.org/bot{token}/editMessageMedia", data=body, method="POST",
+                                 headers={"Content-Type": f"multipart/form-data; boundary={boundary}"})
+    try:
+        with urllib.request.urlopen(req, timeout=60) as resp:
+            result = json.loads(resp.read().decode("utf-8"))
+        return result.get("result") if result.get("ok") else None
+    except Exception as e:
+        _log.warning("Telegram editMessageMedia xatosi (chat_id=%s): %s", chat_id, e)
         return None
 
 

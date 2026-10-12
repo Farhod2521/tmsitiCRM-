@@ -301,17 +301,59 @@ def correction_message(c: models.AttendanceCorrection) -> str:
     lines.append(f"✍️ Sabab: {escape(c.reason or 'ko‘rsatilmagan')}")
     lines += ["", f"👩‍💼 To'g'riladi: <b>{escape(who.full_name if who else '—')}</b>"
               + (f" ({role_lbl})" if role_lbl else "") + (f" · {when}" if when else "")]
-    st = c.status or "tasdiqlandi"
+    return "\n".join(lines + _status_lines(c))
+
+
+def _reviewed_note(c: models.AttendanceCorrection) -> str:
+    """"Dusatov B. · 12.10.2026 15:40" — kim va qachon qaror qildi."""
+    from datetime import timedelta
     rv = c.reviewer
-    rv_when = (c.reviewed_at + timedelta(hours=5)).strftime("%d.%m.%Y %H:%M") if c.reviewed_at else ""
+    if rv is None or (c.status or "tasdiqlandi") == "kutilmoqda":
+        return ""
+    when = (c.reviewed_at + timedelta(hours=5)).strftime("%d.%m.%Y %H:%M") if c.reviewed_at else ""
+    return rv.full_name + (f" · {when}" if when else "")
+
+
+def _status_lines(c: models.AttendanceCorrection) -> list[str]:
+    from html import escape as _esc
+    st = c.status or "tasdiqlandi"
+    rv, who = c.reviewer, c.corrector
+    note = _esc(_reviewed_note(c), quote=False)
     if st == "kutilmoqda":
-        lines += ["", "⏳ <b>Tasdig'ingiz kutilmoqda</b> — tasdiqlanmaguncha vaqt o'zgarmaydi"]
-    elif st == "rad_etildi":
-        lines += ["", f"❌ <b>Bekor qilindi</b> — {escape(rv.full_name) if rv else '—'}" + (f" · {rv_when}" if rv_when else "")
-                  + "\nVaqt o'zgartirilmadi."]
-    elif rv is not None and rv.id != (who.id if who else None):
-        lines += ["", f"✅ <b>Tasdiqlandi</b> — {escape(rv.full_name)}" + (f" · {rv_when}" if rv_when else "")]
-    return "\n".join(lines)
+        return ["", "⏳ <b>Tasdig'ingiz kutilmoqda</b> — tasdiqlanmaguncha vaqt o'zgarmaydi"]
+    if st == "rad_etildi":
+        return ["", f"❌ <b>Bekor qilindi</b> — {note or '—'}\nVaqt o'zgartirilmadi."]
+    if rv is not None and rv.id != (who.id if who else None):
+        return ["", f"✅ <b>Tasdiqlandi</b> — {note}"]
+    return []
+
+
+def correction_caption(c: models.AttendanceCorrection) -> str:
+    """Rasm ostidagi qisqa izoh — tafsilotlar rasmning o'zida."""
+    from datetime import timedelta
+    from html import escape as _esc
+    escape = lambda v: _esc(v, quote=False)
+    e, who = c.employee, c.corrector
+    role_lbl = {"kadr": "Kadrlar bo'limi", "superadmin": "Administrator"}.get(who.role.value if who else "", "")
+    when = (c.created_at + timedelta(hours=5)).strftime("%d.%m.%Y %H:%M") if c.created_at else ""
+    lines = [
+        f"🕘 <b>Davomat vaqti to'g'rilandi</b> — {escape(e.full_name if e else '—')}",
+        f"⏱ {c.old_check_in or '—'} → <b>{c.new_check_in}</b> · {datetime.strptime(c.date, '%Y-%m-%d'):%d.%m.%Y}",
+        f"👩‍💼 To'g'riladi: <b>{escape(who.full_name if who else '—')}</b>"
+        + (f" ({role_lbl})" if role_lbl else "") + (f" · {when}" if when else ""),
+    ]
+    return "\n".join(lines + _status_lines(c))
+
+
+def correction_photo(c: models.AttendanceCorrection) -> Optional[bytes]:
+    """Dizayn rasm (JPEG). Chizib bo'lmasa — None, shunda oddiy matnli xabar ketadi."""
+    try:
+        from ..correction_image import render_correction
+        return render_correction(c, _reviewed_note(c))
+    except Exception:
+        import logging
+        logging.getLogger("telegram").exception("Tuzatish rasmi chizilmadi (id=%s)", c.id)
+        return None
 
 
 def correction_keyboard(corr_id: int) -> dict:
@@ -371,13 +413,23 @@ def after_review(corr_id: int) -> None:
         c = db.get(models.AttendanceCorrection, corr_id)
         if not c:
             return
-        text = correction_message(c)
-        for chat_id, msg_id in json.loads(c.tg_msgs or "[]"):
-            telegram_api("editMessageText", {"chat_id": chat_id, "message_id": msg_id, "text": text,
-                                             "parse_mode": "HTML", "reply_markup": {"inline_keyboard": []}})
+        from ..telegram import telegram_edit_photo, telegram_send_file
+        text, caption = correction_message(c), correction_caption(c)
+        photo = correction_photo(c)
+        no_kb = {"inline_keyboard": []}
+        for m in json.loads(c.tg_msgs or "[]"):
+            chat_id, msg_id = m[0], m[1]
+            if len(m) > 2 and m[2] == "p":   # rasmli xabar — rasm holat lentasi bilan almashadi
+                if not (photo and telegram_edit_photo(chat_id, msg_id, photo, caption, no_kb)):
+                    telegram_api("editMessageCaption", {"chat_id": chat_id, "message_id": msg_id, "caption": caption,
+                                                        "parse_mode": "HTML", "reply_markup": no_kb})
+            else:
+                telegram_api("editMessageText", {"chat_id": chat_id, "message_id": msg_id, "text": text,
+                                                 "parse_mode": "HTML", "reply_markup": no_kb})
         who = c.corrector
         if who and who.telegram_id and (c.reviewer is None or who.id != c.reviewer.id):
-            telegram_api("sendMessage", {"chat_id": who.telegram_id, "text": text, "parse_mode": "HTML"})
+            if not (photo and telegram_send_file(who.telegram_id, "davomat.jpg", photo, "image/jpeg", caption)):
+                telegram_api("sendMessage", {"chat_id": who.telegram_id, "text": text, "parse_mode": "HTML"})
     finally:
         db.close()
 
@@ -392,19 +444,29 @@ def _notify_zam(corr_id: int) -> None:
         if not c or not c.employee:
             return
         import json
-        text = correction_message(c)
-        pending = c.status == "kutilmoqda"
+        from ..telegram import telegram_send_file, file_id_of
+        text, caption = correction_message(c), correction_caption(c)
+        photo = correction_photo(c)
+        kb = correction_keyboard(c.id) if c.status == "kutilmoqda" else None
         zams = db.query(models.Employee).filter(models.role_filter(R.zamdirektor),
                                                 models.Employee.telegram_id.isnot(None)).all()
-        sent = []
+        sent, fid = [], None
         for z in zams:
-            if c.corrector is None or z.id != c.corrector.id:
-                payload = {"chat_id": z.telegram_id, "text": text, "parse_mode": "HTML"}
-                if pending:
-                    payload["reply_markup"] = correction_keyboard(c.id)
-                res = telegram_api("sendMessage", payload)
+            if c.corrector is not None and z.id == c.corrector.id:
+                continue
+            if photo:   # dizayn rasm, ostida Tasdiqlash / Bekor qilish tugmalari
+                res = telegram_send_file(z.telegram_id, "davomat.jpg", photo, "image/jpeg", caption,
+                                         file_id=fid, reply_markup=kb)
+                fid = fid or file_id_of(res)
                 if res and res.get("message_id"):
-                    sent.append([z.telegram_id, res["message_id"]])
+                    sent.append([z.telegram_id, res["message_id"], "p"])
+                    continue
+            payload = {"chat_id": z.telegram_id, "text": text, "parse_mode": "HTML"}
+            if kb:
+                payload["reply_markup"] = kb
+            res = telegram_api("sendMessage", payload)
+            if res and res.get("message_id"):
+                sent.append([z.telegram_id, res["message_id"]])
         if sent:
             c.tg_msgs = json.dumps(sent)
             db.commit()
