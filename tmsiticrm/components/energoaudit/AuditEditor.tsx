@@ -280,7 +280,7 @@ export default function AuditEditor({ id, basePath }: { id: number; basePath: st
             {S_NORMA.slice(0, 2).map(field)}
             {(calc?.iqlim ? [
               { key: "t_tashqi", label: "Tashqi hisobiy harorat tₑ (0,92)", unit: "°C", calc: (c: AuditCalc) => nf(c.t_tashqi, 1) },
-              { key: "z", label: "Isitish davri Z (t ≤ 12 °C)", unit: "sutka", calc: (c: AuditCalc) => String(c.iqlim?.z ?? "—") },
+              { key: "z", label: "Isitish davri Z (t ≤ 8 °C)", unit: "sutka", calc: (c: AuditCalc) => String(c.iqlim?.z ?? "—") },
               { key: "t_ort", label: "Davrning o'rtacha harorati", unit: "°C", calc: (c: AuditCalc) => nf(c.iqlim?.t_ort, 1) },
               { key: "dd", label: "Dd = (tᵢ − t_o'rt) × Z", unit: "°C·sutka", calc: (c: AuditCalc) => String(c.dd) },
             ] : [
