@@ -126,7 +126,10 @@ def fmt_rate(r: float) -> str:
 
 # ── Word (DOCX) ──────────────────────────────────────────────────────────────
 
-BLACK, WKND_FILL = "000000", "808080"
+BLACK, WKND_FILL = "000000", "BFBFBF"
+# Belgilar izohidagi kod kataklari — och ranglar (oq-qora printerda ham yorug' kulrang bo'lib chiqadi)
+LEGEND_FILL = {"4": "EAF6FD", "8": "FFFFFF", "X": "E5E5E5", "Б": "FDFBE6", "К": "FDEEEE",
+               "У/Т": "EEF3FD", "М/Т": "F5F0FD", "Х/С": "EAF8F1", "Б/С": "FDF3EA", "Д": "FCEFF6"}
 MONTHS_UZ = ["", "Yanvar", "Fevral", "Mart", "Aprel", "May", "Iyun", "Iyul", "Avgust", "Sentyabr", "Oktyabr", "Noyabr", "Dekabr"]
 # Yakuniy ustunlar (vertikal sarlavha): nomi — qaysi kodlar sanaladi
 SUM_COLS = [
@@ -245,8 +248,8 @@ def build_docx(depts: list[dict], year: int, month: int, day_from: int, day_to: 
         para(f"{year} yil uchun  {day_from}- dan {day_to}- {oy}gacha ish vaqtini hisoblash.", 12.5, True, C, space_after=6)
 
         rows = dep["rows"]
-        # 0: bo'lim nomi | 1: sarlavha | 2..: xodimlar | oxirgi: bo'lim boshlig'i
-        tbl = doc.add_table(rows=3 + len(rows), cols=ncol)
+        # 0: bo'lim nomi | 1: sarlavha | 2..: xodimlar
+        tbl = doc.add_table(rows=2 + len(rows), cols=ncol)
         tbl.alignment = WD_TABLE_ALIGNMENT.CENTER
         tbl_borders(tbl); fixed(tbl, widths)
 
@@ -278,27 +281,31 @@ def build_docx(depts: list[dict], year: int, month: int, day_from: int, day_to: 
                 code = row["cells"].get(str(d), "")
                 vals.append(code)
                 if wkend[j] and code == "X":
-                    shade(cs[3 + j], WKND_FILL)          # dam olish — to'q kulrang katak
-                else:
-                    put(cs[3 + j], code, fs - ((3 if full else 1.5) if len(code) > 1 else 0), False)
+                    shade(cs[3 + j], WKND_FILL)          # dam olish — kulrang katak, ichida "X"
+                put(cs[3 + j], code, fs - ((3 if full else 1.5) if len(code) > 1 else 0), False)
             for k, (_, codes) in enumerate(SUM_COLS):
                 n = sum(1 for v in vals if v in codes)
                 put(cs[3 + nd + k], str(n) if n else "", 11)
             put(cs[ncol - 1], str(row["ik"] or ""), 12)
 
-        # Bo'lim boshlig'i (jadval ichida)
-        fr = tbl.rows[2 + len(rows)]; height(fr, 1.4)
-        split = 3 + nd // 3
-        left = fr.cells[0].merge(fr.cells[split])
-        right = fr.cells[split + 1].merge(fr.cells[ncol - 1])
-        put(left, f"{dep['name']} boshlig'i", 11)
-        put(right, dep.get("head") or "", 12)
+        # Bo'lim boshlig'i — jadval ostida, chegarasiz
+        para(space_after=14)
+        sig = doc.add_table(rows=1, cols=2); tbl_borders(sig, none=True)
+        fixed(sig, [usable * 0.62, usable * 0.38])
+        put(sig.rows[0].cells[0], f"{dep['name']} boshlig'i", 12)
+        put(sig.rows[0].cells[1], dep.get("head") or "", 12, align=L)
 
-        # Belgilar izohi
-        para(space_after=4)
-        p = para(align=L)
-        run(p, "Belgilar:  ", 10.5, True)
-        run(p, ";   ".join(f"{code} — {label}" for code, label in LEGEND) + ";   to'q kulrang katak — dam olish kuni.", 10.5, False)
+        # Belgilar izohi — 2 ustun (kod | nomi)
+        para(space_after=14)
+        half_n = (len(LEGEND) + 1) // 2
+        leg = doc.add_table(rows=half_n, cols=4); tbl_borders(leg, none=True)
+        fixed(leg, [1.2, 4.6, 1.2, 4.6])
+        for k, (code, label) in enumerate(LEGEND):
+            rr, cc = k % half_n, (k // half_n) * 2
+            shade(leg.rows[rr].cells[cc], LEGEND_FILL.get(code, "FFFFFF"))
+            put(leg.rows[rr].cells[cc], code, 11, True, pad=3)
+            put(leg.rows[rr].cells[cc + 1], label, 11, False, L, pad=3)
+        leg.alignment = WD_TABLE_ALIGNMENT.LEFT
 
     if not depts:
         para("Ma'lumot yo'q", 12, True, C)
