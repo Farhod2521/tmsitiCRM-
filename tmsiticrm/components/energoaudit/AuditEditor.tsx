@@ -276,15 +276,13 @@ export default function AuditEditor({ id, basePath }: { id: number; basePath: st
             alpha={[["alfa_pol_ichki", "αᵢ (ichki)"], ["alfa_pol", "αₑ (tashqi)"], ["pol_n", "n (koef.)"], ["pol_maydon", "Maydoni, m²"]]}
             placeholders={{ pol_maydon: calc ? `avto: ${nf(calc.pol_maydon_auto)}` : "", pol_n: "0.6" }}
             data={data} onAlpha={update} />
-          <Card icon={Scale} title="Me'yorlar va harorat" sub="2-jadval (ҚМҚ 2.01.04-18), Dd va Δt">
+          <Card icon={Scale} title="Me'yorlar va harorat" sub="2-jadval (ҚМҚ 2.01.04-18) va Dd">
             {S_NORMA.slice(0, 2).map(field)}
             {(calc?.iqlim ? [
-              { key: "t_tashqi", label: "Tashqi hisobiy harorat tₑ (0,92)", unit: "°C", calc: (c: AuditCalc) => nf(c.t_tashqi, 1) },
               { key: "z", label: "Isitish davri Z (t ≤ 8 °C)", unit: "sutka", calc: (c: AuditCalc) => String(c.iqlim?.z ?? "—") },
               { key: "t_ort", label: "Davrning o'rtacha harorati", unit: "°C", calc: (c: AuditCalc) => nf(c.iqlim?.t_ort, 1) },
               { key: "dd", label: "Dd = (tᵢ − t_o'rt) × Z", unit: "°C·sutka", calc: (c: AuditCalc) => String(c.dd) },
             ] : [
-              { key: "t_tashqi", label: "Tashqi harorat tₑ (viloyat tanlanmagan)", num: true, unit: "°C" },
               { key: "dd", label: "Dd, °C·sutka (viloyat tanlanmagan)", num: true },
             ] as FieldDef[]).map(field)}
             {calc?.iqlim && (
