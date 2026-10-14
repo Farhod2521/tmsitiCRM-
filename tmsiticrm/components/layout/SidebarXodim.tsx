@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { clearAuth, getUser } from "@/lib/auth";
-import { Target, User, LogOut, Star, CalendarCheck, ClipboardCheck, MessageSquareWarning, Users, X, CalendarDays, BriefcaseBusiness, Zap, ScrollText } from "lucide-react";
+import { Target, User, LogOut, Star, CalendarCheck, ClipboardCheck, MessageSquareWarning, Users, X, CalendarDays, BriefcaseBusiness, Zap, ScrollText, Sheet } from "lucide-react";
 import { checkAuditAccess } from "@/components/energoaudit/api";
 import LottiePlayer from "@/components/ui/LottiePlayer";
 import MobileTopBar from "@/components/layout/MobileTopBar";
@@ -58,6 +58,7 @@ export default function SidebarXodim() {
           { href: "/xodim/izohlar",  icon: MessageSquareWarning, label: "Izohlar"  },
           { href: "/xodim/kalendar", icon: CalendarDays,         label: "Kalendar" },
           { href: "/xodim/ish-staji", icon: BriefcaseBusiness,   label: "Ish staji" },
+          { href: "/xodim/avans",    icon: Sheet,                label: "Avans table" },
         ]
       : []
     ),
