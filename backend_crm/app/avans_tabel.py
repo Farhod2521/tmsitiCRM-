@@ -126,20 +126,22 @@ def fmt_rate(r: float) -> str:
 
 # ── Word (DOCX) ──────────────────────────────────────────────────────────────
 
-NAVY, HEAD_BG, DAY_BG, BORDER, MUTED, WKND_BG = "17365D", "245A8D", "EAF2F8", "C7D6E5", "526276", "E9EAEC"
-CODE_STYLE = {   # kod: (fon, matn rangi)
-    "4": ("F0F9FF", "0369A1"), "X": (WKND_BG, "666666"), "Б": ("FEFCE8", "854D0E"), "К": ("FEF2F2", "991B1B"),
-    "У/Т": ("EFF6FF", "1D4ED8"), "М/Т": ("FAF5FF", "6D28D9"), "Х/С": ("ECFDF5", "047857"),
-    "Б/С": ("FFF7ED", "C2410C"), "Д": ("FDF2F8", "BE185D"),
-}
-MONTHS = ["", "yanvar", "fevral", "mart", "aprel", "may", "iyun", "iyul", "avgust", "sentabr", "oktabr", "noyabr", "dekabr"]
-DIRECTOR = "R.Kuchkarov"
+BLACK, WKND_FILL = "000000", "808080"
+MONTHS_UZ = ["", "Yanvar", "Fevral", "Mart", "Aprel", "May", "Iyun", "Iyul", "Avgust", "Sentyabr", "Oktyabr", "Noyabr", "Dekabr"]
+# Yakuniy ustunlar (vertikal sarlavha): nomi — qaysi kodlar sanaladi
+SUM_COLS = [
+    ("Xizmat safari", {"Х/С"}),
+    ("Salomatlik ta'tili", {"К"}),
+    ("Ta'til", {"М/Т", "У/Т", "Б/С", "Д"}),
+]
 
 
 def build_docx(depts: list[dict], year: int, month: int, day_from: int, day_to: int) -> bytes:
+    """"J A D V A L" — ish vaqtini hisoblash jadvali (oq-qora, printer uchun).
+    Har bir bo'lim — alohida A4 albom sahifa; bo'lim nomi va bo'lim boshlig'i jadval ichida."""
     from docx import Document
     from docx.enum.section import WD_ORIENT
-    from docx.enum.table import WD_TABLE_ALIGNMENT, WD_CELL_VERTICAL_ALIGNMENT
+    from docx.enum.table import WD_TABLE_ALIGNMENT, WD_CELL_VERTICAL_ALIGNMENT, WD_ROW_HEIGHT_RULE
     from docx.enum.text import WD_ALIGN_PARAGRAPH, WD_BREAK
     from docx.oxml import OxmlElement
     from docx.oxml.ns import qn
@@ -149,140 +151,157 @@ def build_docx(depts: list[dict], year: int, month: int, day_from: int, day_to: 
     sec = doc.sections[0]
     sec.orientation = WD_ORIENT.LANDSCAPE
     sec.page_width, sec.page_height = Cm(29.7), Cm(21.0)
-    sec.left_margin = sec.right_margin = Cm(1.27)
-    sec.top_margin = sec.bottom_margin = Cm(1.4)
+    sec.left_margin = sec.right_margin = Cm(1.0)
+    sec.top_margin = sec.bottom_margin = Cm(1.0)
     st = doc.styles["Normal"]
-    st.font.name, st.font.size = "Calibri", Pt(10)
-    st.element.rPr.rFonts.set(qn("w:eastAsia"), "Calibri")
+    st.font.name, st.font.size = "Times New Roman", Pt(11)
+    st.element.rPr.rFonts.set(qn("w:eastAsia"), "Times New Roman")
     st.paragraph_format.space_after = Pt(0)
-    usable = 29.7 - 2 * 1.27   # sm
+    usable = 29.7 - 2 * 1.0   # sm
+    C, L = WD_ALIGN_PARAGRAPH.CENTER, WD_ALIGN_PARAGRAPH.LEFT
 
-    def para(text="", size=10, bold=False, color=NAVY, align=None, space_after=0, container=None):
-        p = (container or doc).add_paragraph()
+    def run(p, text, size, bold=True):
+        r = p.add_run(text)
+        r.bold, r.font.size, r.font.color.rgb = bold, Pt(size), RGBColor.from_string(BLACK)
+        return r
+
+    def para(text="", size=11, bold=True, align=None, space_after=0):
+        p = doc.add_paragraph()
         if align is not None:
             p.alignment = align
         p.paragraph_format.space_after = Pt(space_after)
         if text:
-            r = p.add_run(text)
-            r.bold, r.font.size, r.font.color.rgb = bold, Pt(size), RGBColor.from_string(color)
+            run(p, text, size, bold)
         return p
 
-    def shade(cell, fill):
-        tcPr = cell._tc.get_or_add_tcPr()
-        sh = OxmlElement("w:shd")
-        sh.set(qn("w:val"), "clear"); sh.set(qn("w:color"), "auto"); sh.set(qn("w:fill"), fill)
-        tcPr.append(sh)
-
-    def borders(tbl, color=BORDER, size=4, none=False):
-        tblPr = tbl._tbl.tblPr
+    def tbl_borders(tbl, none=False):
         b = OxmlElement("w:tblBorders")
         for side in ("top", "left", "bottom", "right", "insideH", "insideV"):
             e = OxmlElement(f"w:{side}")
             e.set(qn("w:val"), "nil" if none else "single")
             if not none:
-                e.set(qn("w:sz"), str(size)); e.set(qn("w:color"), color)
+                e.set(qn("w:sz"), "6"); e.set(qn("w:color"), BLACK)
             b.append(e)
-        tblPr.append(b)
+        tbl._tbl.tblPr.append(b)
 
     def fixed(tbl, widths_cm):
         tbl.autofit = False
-        lay = OxmlElement("w:tblLayout"); lay.set(qn("w:type"), "fixed"); tbl._tbl.tblPr.append(lay)
+        pr = tbl._tbl.tblPr
+        lay = OxmlElement("w:tblLayout"); lay.set(qn("w:type"), "fixed"); pr.append(lay)
+        for old in pr.findall(qn("w:tblW")):
+            pr.remove(old)
+        tw = OxmlElement("w:tblW"); tw.set(qn("w:w"), str(int(sum(widths_cm) * 567))); tw.set(qn("w:type"), "dxa")
+        pr.append(tw)
+        mar = OxmlElement("w:tblCellMar")   # tor kun ustunlarida matn bo'linmasin
+        for side in ("left", "right"):
+            e = OxmlElement(f"w:{side}"); e.set(qn("w:w"), "28"); e.set(qn("w:type"), "dxa"); mar.append(e)
+        pr.append(mar)
+        for gc, w in zip(tbl._tbl.tblGrid.findall(qn("w:gridCol")), widths_cm):
+            gc.set(qn("w:w"), str(int(w * 567)))
         for row in tbl.rows:
             for i, w in enumerate(widths_cm):
                 row.cells[i].width = Cm(w)
 
-    def put(cell, text, size=10, bold=False, color=NAVY, align=WD_ALIGN_PARAGRAPH.CENTER, fill=None):
+    def shade(cell, fill):
+        sh = OxmlElement("w:shd")
+        sh.set(qn("w:val"), "clear"); sh.set(qn("w:color"), "auto"); sh.set(qn("w:fill"), fill)
+        cell._tc.get_or_add_tcPr().append(sh)
+
+    def vertical(cell):
+        td = OxmlElement("w:textDirection"); td.set(qn("w:val"), "btLr")
+        cell._tc.get_or_add_tcPr().append(td)
+
+    def put(cell, text, size=11, bold=True, align=None, pad=1):
         cell.vertical_alignment = WD_CELL_VERTICAL_ALIGNMENT.CENTER
         p = cell.paragraphs[0]
-        p.alignment = align
-        p.paragraph_format.space_before = p.paragraph_format.space_after = Pt(2)
+        p.alignment = C if align is None else align
+        p.paragraph_format.space_before = p.paragraph_format.space_after = Pt(pad)
         if text:
-            r = p.add_run(text)
-            r.bold, r.font.size, r.font.color.rgb = bold, Pt(size), RGBColor.from_string(color)
-        if fill:
-            shade(cell, fill)
+            run(p, text, size, bold)
+
+    def height(row, cm):
+        row.height = Cm(cm)
+        row.height_rule = WD_ROW_HEIGHT_RULE.AT_LEAST
 
     days = list(range(day_from, day_to + 1))
-    title = ("DAVOMAT JADVALI — YARIM OYLIK (1–15 KUN)" if (day_from, day_to) == (1, 15)
-             else f"DAVOMAT JADVALI ({day_from}–{day_to} KUN)")
-    mm = f"{month:02d}"
+    oy = MONTHS_UZ[month]
+    full = len(days) > 16
+    jami_label = "Bir oy mobaynida" if (day_from == 1 and day_to == monthrange(year, month)[1]) else f"{len(days)} kun mobaynida"
+    # Ustunlar: № | F.I.O | Lavozim | kunlar... | Xizmat safari | Salomatlik ta'tili | Ta'til | Bir oy mobaynida
+    lead_w = [0.7, 3.0, 2.9] if full else [0.9, 4.2, 4.4]
+    sum_w = [0.9, 0.9, 0.9, 2.1]
+    day_w = (usable - sum(lead_w) - sum(sum_w)) / len(days)
+    widths = lead_w + [day_w] * len(days) + sum_w
+    ncol = len(widths)
+    nd = len(days)
+    fs = 9.5 if full else 11            # kun kataklari shrifti
+    wkend = [date(year, month, d).weekday() >= 5 for d in days]
 
     for di, dep in enumerate(depts):
         if di:
             para().add_run().add_break(WD_BREAK.PAGE)
 
-        # «TASDIQLAYMAN»
-        t = doc.add_table(rows=1, cols=2); borders(t, none=True); fixed(t, [usable * 0.58, usable * 0.42])
-        c = t.rows[0].cells[1]
-        p = c.paragraphs[0]; p.alignment = WD_ALIGN_PARAGRAPH.RIGHT
-        r = p.add_run("«TASDIQLAYMAN»"); r.bold, r.font.size, r.font.color.rgb = True, Pt(13), RGBColor.from_string(NAVY)
-        for line, b in (("Texnik me'yorlash va standartlashtirish", False), ("ilmiy-tadqiqot instituti direktori v.v.b.", False),
-                        (DIRECTOR, True), (f"«___»__________{year} y.", False)):
-            para(line, 9.5, b, NAVY if b else MUTED, WD_ALIGN_PARAGRAPH.RIGHT, container=c)
+        para("J A D V A L", 13, True, C)
+        para(f"{year} yil uchun  {day_from}- dan {day_to}- {oy}gacha ish vaqtini hisoblash.", 12.5, True, C, space_after=6)
 
-        para(title, 17, True, NAVY, WD_ALIGN_PARAGRAPH.CENTER).paragraph_format.space_before = Pt(6)
-        para(f"{dep['name']}  •  {day_from:02d}.{mm}.{year} — {day_to:02d}.{mm}.{year}", 10.5, False, MUTED,
-             WD_ALIGN_PARAGRAPH.CENTER, space_after=6)
-
-        # Jadval: № | F.I.Sh. | Lavozim | Shtat | kunlar... | I.K. | I.Km.
-        fixed_w = [0.8, 3.6, 3.2, 1.3]
-        sum_w = [1.1, 1.4]
-        day_w = max(0.55, (usable - sum(fixed_w) - sum(sum_w)) / len(days))
-        widths = fixed_w + [day_w] * len(days) + sum_w
-        ncol = len(widths)
-        tbl = doc.add_table(rows=2 + len(dep["rows"]), cols=ncol)
+        rows = dep["rows"]
+        # 0: bo'lim nomi | 1: sarlavha | 2..: xodimlar | oxirgi: bo'lim boshlig'i
+        tbl = doc.add_table(rows=3 + len(rows), cols=ncol)
         tbl.alignment = WD_TABLE_ALIGNMENT.CENTER
-        borders(tbl); fixed(tbl, widths)
-        h0, h1 = tbl.rows[0].cells, tbl.rows[1].cells
-        for i, txt in ((0, "№"), (1, "F.I.Sh."), (2, "Lavozim"), (3, "Shtat"), (ncol - 2, "I.K."), (ncol - 1, "I.Km.")):
-            m = h0[i].merge(h1[i])
-            put(m, txt, 9.5, True, "FFFFFF", fill=HEAD_BG)
-        kun = h0[4].merge(h0[4 + len(days) - 1])
-        put(kun, "KUNLAR", 9.5, True, "FFFFFF", fill=HEAD_BG)
-        for j, d in enumerate(days):
-            put(h1[4 + j], str(d), 9, True, NAVY, fill=DAY_BG)
-        for row_el in (tbl.rows[0], tbl.rows[1]):   # sarlavha har sahifada takrorlanadi
-            trPr = row_el._tr.get_or_add_trPr()
-            th = OxmlElement("w:tblHeader"); th.set(qn("w:val"), "true"); trPr.append(th)
+        tbl_borders(tbl); fixed(tbl, widths)
 
-        for ri, row in enumerate(dep["rows"]):
-            cs = tbl.rows[2 + ri].cells
-            put(cs[0], str(ri + 1), 9.5, True)
-            put(cs[1], row["full_name"], 9.5, row["is_head"], align=WD_ALIGN_PARAGRAPH.LEFT)
-            put(cs[2], row["position"], 8.5)
-            put(cs[3], row["shtat"], 9)
+        # Bo'lim nomi
+        r0 = tbl.rows[0]; height(r0, 1.0)
+        put(r0.cells[0].merge(r0.cells[ncol - 1]), dep["name"], 12.5)
+
+        # Sarlavha
+        hr = tbl.rows[1]; height(hr, 3.6)
+        hc = hr.cells
+        for i, txt in ((0, "№"), (1, "F.I.O"), (2, "Lavozim")):
+            put(hc[i], txt, 12)
+        for j, d in enumerate(days):
+            put(hc[3 + j], str(d), fs + 1)
+        for k, (label, _) in enumerate(SUM_COLS):
+            cell = hc[3 + nd + k]; vertical(cell); put(cell, label, 10.5)
+        put(hc[ncol - 1], jami_label, 10.5)
+        th = OxmlElement("w:tblHeader"); th.set(qn("w:val"), "true"); hr._tr.get_or_add_trPr().append(th)
+
+        # Xodimlar
+        for ri, row in enumerate(rows):
+            tr = tbl.rows[2 + ri]; height(tr, 0.9)
+            cs = tr.cells
+            put(cs[0], str(ri + 1), 11, False)
+            put(cs[1], row["full_name"], 11, False)
+            put(cs[2], row["position"], 10.5 if len(row["position"]) < 26 else 9, False)
+            vals = []
             for j, d in enumerate(days):
                 code = row["cells"].get(str(d), "")
-                bg, fg = CODE_STYLE.get(code, ("FFFFFF", NAVY))
-                put(cs[4 + j], code, 9, False, fg, fill=bg if bg != "FFFFFF" else None)
-            put(cs[ncol - 2], str(row["ik"] or ""), 10.5, True)
-            put(cs[ncol - 1], str(row["ikm"] or ""), 10.5, True, "C0392B")
+                vals.append(code)
+                if wkend[j] and code == "X":
+                    shade(cs[3 + j], WKND_FILL)          # dam olish — to'q kulrang katak
+                else:
+                    put(cs[3 + j], code, fs - ((3 if full else 1.5) if len(code) > 1 else 0), False)
+            for k, (_, codes) in enumerate(SUM_COLS):
+                n = sum(1 for v in vals if v in codes)
+                put(cs[3 + nd + k], str(n) if n else "", 11)
+            put(cs[ncol - 1], str(row["ik"] or ""), 12)
 
-        # Shartli belgilar | Bo'lim boshlig'i imzosi
-        para(space_after=10)
-        foot = doc.add_table(rows=1, cols=2); borders(foot, none=True); fixed(foot, [usable * 0.5, usable * 0.5])
-        lc, rc = foot.rows[0].cells
-        nrows = (len(LEGEND) + 1) // 2
-        leg = lc.add_table(rows=nrows, cols=4); borders(leg, none=True)
-        fixed(leg, [1.0, 4.2, 1.0, 4.2])
-        for k, (code, label) in enumerate(LEGEND):
-            rr, cc = k % nrows, (k // nrows) * 2
-            bg, fg = CODE_STYLE.get(code, ("FFFFFF", NAVY))
-            put(leg.rows[rr].cells[cc], code, 9, True, fg, fill=bg)
-            put(leg.rows[rr].cells[cc + 1], label, 9, False, MUTED, WD_ALIGN_PARAGRAPH.LEFT)
-        lc._tc.append(lc.paragraphs[0]._p)   # katak oxiri paragraf bo'lishi shart (Word talabi)
-        para("BO'LIM BOSHLIG'I", 11.5, True, NAVY, WD_ALIGN_PARAGRAPH.LEFT, space_after=4, container=rc)
-        if dep.get("head"):
-            para(dep["head"], 10.5, True, NAVY, WD_ALIGN_PARAGRAPH.LEFT, space_after=4, container=rc)
-        para("Imzo: ______________________", 10, False, MUTED, WD_ALIGN_PARAGRAPH.LEFT, space_after=4, container=rc)
-        para(f"Sana: «___»__________{year} y.", 10, False, MUTED, WD_ALIGN_PARAGRAPH.LEFT, container=rc)
-        # Bo'sh birinchi paragraflarni olib tashlash (katak boshida ortiqcha qator bo'lmasin)
-        first = rc.paragraphs[0]
-        if not first.text and len(rc.paragraphs) > 1:
-            first._p.getparent().remove(first._p)
+        # Bo'lim boshlig'i (jadval ichida)
+        fr = tbl.rows[2 + len(rows)]; height(fr, 1.4)
+        split = 3 + nd // 3
+        left = fr.cells[0].merge(fr.cells[split])
+        right = fr.cells[split + 1].merge(fr.cells[ncol - 1])
+        put(left, f"{dep['name']} boshlig'i", 11)
+        put(right, dep.get("head") or "", 12)
+
+        # Belgilar izohi
+        para(space_after=4)
+        p = para(align=L)
+        run(p, "Belgilar:  ", 10.5, True)
+        run(p, ";   ".join(f"{code} — {label}" for code, label in LEGEND) + ";   to'q kulrang katak — dam olish kuni.", 10.5, False)
 
     if not depts:
-        para("Ma'lumot yo'q", 12, True, MUTED, WD_ALIGN_PARAGRAPH.CENTER)
+        para("Ma'lumot yo'q", 12, True, C)
     buf = io.BytesIO()
     doc.save(buf)
     return buf.getvalue()

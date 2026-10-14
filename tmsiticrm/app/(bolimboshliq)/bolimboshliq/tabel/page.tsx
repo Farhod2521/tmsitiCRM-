@@ -77,7 +77,6 @@ function fillWeekends(emps: Emp[], year: number, month: number, total: number): 
 }
 
 const DEPT    = "Axborot texnologiyalarini joriy etish bo'limi";
-const DIRECTOR= "R.Kuchkarov";
 
 export default function TabelPage() {
   const now   = new Date();
@@ -173,128 +172,25 @@ export default function TabelPage() {
   function cntP(e: Emp) { return activeDays.filter(d => e.days[d] === "8" || e.days[d] === "4").length || ""; }
   function cntA(e: Emp) { return activeDays.filter(d => e.days[d] && e.days[d] !== "8" && e.days[d] !== "4" && e.days[d] !== "X").length || ""; }
 
-  /* ── Word export (zamonaviy dizayn) ── */
-  function downloadWord() {
-    const mm  = String(month).padStart(2, "0");
-    const days = activeDays;
-
-    const NAVY   = "#17365D";
-    const HEAD   = "#245A8D";
-    const DAYBG  = "#EAF2F8";
-    const BRDCLR = "#C7D6E5";
-    const MUTED  = "#526276";
-    const BODY   = "#3C4B5F";
-    const brd    = `border:0.5pt solid ${BRDCLR}`;
-    const hdrCell = `${brd};background:${HEAD};color:#ffffff;font-weight:bold;font-family:Aptos,Calibri,sans-serif;font-size:10pt;text-align:center;padding:5pt 2pt;vertical-align:middle`;
-    const dayHdrCell = `${brd};background:${DAYBG};color:${NAVY};font-weight:bold;font-family:Aptos,Calibri,sans-serif;font-size:10pt;text-align:center;padding:5pt 1pt;vertical-align:middle`;
-
-    const PAGE_USABLE_W = 760; // landscape A4 (841.9pt) minus 36pt side margins
-    const nameColPt = 90, posColPt = 78, numColPt = 20, stColPt = 28, sumColPt = 26;
-    const fixedColsPt = numColPt + nameColPt + posColPt + stColPt + sumColPt * 2;
-    const dayCW = Math.max(14, Math.floor((PAGE_USABLE_W - fixedColsPt) / days.length));
-    const tableW = fixedColsPt + dayCW * days.length;
-
-    const colgroup = `<colgroup>
-      <col style="width:${numColPt}pt"><col style="width:${nameColPt}pt"><col style="width:${posColPt}pt"><col style="width:${stColPt}pt">
-      ${days.map(() => `<col style="width:${dayCW}pt">`).join("")}
-      <col style="width:${sumColPt}pt"><col style="width:${sumColPt}pt">
-    </colgroup>`;
-
-    const dayNumHdrs = days.map(d => `<th style="${dayHdrCell}">${d}</th>`).join("");
-
-    const rows = emps.map((e, ei) => {
-      const cells = days.map(d => {
-        const wk   = isWknd(year, month, d);
-        const code = wk ? "X" : (e.days[d] ?? "");
-        const s    = CS[code] ?? CS[""];
-        const plain = code === "" || code === "8" || code === "4" || code === "X";
-        const bg    = wk ? "#E9EAEC" : (plain ? "#ffffff" : s.bg);
-        const color = code === "X" ? "#666666" : (plain ? NAVY : s.color);
-        return `<td style="${brd};text-align:center;background:${bg};color:${color};font-weight:normal;font-family:Aptos,Calibri,sans-serif;font-size:10pt;padding:5pt 1pt">${code}</td>`;
-      }).join("");
-      return `<tr style="background:#ffffff">
-        <td style="${brd};text-align:center;color:${NAVY};font-weight:bold;font-family:Aptos,Calibri,sans-serif;font-size:10pt">${ei + 1}</td>
-        <td style="${brd};padding:5pt 4pt;font-family:Aptos,Calibri,sans-serif;font-size:10pt;color:${NAVY}">${e.name}</td>
-        <td style="${brd};padding:5pt 3pt;text-align:center;font-family:Aptos,Calibri,sans-serif;font-size:10pt;color:${NAVY}">${e.pos}</td>
-        <td style="${brd};text-align:center;font-family:Aptos,Calibri,sans-serif;font-size:10pt;color:${NAVY}">${e.unit}</td>
-        ${cells}
-        <td style="${brd};text-align:center;font-weight:bold;font-family:Aptos,Calibri,sans-serif;font-size:11pt;color:${NAVY}">${cntP(e)}</td>
-        <td style="${brd};text-align:center;font-weight:bold;font-family:Aptos,Calibri,sans-serif;font-size:11pt;color:${cntA(e) ? "#c0392b" : "#c5c6cf"}">${cntA(e)}</td>
-      </tr>`;
-    }).join("");
-
-    const endDay = tab === "half" ? 15 : total;
-    const legend = Object.entries(CS).filter(([k]) => k !== "").map(([c, s]) =>
-      `<tr><td style="background:${s.bg};border:0.5pt solid ${s.border};color:${s.color};text-align:center;width:24pt;font-weight:bold;font-family:Aptos,Calibri,sans-serif;font-size:10pt;padding:3pt">${c}</td>
-           <td style="border:none;padding-left:6pt;color:${BODY};font-family:Aptos,Calibri,sans-serif;font-size:10pt">${s.label}</td></tr>`
-    ).join("");
-
-    const html = `<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
-<head><meta charset='utf-8'>
-<xml><w:WordDocument><w:View>Print</w:View><w:Zoom>90</w:Zoom><w:DoNotOptimizeForBrowser/></w:WordDocument></xml>
-<style>
-@page WordSection1{size:841.9pt 595.3pt;margin:42.5pt 36pt 42.5pt 36pt;mso-page-orientation:landscape;}
-div.WordSection1{page:WordSection1;}
-body{font-family:Aptos,Calibri,sans-serif;font-size:9pt;color:${NAVY};}
-table{border-collapse:collapse;}p{margin:2pt 0;}
-</style></head>
-<body><div class="WordSection1">
-<table style="border:none;width:100%;margin-bottom:8pt"><tr>
-  <td style="border:none;width:56%"></td>
-  <td style="border:none;width:44%;text-align:right;font-family:Aptos,Calibri,sans-serif;font-size:10pt;color:${BODY};line-height:1.5">
-    <b style="color:${NAVY};font-size:14pt">&#171;TASDIQLAYMAN&#187;</b><br>
-    Texnik me&#8217;yorlash va standartlashtirish<br>
-    ilmiy-tadqiqot instituti direktori v.v.b.<br>
-    <b>${DIRECTOR}</b><br>
-    &#171;___&#187;__________${year}&nbsp;y.
-  </td>
-</tr></table>
-<p style="text-align:center;font-weight:bold;font-size:20pt;color:${NAVY};font-family:'Aptos Display',Aptos,Calibri,sans-serif">
-  DAVOMAT JADVALI &#8212; ${tab === "half" ? `YARIM OYLIK (1&#8211;15 KUN)` : `TO&#8216;LIQ OYLIK (1&#8211;${total} KUN)`}
-</p>
-<p style="text-align:center;font-size:11pt;color:${MUTED};margin-bottom:6pt">
-  ${deptName}&nbsp;&nbsp;&#8226;&nbsp;&nbsp;01.${mm}.${year}&nbsp;&#8212;&nbsp;${endDay}.${mm}.${year}
-</p>
-<table style="border-collapse:collapse;table-layout:fixed;width:${tableW}pt;margin-bottom:2pt">
-  ${colgroup}
-  <thead>
-    <tr>
-      <th rowspan="2" style="${hdrCell}">&#8470;</th>
-      <th rowspan="2" style="${hdrCell};text-align:left;padding-left:4pt">F.I.Sh.</th>
-      <th rowspan="2" style="${hdrCell}">Lavozim</th>
-      <th rowspan="2" style="${hdrCell}">Shtat</th>
-      <th colspan="${days.length}" style="${hdrCell}">KUNLAR</th>
-      <th rowspan="2" style="${hdrCell}">I.K.</th>
-      <th rowspan="2" style="${hdrCell}">I.Km.</th>
-    </tr>
-    <tr>${dayNumHdrs}</tr>
-  </thead>
-  <tbody>${rows}</tbody>
-</table>
-<div style="margin-top:50pt">
-<table style="border:none;width:${tableW}pt"><tr>
-  <td style="border:none;width:40%;vertical-align:top">
-    <table style="border-collapse:collapse;width:auto">${legend}</table>
-  </td>
-  <td style="border:none;width:60%;vertical-align:top">
-    <table align="right" style="border-collapse:collapse;width:180pt"><tr><td style="border:none;padding:0">
-      <p style="font-weight:bold;color:${NAVY};font-family:Aptos,Calibri,sans-serif;font-size:12pt">BO&#8216;LIM BOSHLIG&#8216;I</p>
-      <div style="border-bottom:0.5pt solid #aaa;width:170pt;height:16pt"></div>
-      <p style="color:${MUTED};font-family:Aptos,Calibri,sans-serif;font-size:10pt">Imzo: ____________________</p>
-      <p style="color:${MUTED};font-family:Aptos,Calibri,sans-serif;font-size:10pt">Sana: &#171;___&#187;__________${year}&nbsp;y.</p>
-    </td></tr></table>
-  </td>
-</tr></table>
-</div>
-<div style="height:50px">&nbsp;</div>
-</div></body></html>`;
-
-    const blob = new Blob(["﻿" + html], { type: "application/msword;charset=utf-8" });
-    const a = document.createElement("a");
-    a.href = URL.createObjectURL(blob);
-    a.download = `Tabel_${tab === "half" ? "Yarim" : "Toliq"}_${MON_NAMES[month - 1]}_${year}.doc`;
-    a.click();
-    URL.revokeObjectURL(a.href);
+  /* ── Word export: backendda (oq-qora, printer uchun) — kadrning "Avans table" bilan bir xil ── */
+  async function downloadWord() {
+    await handleSave();   // saqlanmagan o'zgarishlar ham faylga tushsin
+    try {
+      const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+      const token = localStorage.getItem("crm_token");
+      const dayTo = tab === "half" ? 15 : total;
+      const res = await fetch(`${API_URL}/tabel/avans-docx?year=${year}&month=${month}&day_from=1&day_to=${dayTo}`,
+        { headers: token ? { Authorization: `Bearer ${token}` } : {} });
+      if (!res.ok) throw new Error("Faylni yuklab bo'lmadi");
+      const url = URL.createObjectURL(await res.blob());
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `Tabel_${tab === "half" ? "Yarim" : "Toliq"}_${MON_NAMES[month - 1]}_${year}.docx`;
+      document.body.appendChild(a); a.click(); a.remove();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      alert(err instanceof Error ? err.message : String(err));
+    }
   }
 
   /* ── Cell ── */
