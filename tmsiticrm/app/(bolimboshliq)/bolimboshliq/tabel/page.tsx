@@ -6,7 +6,7 @@ import { apiFetch } from "@/lib/api";
 import { getUser } from "@/lib/auth";
 
 /* ── Types ── */
-type Code = "8" | "4" | "X" | "Б" | "К" | "У/Т" | "М/Т" | "";
+type Code = "8" | "4" | "X" | "Б" | "К" | "У/Т" | "М/Т" | "Х/С" | "Б/С" | "Д" | "";
 const WORK_CYCLE: Code[] = ["8", "X", "Б", "К", "У/Т", "М/Т", ""];
 const HALF_CYCLE: Code[] = ["4", "X", "Б", "К", "У/Т", "М/Т", ""];
 
@@ -18,6 +18,9 @@ const CS: Record<string, { bg: string; color: string; border: string; label: str
   "К":   { bg: "#fef2f2", color: "#991b1b", border: "#fca5a5", label: "Kasallik varakasi" },
   "У/Т": { bg: "#eff6ff", color: "#1d4ed8", border: "#93c5fd", label: "O'quv ta'tili" },
   "М/Т": { bg: "#faf5ff", color: "#6d28d9", border: "#c4b5fd", label: "Mehnat ta'tili" },
+  "Х/С": { bg: "#ecfdf5", color: "#047857", border: "#6ee7b7", label: "Xizmat safari" },
+  "Б/С": { bg: "#fff7ed", color: "#c2410c", border: "#fdba74", label: "Ish haqisiz ta'til" },
+  "Д":   { bg: "#fdf2f8", color: "#be185d", border: "#f9a8d4", label: "Dekret" },
   "":    { bg: "#fafafa", color: "#c5c6cf", border: "#e4e2e5", label: "Belgilanmagan" },
 };
 
@@ -37,6 +40,7 @@ interface ApiEmployee {
   position: string;
   work_rate: number;
   days: Record<string, string>;
+  locked?: number[];   // dam olish, bayram, ta'til... — davomatdan avtomatik, o'zgartirilmaydi
 }
 
 interface Emp {
@@ -45,6 +49,7 @@ interface Emp {
   pos: string;
   unit: string;
   days: Record<number, Code>;
+  locked: number[];
 }
 
 function apiToLocal(api: ApiEmployee[]): Emp[] {
@@ -53,6 +58,7 @@ function apiToLocal(api: ApiEmployee[]): Emp[] {
     name: a.full_name,
     pos: a.position,
     unit: `${a.work_rate} st.`,
+    locked: a.locked ?? [],
     days: Object.fromEntries(
       Object.entries(a.days).map(([d, c]) => [Number(d), c as Code])
     ),
@@ -63,8 +69,8 @@ function fillWeekends(emps: Emp[], year: number, month: number, total: number): 
   return emps.map(e => {
     const days = { ...e.days };
     for (let d = 1; d <= total; d++) {
+      // Qolgan kunlar backenddan (davomat, bayram, ta'til) — bo'sh kun "kelmagan" bo'lib qoladi
       if (isWknd(year, month, d) && !days[d]) days[d] = "X";
-      else if (!days[d]) days[d] = e.unit.startsWith("0.5") || e.unit.startsWith("0,5") ? "4" : "8";
     }
     return { ...e, days };
   });
@@ -134,7 +140,7 @@ export default function TabelPage() {
   const toggle = useCallback((empId: number, day: number) => {
     if (isWknd(year, month, day)) return;
     setEmps(prev => prev.map(e => {
-      if (e.id !== empId) return e;
+      if (e.id !== empId || e.locked.includes(day)) return e;
       const cur = e.days[day] ?? "";
       const cycle = e.unit.startsWith("0.5") || e.unit.startsWith("0,5") ? HALF_CYCLE : WORK_CYCLE;
       const idx = cycle.indexOf(cur as Code);
@@ -294,16 +300,17 @@ table{border-collapse:collapse;}p{margin:2pt 0;}
   /* ── Cell ── */
   function DayCell({ e, d }: { e: Emp; d: number }) {
     const wk   = isWknd(year, month, d);
-    const code: Code = wk ? "X" : (e.days[d] ?? "8");
+    const code: Code = wk ? "X" : (e.days[d] ?? "");
     const s    = CS[code] ?? CS[""];
+    const lock = wk || e.locked.includes(d);
     return (
-      <td onClick={() => toggle(e.id, d)} title={wk ? "Dam olish kuni" : s.label}
+      <td onClick={() => toggle(e.id, d)} title={wk ? "Dam olish kuni" : lock ? `${s.label} — avtomatik (davomat/kadr)` : s.label}
         style={{
           border: "1px solid #e4e2e5",
           background: wk ? "#efedf1" : s.bg,
           color: wk ? "#75777f" : s.color,
           textAlign: "center", fontSize: 11, fontWeight: 600,
-          cursor: wk ? "default" : "pointer",
+          cursor: lock ? "default" : "pointer",
           userSelect: "none", padding: "10px 1px",
           transition: "background 0.12s",
         }}>

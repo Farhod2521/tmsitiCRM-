@@ -236,6 +236,7 @@ class TabelMonthRecord(BaseModel):
     position: str
     work_rate: float
     days: dict  # {day: code}  e.g. {"1":"8","2":"X",...}
+    locked: list[int] = []   # avtomatik aniqlangan (dam olish, bayram, ta'til...) — o'zgartirib bo'lmaydi
     model_config = {"from_attributes": True}
 
 

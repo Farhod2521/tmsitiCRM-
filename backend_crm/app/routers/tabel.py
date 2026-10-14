@@ -35,42 +35,22 @@ def get_month_tabel(
     - superadmin/direktor/zamdirektor: istalgan bo'lim yoki hamma
     - bolim_boshligi/boshqarma_boshligi: faqat o'z bo'limi
     """
-    if _is_admin(current):
+    if _is_admin(current) or current.role == models.RoleEnum.kadr:
         dept_id = department_id  # admin may specify any dept
     else:
         dept_id = current.department_id  # restricted to own dept
+        if dept_id is None:
+            return []
 
-    # Xodimlar ro'yxati
-    q = db.query(models.Employee).filter(models.Employee.is_active == True)
-    if dept_id is not None:
-        q = q.filter(models.Employee.department_id == dept_id)
-    employees = q.order_by(models.Employee.id).all()
-
-    # Mavjud yozuvlar
-    emp_ids = [e.id for e in employees]
-    records = (
-        db.query(models.TabelRecord)
-        .filter(
-            models.TabelRecord.employee_id.in_(emp_ids),
-            models.TabelRecord.year == year,
-            models.TabelRecord.month == month,
-        )
-        .all()
-    )
-    # {emp_id: {day: code}}
-    rec_map: dict[int, dict[int, str]] = {}
-    for r in records:
-        rec_map.setdefault(r.employee_id, {})[r.day] = r.code
-
+    # Kunlar avtomatik: davomat, bayram, ta'til/bolnichniy (holatlar tarixi), kadr tuzatishlari
+    from ..avans_tabel import build
     result = []
-    for emp in employees:
-        result.append(schemas.TabelMonthRecord(
-            employee_id=emp.id,
-            full_name=emp.full_name,
-            position=emp.position,
-            work_rate=emp.work_rate,
-            days=rec_map.get(emp.id, {}),
-        ))
+    for dep in build(db, year, month, 1, 31, dept_id):
+        for r in dep["rows"]:
+            result.append(schemas.TabelMonthRecord(
+                employee_id=r["employee_id"], full_name=r["full_name"], position=r["position"],
+                work_rate=r["work_rate"], days=r["cells"], locked=r["locked"],
+            ))
     return result
 
 
@@ -495,3 +475,48 @@ def clear_month(
     )
     db.commit()
     return {"deleted": deleted}
+
+
+# ── Avans (yarim oylik) tabeli — bo'limma-bo'lim ──────────────────────────────
+
+_AVANS_ALL_ROLES = {models.RoleEnum.kadr, models.RoleEnum.superadmin, models.RoleEnum.direktor, models.RoleEnum.zamdirektor}
+_AVANS_DEPT_ROLES = {models.RoleEnum.bolim_boshligi, models.RoleEnum.boshqarma_boshligi}
+
+
+def _avans_scope(current: models.Employee, department_id: int | None) -> int | None:
+    if current.role in _AVANS_ALL_ROLES:
+        return department_id
+    if current.role in _AVANS_DEPT_ROLES and current.department_id:
+        return current.department_id
+    raise HTTPException(status_code=403, detail="Ruxsat yo'q")
+
+
+@router.get("/avans")
+def get_avans(
+    year: int, month: int, day_from: int = 1, day_to: int = 15, department_id: int | None = None,
+    db: Session = Depends(get_db), current: models.Employee = Depends(get_current_employee),
+):
+    """Avans tabeli: har bir bo'lim alohida — xodimlar, kunlar (1–15), I.K./I.Km."""
+    from ..avans_tabel import build, LEGEND
+    if not (1 <= month <= 12 and 1 <= day_from <= day_to):
+        raise HTTPException(status_code=400, detail="Noto'g'ri sana")
+    depts = build(db, year, month, day_from, day_to, _avans_scope(current, department_id))
+    return {"year": year, "month": month, "day_from": day_from,
+            "day_to": min(day_to, monthrange(year, month)[1]), "legend": LEGEND, "departments": depts}
+
+
+@router.get("/avans-docx")
+def get_avans_docx(
+    year: int, month: int, day_from: int = 1, day_to: int = 15, department_id: int | None = None,
+    db: Session = Depends(get_db), current: models.Employee = Depends(get_current_employee),
+):
+    """Word: har bir bo'lim — alohida A4 albom sahifa."""
+    from urllib.parse import quote
+    from ..avans_tabel import build, build_docx
+    day_to = min(day_to, monthrange(year, month)[1])
+    depts = build(db, year, month, day_from, day_to, _avans_scope(current, department_id))
+    data = build_docx(depts, year, month, day_from, day_to)
+    name = f"Avans_tabel_{year}_{month:02d}_{day_from}-{day_to}.docx"
+    return StreamingResponse(io.BytesIO(data),
+                             media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                             headers={"Content-Disposition": f"attachment; filename*=UTF-8''{quote(name)}"})
