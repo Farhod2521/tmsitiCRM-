@@ -467,7 +467,7 @@ class InternalDocument(Base):
     rad_sababi      = Column(Text, nullable=True)
     # Rad etilgandan keyin qayta yuborilgan bo'lsa, avvalgi hujjatga havola — to'liq tarix ko'rinishi uchun.
     parent_doc_id   = Column(Integer, ForeignKey("internal_documents.id"), nullable=True)
-    created_by      = Column(Integer, ForeignKey("employees.id"), nullable=False)
+    created_by      = Column(Integer, ForeignKey("employees.id"), nullable=True)   # muallif o'chirilsa — NULL
     created_at      = Column(DateTime, default=datetime.utcnow)
     updated_at      = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 

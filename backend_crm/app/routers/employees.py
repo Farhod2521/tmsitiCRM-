@@ -2,9 +2,10 @@ import secrets
 from datetime import datetime, timedelta, date
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
+from sqlalchemy import select as sa_select, delete as sa_delete, update as sa_update, func as sa_func
 from sqlalchemy.exc import IntegrityError
 from typing import List
-from ..database import get_db
+from ..database import Base, get_db
 from ..schemas import (
     EmployeeOut, EmployeeCreate, EmployeeUpdate, PhotoIn, SetRoleIn, SetStatusIn, SetWorkLocationIn,
     EmployeePasswordOut, TelegramLinkTokenOut,
@@ -576,6 +577,60 @@ def set_employee_work_location(
     return emp
 
 
+# O'chirishda xodimning O'ZIGA tegishli bo'lgani uchun to'liq o'chiriladigan, lekin
+# ustuni nullable bo'lgan yozuvlar (qolgan nullable ustunlarda faqat ko'rsatkich
+# bo'shatiladi). Masalan, ish staji — xodim ketgach ro'yxatda qolmasligi kerak.
+_DELETE_NULLABLE_REFS = {
+    ("work_experience", "employee_id"),
+    ("attendance_note_tg_messages", "employee_id"),
+}
+
+
+def _delete_rows(db: Session, table, where) -> None:
+    """`table`dagi `where` ga mos yozuvlarni o'chiradi — oldin ularga FK orqali
+    bog'langan bola yozuvlarni (masalan, haftalik hisobot fayllari) ham o'chiradi."""
+    for child in Base.metadata.sorted_tables:
+        for fk in child.foreign_keys:
+            if fk.column.table is table and child is not table:
+                ids = sa_select(fk.column).where(where)
+                _delete_rows(db, child, fk.parent.in_(ids))
+    db.execute(sa_delete(table).where(where))
+
+
+def _purge_employee_refs(db: Session, emp: models.Employee) -> None:
+    """Xodimni o'chirishdan oldin unga ishora qiluvchi barcha yozuvlarni tozalaydi.
+
+    - Xodimning o'z ma'lumotlari (davomat, tabel, ball, fayllar, ish staji va h.k.)
+      o'chiriladi.
+    - Boshqalarga ham tegishli yozuvlar (ijro topshiriqlari, ichki hujjatlar,
+      boshqa xodimlarga qo'yilgan ball/tabel...) saqlanib qoladi — ularda faqat
+      shu xodimga ko'rsatkich bo'shatiladi (NULL).
+    Jadvallar models'dan avtomatik aniqlanadi, yangi FK qo'shilsa ham qamrab olinadi."""
+    # Ijro topshirig'i o'chirilmaydi — faqat xodim biriktirilishi bekor qilinadi
+    db.query(models.IjroDocBolim).filter(models.IjroDocBolim.xodim_id == emp.id).update(
+        {"xodim_id": None, "xodim_assigned_at": None}, synchronize_session=False)
+    emp_table = models.Employee.__table__
+    for table in Base.metadata.sorted_tables:
+        if table is emp_table:
+            continue
+        for fk in table.foreign_keys:
+            if fk.column.table is not emp_table:
+                continue
+            col = fk.parent
+            if not col.nullable or (table.name, col.name) in _DELETE_NULLABLE_REFS:
+                _delete_rows(db, table, col == emp.id)
+            else:
+                db.execute(sa_update(table).where(col == emp.id).values({col.name: None}))
+    # Ish staji xlsx'dan import qilinganda CRM'ga bog'lanmay qolgan (employee_id=None)
+    # qatorlar — ism bo'yicha mos kelsa, ular ham o'chiriladi.
+    if emp.full_name:
+        db.query(models.WorkExperience).filter(
+            models.WorkExperience.employee_id.is_(None),
+            sa_func.lower(sa_func.trim(models.WorkExperience.full_name)) == emp.full_name.strip().lower(),
+        ).delete(synchronize_session=False)
+    db.flush()
+
+
 @router.delete("/{emp_id}", status_code=204)
 def delete_employee(
     emp_id: int,
@@ -586,28 +641,7 @@ def delete_employee(
     if not emp:
         raise HTTPException(status_code=404, detail="Xodim topilmadi")
 
-    # Xodimga tegishli yozuvlarni tozalash (FK cheklovi sabab o'chirish
-    # muvaffaqiyatsiz bo'lmasligi uchun). Xodim mualliflik qilgan (lekin
-    # boshqa birovga tegishli) yozuvlarda esa faqat muallif ko'rsatkichi
-    # bo'shatiladi — begona ma'lumot o'chirilmaydi.
-    db.query(models.TabelRecord).filter(models.TabelRecord.employee_id == emp_id).delete()
-    db.query(models.TabelRecord).filter(models.TabelRecord.created_by == emp_id).update({"created_by": None})
-    db.query(models.Attendance).filter(models.Attendance.employee_id == emp_id).delete()
-    db.query(models.Score).filter(models.Score.employee_id == emp_id).delete()
-    db.query(models.Score).filter(models.Score.created_by == emp_id).update({"created_by": None})
-    db.query(models.IjroDocument).filter(models.IjroDocument.masul_orinbosar_id == emp_id).update({"masul_orinbosar_id": None})
-    db.query(models.IjroDocument).filter(models.IjroDocument.created_by == emp_id).update({"created_by": None})
-    db.query(models.IjroDocBolim).filter(models.IjroDocBolim.qaror_by == emp_id).update({"qaror_by": None})
-    db.query(models.IjroDocBolim).filter(models.IjroDocBolim.xodim_id == emp_id).update({"xodim_id": None, "xodim_assigned_at": None})
-    db.query(models.IjroDocBolim).filter(models.IjroDocBolim.yakunlagan_by == emp_id).update({"yakunlagan_by": None})
-    db.query(models.IjroDocBolimAssignLog).filter(models.IjroDocBolimAssignLog.xodim_id == emp_id).delete()
-    db.query(models.IjroDocBolimAssignLog).filter(models.IjroDocBolimAssignLog.assigned_by == emp_id).update({"assigned_by": None})
-    db.query(models.WeeklyReport).filter(models.WeeklyReport.employee_id == emp_id).delete()
-    db.query(models.WeeklyReport).filter(models.WeeklyReport.confirmed_by == emp_id).update({"confirmed_by": None})
-    db.query(models.TelegramLinkToken).filter(models.TelegramLinkToken.employee_id == emp_id).delete()
-    db.query(models.AttendanceNote).filter(models.AttendanceNote.employee_id == emp_id).delete()
-    db.query(models.AttendanceNote).filter(models.AttendanceNote.reviewed_by == emp_id).update({"reviewed_by": None})
-    db.query(models.PasswordResetCode).filter(models.PasswordResetCode.employee_id == emp_id).delete()
+    _purge_employee_refs(db, emp)
 
     db.delete(emp)
     try:

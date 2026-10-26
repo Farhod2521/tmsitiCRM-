@@ -843,7 +843,7 @@ class InternalDocumentListOut(BaseModel):
     status:           InternalDocumentStatus
     rad_sababi:       Optional[str] = None
     parent_doc_id:    Optional[int] = None
-    created_by:       int
+    created_by:       Optional[int] = None
     created_by_nomi:  Optional[str] = None
     created_at:       Optional[datetime] = None
     editable:         bool = False   # joriy foydalanuvchi (agar u yaratgan bo'lsa) tahrirlashi/o'chirishi mumkinmi

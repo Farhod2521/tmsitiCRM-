@@ -35,6 +35,8 @@ if engine.dialect.name == "postgresql":
         _conn.execute(_sql("ALTER TABLE attendance_notes ADD COLUMN IF NOT EXISTS file_type VARCHAR(100)"))
         _conn.execute(_sql("ALTER TABLE attendance_notes ADD COLUMN IF NOT EXISTS file_b64 TEXT"))
         _conn.execute(_sql("ALTER TYPE employee_status_enum ADD VALUE IF NOT EXISTS 'ish_haqisiz_tatil'"))
+        # Xodim o'chirilganda uning ichki hujjatlari saqlanib qoladi (muallif — NULL)
+        _conn.execute(_sql("ALTER TABLE internal_documents ALTER COLUMN created_by DROP NOT NULL"))
 
 # Holatlar tarixi jadvali bo'sh bo'lsa (birinchi ishga tushirish) — joriy
 # holatlar va eski qo'lda to'ldirilgan tabeldan tiklanadi.
