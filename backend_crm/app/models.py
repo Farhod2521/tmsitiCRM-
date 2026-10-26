@@ -1,7 +1,7 @@
 import enum
 from datetime import datetime
-from sqlalchemy import Column, Integer, String, Float, Boolean, ForeignKey, Enum as SAEnum, DateTime, UniqueConstraint, Text, BigInteger, JSON
-from sqlalchemy.orm import relationship
+from sqlalchemy import Column, Integer, String, Float, Boolean, ForeignKey, Enum as SAEnum, DateTime, UniqueConstraint, Text, BigInteger, JSON, event, false
+from sqlalchemy.orm import relationship, Session, with_loader_criteria
 from .database import Base
 
 
@@ -80,6 +80,10 @@ class Employee(Base):
     telegram_id       = Column(BigInteger, unique=True, nullable=True)
     telegram_username = Column(String(100), nullable=True)
     work_location   = Column(SAEnum(WorkLocationEnum, name="work_location_enum"), default=WorkLocationEnum.vazirlik, nullable=False)
+    # Ishdan bo'shagan xodim o'chirilmaydi — arxivga o'tkaziladi: ro'yxatlarda ko'rinmaydi,
+    # tizimga kira olmaydi, lekin davomati, KPI va boshqa tarixi saqlanib qoladi.
+    is_archived     = Column(Boolean, default=False, server_default=false(), nullable=False)
+    archived_at     = Column(DateTime, nullable=True)
 
     department      = relationship("Department", back_populates="employees")
 
@@ -467,7 +471,7 @@ class InternalDocument(Base):
     rad_sababi      = Column(Text, nullable=True)
     # Rad etilgandan keyin qayta yuborilgan bo'lsa, avvalgi hujjatga havola — to'liq tarix ko'rinishi uchun.
     parent_doc_id   = Column(Integer, ForeignKey("internal_documents.id"), nullable=True)
-    created_by      = Column(Integer, ForeignKey("employees.id"), nullable=True)   # muallif o'chirilsa — NULL
+    created_by      = Column(Integer, ForeignKey("employees.id"), nullable=False)
     created_at      = Column(DateTime, default=datetime.utcnow)
     updated_at      = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
@@ -769,3 +773,16 @@ def _keep_active_role(target, context, attrs):
     if ar is not None and (attrs is None or "role" in attrs):
         target.__dict__["_primary_role"] = target.role
         _set_committed(target, "role", ar)
+
+
+@event.listens_for(Session, "do_orm_execute")
+def _hide_archived_employees(state):
+    """Arxivdagi xodimlar barcha to'g'ridan-to'g'ri so'rovlardan (ro'yxatlar, login,
+    token, botlar, hisobotlar) avtomatik chiqarib tashlanadi. Bog'langan obyektlar
+    (masalan, topshiriq muallifi) orqali yuklash bunga kirmaydi — ism ko'rinaveradi.
+    Arxivni ko'rish kerak bo'lsa: .execution_options(include_archived=True)."""
+    if (state.is_select and not state.is_relationship_load and not state.is_column_load
+            and not state.execution_options.get("include_archived", False)):
+        state.statement = state.statement.options(
+            with_loader_criteria(Employee, Employee.is_archived.is_(False), include_aliases=True)
+        )

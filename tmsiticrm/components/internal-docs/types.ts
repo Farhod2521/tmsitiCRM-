@@ -32,7 +32,7 @@ export interface InternalDocListItem {
   status: InternalDocStatus;
   rad_sababi: string | null;
   parent_doc_id: number | null;
-  created_by: number | null;
+  created_by: number;
   created_by_nomi: string | null;
   created_at: string | null;
   editable: boolean;

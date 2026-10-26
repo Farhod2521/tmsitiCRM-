@@ -62,6 +62,23 @@ class EmployeeOut(BaseModel):
     roles: List[str] = []             # barcha rollari, birinchisi — asosiy rol
     model_config = {"from_attributes": True}
 
+
+class ArchivedEmployeeOut(EmployeeOut):
+    archived_at: Optional[datetime] = None
+
+
+class ArchiveMonthOut(BaseModel):
+    """Arxivdagi xodimning bir oylik tarixi — davomat kunlari va KPI ballari."""
+    year: int
+    month: int
+    attendance_days: int = 0
+    bolim_ball: Optional[float] = None
+    kadr_ball: Optional[int] = None
+    ijro_edo_ball: Optional[int] = None
+    ijro_ichki_ball: Optional[int] = None
+    direktor_ball: Optional[int] = None
+    kpi_total: Optional[float] = None
+
 class SetStatusIn(BaseModel):
     status: EmployeeStatusEnum
     date_from: Optional[str] = None
@@ -843,7 +860,7 @@ class InternalDocumentListOut(BaseModel):
     status:           InternalDocumentStatus
     rad_sababi:       Optional[str] = None
     parent_doc_id:    Optional[int] = None
-    created_by:       Optional[int] = None
+    created_by:       int
     created_by_nomi:  Optional[str] = None
     created_at:       Optional[datetime] = None
     editable:         bool = False   # joriy foydalanuvchi (agar u yaratgan bo'lsa) tahrirlashi/o'chirishi mumkinmi

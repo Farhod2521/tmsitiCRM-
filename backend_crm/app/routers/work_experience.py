@@ -137,12 +137,56 @@ def _full_month_mt(db: Session, rows: list, year: int, month: int) -> set[int]:
     return result
 
 
-def _build(db: Session, year: int, month: int) -> ExperienceOut:
-    rows = (
+def _sync_new_employees(db: Session, rows: list) -> bool:
+    """Xlsx yuklangandan keyin CRM'ga qo'shilgan xodimlar jadvalda yo'q bo'lib qolardi —
+    ular avtomatik qo'shiladi (staji joriy oy holatida 0, kadr keyin tuzatadi). Avval
+    ism bo'yicha aniq mos keladigan, lekin bog'lanmay qolgan xlsx qatori qidiriladi.
+    Qaytaradi: biror narsa o'zgardimi."""
+    linked = {r.employee_id for r in rows if r.employee_id}
+    new_emps = [
+        e for e in db.query(models.Employee)
+        .filter(models.Employee.role != models.RoleEnum.superadmin)
+        .order_by(models.Employee.id).all()
+        if e.id not in linked
+    ]
+    if not new_emps:
+        return False
+    for r in rows:
+        if r.employee_id is None:
+            emp, conf = match_employee(r.full_name, new_emps)
+            if emp and conf == "exact":
+                r.employee_id = emp.id
+                new_emps.remove(emp)
+    base_year, base_month = rows[0].base_year, rows[0].base_month
+    today = date.today()
+    next_num = max((r.order_num or 0 for r in rows), default=0) + 1
+    for e in new_emps:
+        db.add(models.WorkExperience(
+            order_num=next_num, employee_id=e.id, full_name=e.full_name, position=e.position,
+            base_year=base_year, base_month=base_month,
+            base_total_months=-(_month_index(today.year, today.month) - _month_index(base_year, base_month)),
+        ))
+        next_num += 1
+    db.commit()
+    return True
+
+
+def _load_rows(db: Session) -> list:
+    return (
         db.query(models.WorkExperience)
         .order_by(models.WorkExperience.order_num.nullslast(), models.WorkExperience.id)
         .all()
     )
+
+
+def _build(db: Session, year: int, month: int) -> ExperienceOut:
+    rows = _load_rows(db)
+    if not rows:
+        return ExperienceOut(year=year, month=month, rows=[])
+    if _sync_new_employees(db, rows):
+        rows = _load_rows(db)
+    # Arxivga o'tkazilgan (ishdan bo'shagan) xodimlar ish staji ro'yxatida ko'rinmaydi
+    rows = [r for r in rows if not (r.employee and r.employee.is_archived)]
     if not rows:
         return ExperienceOut(year=year, month=month, rows=[])
     mt = _full_month_mt(db, rows, year, month)
