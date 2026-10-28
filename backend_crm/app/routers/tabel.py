@@ -11,7 +11,7 @@ from openpyxl.utils import get_column_letter
 from .. import models, schemas
 from ..database import get_db
 from ..deps import get_current_employee
-from .attendance import TZ_UZ, WORK_START_HOUR, WORK_START_MIN, excused_days, late_minutes_for
+from .attendance import TZ_UZ, WORK_START_HOUR, WORK_START_MIN, excused_days, late_minutes_for, work_start_of, workday_minutes
 from .holidays import month_holidays
 from ..status_periods import status_code_map
 
@@ -159,7 +159,9 @@ def _auto_day(emp, d: date, day: int, holidays, last_day_to_count, status_codes,
         return "", 0, 0, 0, None
 
     ci_local = att.check_in.astimezone(TZ_UZ) if att.check_in.tzinfo is not None else att.check_in
-    late = min(STANDARD_WORKDAY_MIN, late_minutes_for(ci_local))   # imtiyoz ichida — 0
+    std = workday_minutes(emp)                    # 0,5 stavka — 4 soat
+    code = "4" if std < STANDARD_WORKDAY_MIN else "8"
+    late = min(std, late_minutes_for(ci_local, work_start_of(emp)))   # imtiyoz ichida — 0
     is_excused = late > 0 and (emp.id, d.isoformat()) in excused
     info = {
         "check_in": ci_local.strftime("%H:%M"),
@@ -170,8 +172,8 @@ def _auto_day(emp, d: date, day: int, holidays, last_day_to_count, status_codes,
     # Sababsiz kechikish ish vaqtidan ayiriladi; kadr arizani tasdiqlasa —
     # kechikkan vaqt qo'shib beriladi (to'liq 8 soat). Katakda har doim "8".
     if is_excused:
-        return "8", STANDARD_WORKDAY_MIN, 0, late, info
-    return "8", STANDARD_WORKDAY_MIN - late, late, 0, info
+        return code, std, 0, late, info
+    return code, std - late, late, 0, info
 
 
 def _build_auto_tabel(db: Session, year: int, month: int) -> schemas.AutoTabelOut:
@@ -241,8 +243,8 @@ def _build_auto_tabel(db: Session, year: int, month: int) -> schemas.AutoTabelOu
             if key in emp_overrides:
                 code = emp_overrides[key]
                 late = exc = 0
-                worked = STANDARD_WORKDAY_MIN if code == "8" else 0
-                if code == "8":
+                worked = workday_minutes(emp) if code in ("8", "4") else 0
+                if code in ("8", "4"):
                     info = {
                         "check_in": info["check_in"] if info else None,
                         "late_min": 0, "excused": False,
@@ -322,7 +324,7 @@ def get_auto_tabel(
     return _build_auto_tabel(db, year, month)
 
 
-_OVERRIDE_CODES = {"8", "MT", "BS", "O'", "K", "B", "Д", "X", HOLIDAY_CODE, ""}
+_OVERRIDE_CODES = {"8", "4", "MT", "BS", "O'", "K", "B", "Д", "X", HOLIDAY_CODE, ""}
 _OVERRIDE_EDIT_ROLES = {models.RoleEnum.kadr, models.RoleEnum.superadmin}
 
 

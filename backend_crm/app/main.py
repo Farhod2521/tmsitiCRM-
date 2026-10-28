@@ -31,6 +31,8 @@ if engine.dialect.name == "postgresql":
         _conn.execute(_sql("ALTER TABLE attendance_corrections ADD COLUMN IF NOT EXISTS tg_msgs TEXT"))
         _conn.execute(_sql("ALTER TABLE attendance_corrections ADD COLUMN IF NOT EXISTS corrector_role VARCHAR(20)"))
         _conn.execute(_sql("ALTER TABLE employees ADD COLUMN IF NOT EXISTS extra_roles VARCHAR(200)"))
+        _conn.execute(_sql("ALTER TABLE employees ADD COLUMN IF NOT EXISTS work_start VARCHAR(5)"))
+        _conn.execute(_sql("ALTER TABLE employees ADD COLUMN IF NOT EXISTS work_end VARCHAR(5)"))
         _conn.execute(_sql("ALTER TABLE attendance_notes ADD COLUMN IF NOT EXISTS file_name VARCHAR(255)"))
         _conn.execute(_sql("ALTER TABLE attendance_notes ADD COLUMN IF NOT EXISTS file_type VARCHAR(100)"))
         _conn.execute(_sql("ALTER TABLE attendance_notes ADD COLUMN IF NOT EXISTS file_b64 TEXT"))

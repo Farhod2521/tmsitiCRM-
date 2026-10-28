@@ -61,7 +61,7 @@ const LATE_CFG = { color: "#B4780C", bg: "rgba(255,189,33,0.18)" };
 const VERY_LATE_CFG = { color: "#FF5C5C", bg: "rgba(255,92,92,0.12)" };
 
 function presentCfg(info: DayInfo) {
-  if (info.excused || info.late_min <= 0) return CODE_CFG["8"];
+  if (info.excused || info.late_min <= 0) return CODE_CFG["8"];   // "4" (0,5 stavka) ham shu rangda
   return info.late_min <= LATE_WARN_MIN ? LATE_CFG : VERY_LATE_CFG;
 }
 
@@ -432,7 +432,7 @@ export default function AutoTabelTable() {
       )}
 
       <div className="flex items-center gap-4 flex-wrap px-6 py-4" style={{ borderTop: "1px solid #F4F9FD" }}>
-        {[["8", "Kelgan"], ["X", "Dam olish kuni"], ["MT", "Mehnat ta'tili"], ["BS", "Ish haqisiz ta'til"], ["O'", "O'quv ta'tili"], ["K", "Xizmat safari"], ["B", "Bolnichniy"], ["BY", "Bayram"]].map(([code, label]) => (
+        {[["8", "Kelgan"], ["4", "Kelgan (0,5 stavka)"], ["X", "Dam olish kuni"], ["MT", "Mehnat ta'tili"], ["BS", "Ish haqisiz ta'til"], ["O'", "O'quv ta'tili"], ["K", "Xizmat safari"], ["B", "Bolnichniy"], ["BY", "Bayram"]].map(([code, label]) => (
           <span key={code} className="flex items-center gap-1.5 text-[11px]" style={{ color: "#91929E" }}>
             <span className="inline-flex items-center justify-center text-[9px] font-bold" style={{ width: 18, height: 16, borderRadius: 4, color: CODE_CFG[code]?.color, background: CODE_CFG[code]?.bg }}>
               {code}

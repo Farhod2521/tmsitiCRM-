@@ -64,6 +64,9 @@ class Employee(Base):
     position        = Column(String(300), nullable=False)
     department_id   = Column(Integer, ForeignKey("departments.id"), nullable=True)
     work_rate       = Column(Float, default=1.0, nullable=False)
+    # Shaxsiy ish vaqti (0,5 stavka: "09:00"–"13:00" yoki "14:00"–"18:00"). Bo'sh — 09:00–18:00
+    work_start      = Column(String(5), nullable=True)
+    work_end        = Column(String(5), nullable=True)
     phone           = Column(String(20), unique=True, nullable=False, index=True)
     hashed_password = Column(String(200), nullable=False)
     enc_password    = Column(Text, nullable=True)   # joriy parol, qaytarib olinadigan shifrda (superadmin uchun)

@@ -19,7 +19,7 @@ interface DailyRow {
   avatar: string | null;
   check_in: string | null;
   late_min: number;
-  holat: "kelgan" | "kechikkan" | "kelmagan" | "sababli" | "tatilda";
+  holat: "kelgan" | "kechikkan" | "kelmagan" | "sababli" | "tatilda" | "kutilmoqda";
   holat_label: string;
   status: string;
   status_label: string;
@@ -37,6 +37,7 @@ const HOLAT_CFG: Record<DailyRow["holat"], PillCfg> = {
   kelgan:    { icon: Check,    color: "#16A34A", bg: "#E7F8EE" },
   kechikkan: { icon: Clock,    color: "#F97316", bg: "#FFF1E6" },
   kelmagan:  { icon: X,        color: "#EF4444", bg: "#FDECEC" },
+  kutilmoqda: { icon: Clock3,  color: "#7D8592", bg: "#F1F3F7" },   // ish vaqti hali boshlanmagan (0,5 stavka)
   sababli:   { icon: Minus,    color: "#64748B", bg: "#EEF1F5" },
   tatilda:   { icon: Palmtree, color: "#3B82F6", bg: "#E8F0FE" },
 };

@@ -18,7 +18,7 @@ from .. import models
 from ..database import get_db
 from ..deps import get_current_employee
 from ..status_periods import status_code_map
-from .attendance import TZ_UZ, APPROVED_NOTE_STATUSES, late_minutes_for
+from .attendance import TZ_UZ, APPROVED_NOTE_STATUSES, late_minutes_for, work_start_of
 from .holidays import holiday_map
 
 router = APIRouter(prefix="/attendance/daily", tags=["Kunlik davomat"])
@@ -38,7 +38,7 @@ EMP_STATUS_LABEL = {
 NOTE_LABEL = {"kechikish": "Kechikaman", "kelmaslik": "Kelmayman", "obyektda": "Obyektda", "ruxsat": "Ruxsat"}
 
 # Tartib: kechikkanlar tepada (ko'p kechikkan birinchi), keyin kelganlar (erta kelgan birinchi)...
-_HOLAT_ORDER = {"kechikkan": 0, "kelgan": 1, "sababli": 2, "tatilda": 3, "kelmagan": 4}
+_HOLAT_ORDER = {"kechikkan": 0, "kelgan": 1, "sababli": 2, "tatilda": 3, "kelmagan": 4, "kutilmoqda": 5}
 
 
 class DailyNote(BaseModel):
@@ -56,7 +56,7 @@ class DailyRow(BaseModel):
     avatar: Optional[str] = None          # kichik rasm (data:image/jpeg;base64,...)
     check_in: Optional[str] = None        # "08:12"
     late_min: int = 0
-    holat: str                            # kelgan | kechikkan | kelmagan | sababli | tatilda
+    holat: str                            # kelgan | kechikkan | kelmagan | sababli | tatilda | kutilmoqda
     holat_label: str
     status: str                           # xodim holati: faol, otpuska, ... (yoki ariza turi)
     status_label: str
@@ -131,6 +131,7 @@ def _build(db: Session, day: str, with_avatars: bool = True) -> DailyOut:
     day_off = holidays.get(day) or ("Dam olish kuni" if d.weekday() >= 5 else None)
 
     rows: list[DailyRow] = []
+    now_local = datetime.now(TZ_UZ)
     for e in employees:
         att = atts.get(e.id)
         note = notes.get(e.id)
@@ -141,7 +142,7 @@ def _build(db: Session, day: str, with_avatars: bool = True) -> DailyOut:
         if att is not None:
             ci = att.check_in.astimezone(TZ_UZ) if att.check_in.tzinfo is not None else att.check_in
             check_in = ci.strftime("%H:%M")
-            late = late_minutes_for(ci)
+            late = late_minutes_for(ci, work_start_of(e))
             if late > 0 and approved:
                 holat, holat_label = "kelgan", "Kelgan"          # sababli kechikish
             elif late > 0:
@@ -152,6 +153,9 @@ def _build(db: Session, day: str, with_avatars: bool = True) -> DailyOut:
             holat, holat_label = "tatilda", STATUS_CODE_LABEL.get(code, code)
         elif approved:
             holat, holat_label = "sababli", "Sababli"
+        elif day == now_local.strftime("%Y-%m-%d") and work_start_of(e) > now_local.strftime("%H:%M"):
+            # 0,5 stavka, tushdan keyingi smena — ish vaqti hali boshlanmagan
+            holat, holat_label = "kutilmoqda", f"{work_start_of(e)} dan ishlaydi"
         else:
             holat, holat_label = "kelmagan", "Kelmagan"
 
@@ -263,10 +267,10 @@ def _day_note(db: Session, emp_id: int, day: str) -> Optional[str]:
     return f"{_NOTE_LABEL.get(n.note_type, n.note_type)}{extra}: {(n.text or '').strip() or '—'} [{status}]"
 
 
-def _late(day: str, hhmm: Optional[str]) -> Optional[int]:
+def _late(day: str, hhmm: Optional[str], emp=None) -> Optional[int]:
     if not hhmm:
         return None
-    return late_minutes_for(datetime.strptime(f"{day} {hhmm}", "%Y-%m-%d %H:%M"))
+    return late_minutes_for(datetime.strptime(f"{day} {hhmm}", "%Y-%m-%d %H:%M"), work_start_of(emp))
 
 
 def fmt_late(m: Optional[int]) -> str:
@@ -490,7 +494,7 @@ def _correction_info(db: Session, emp: models.Employee, day: str) -> CorrectionI
     return CorrectionInfo(
         pending=pend.new_check_in if pend else None,
         employee_id=emp.id, full_name=emp.full_name, date=day,
-        current=cur, current_late=_late(day, cur),
+        current=cur, current_late=_late(day, cur, emp),
         turniket=tur.check_in if tur else None,
         note=_day_note(db, emp.id, day),
         history=[CorrectionLog(old_check_in=l.old_check_in, new_check_in=l.new_check_in, source=l.source,
@@ -556,7 +560,7 @@ def set_correction(
         reviewed_by=None if needs_ok else current.id, reviewed_at=None if needs_ok else datetime.utcnow(),
         employee_id=emp.id, date=data.date, old_check_in=old, new_check_in=t.strftime("%H:%M"),
         source=data.source, reason=(data.reason or "").strip() or None, corrected_by=current.id,
-        late_before=_late(data.date, old), late_after=_late(data.date, t.strftime("%H:%M")),
+        late_before=_late(data.date, old, emp), late_after=_late(data.date, t.strftime("%H:%M"), emp),
         note_text=_day_note(db, emp.id, data.date), corrector_role=current.role.value,
     )
     db.add(corr)
@@ -619,8 +623,8 @@ def list_corrections(
             id=c.id, employee_id=c.employee_id, full_name=e.full_name if e else "—", position=e.position if e else None,
             department=e.department.name if e and e.department else None, date=c.date,
             old_check_in=c.old_check_in, new_check_in=c.new_check_in,
-            late_before=c.late_before if c.late_before is not None else _late(c.date, c.old_check_in),
-            late_after=c.late_after if c.late_after is not None else _late(c.date, c.new_check_in),
+            late_before=c.late_before if c.late_before is not None else _late(c.date, c.old_check_in, e),
+            late_after=c.late_after if c.late_after is not None else _late(c.date, c.new_check_in, e),
             reason=c.reason, note_text=c.note_text, source=c.source,
             corrected_by=c.corrector.full_name if c.corrector else None,
             corrected_by_role=c.corrector_role or (c.corrector.role.value if c.corrector else None),

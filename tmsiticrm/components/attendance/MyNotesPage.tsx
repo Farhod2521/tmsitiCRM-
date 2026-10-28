@@ -66,7 +66,9 @@ function stepsOf(n: MyNote): Step[] {
   const raw: { stage: ReviewStatus; title: string; who: string | null; at: string | null }[] = [
     ...(hasBolim ? [{ stage: "bolim_kutilmoqda" as ReviewStatus, title: "Bo'lim boshlig'i", who: n.bolim_by_nomi, at: n.bolim_at }] : []),
     { stage: "kutilmoqda", title: "Kadrlar bo'limi", who: n.reviewed_by_nomi, at: n.reviewed_at },
-    { stage: "kadr_tasdiqladi", title: "Zamdirektor", who: n.zamdirektor_by_nomi, at: n.zamdirektor_at },
+    // Ruxsat so'rash — zamdirektor bosqichi yo'q (eski, zamdirektorga borganlari bundan mustasno)
+    ...(n.note_type !== "ruxsat" || n.zamdirektor_by_nomi || n.review_status === "kadr_tasdiqladi"
+      ? [{ stage: "kadr_tasdiqladi" as ReviewStatus, title: "Zamdirektor", who: n.zamdirektor_by_nomi, at: n.zamdirektor_at }] : []),
   ];
   const rejected = n.review_status === "sababsiz";
   let stopped = false;

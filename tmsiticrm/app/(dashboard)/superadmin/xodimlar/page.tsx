@@ -20,6 +20,7 @@ interface ApiDept { id: number; name: string; dept_type: string; }
 interface ApiEmp {
   id: number; full_name: string; position: string;
   department_id: number | null; work_rate: number; phone: string;
+  work_start?: string | null; work_end?: string | null;   // 0,5 stavka: 09:00–13:00 yoki 14:00–18:00
   role: string; status: string; is_active: boolean;
   status_date_from?: string | null;
   status_date_to?: string | null;
@@ -270,10 +271,14 @@ function EmpFormModal({ emp, depts, onClose, onSaved }: {
     position:      emp?.position ?? "",
     department_id: emp?.department_id ?? null as number | null,
     work_rate:     emp?.work_rate ?? 1.0,
+    work_start:    emp?.work_start ?? "09:00",
+    work_end:      emp?.work_end ?? "13:00",
     phone:         emp?.phone ?? "",
     role:          emp?.role ?? "xodim",
     password:      "",
   });
+
+  const isHalf = form.work_rate > 0 && form.work_rate <= 0.5;
 
   function setF<K extends keyof typeof form>(k: K, v: (typeof form)[K]) {
     setForm(p => ({ ...p, [k]: v }));
@@ -294,7 +299,15 @@ function EmpFormModal({ emp, depts, onClose, onSaved }: {
         department_id: form.department_id,
         work_rate: form.work_rate,
         phone: form.phone,
+        // Ish vaqti faqat 0,5 stavkada; to'liq stavkada — 09:00–18:00 (bo'sh)
+        work_start: isHalf ? form.work_start : null,
+        work_end: isHalf ? form.work_end : null,
       };
+      if (isHalf && !(form.work_start < form.work_end)) {
+        setError("Ish vaqti: boshlanishi tugashidan oldin bo'lishi kerak");
+        setSaving(false);
+        return;
+      }
       if (form.password) payload.password = form.password;
       if (isEdit) {
         await apiFetch(`/employees/${emp!.id}`, { method: "PUT", body: JSON.stringify(payload) });
@@ -378,6 +391,35 @@ function EmpFormModal({ emp, depts, onClose, onSaved }: {
                 style={{ background: "#F4F9FD", borderRadius: 12, border: "1.5px solid #EEF2FF", color: "#0A1629" }} />
             </div>
           </div>
+
+          {isHalf && (
+            <div className="p-4" style={{ background: "#F7FAFF", borderRadius: 14, border: "1.5px dashed #CFE0FF" }}>
+              <label className="text-xs font-bold mb-2 block" style={{ color: "#3F8CFF" }}>Ish vaqti (0,5 stavka — 4 soat)</label>
+              <div className="flex flex-wrap gap-2 mb-3">
+                {[["09:00", "13:00", "Ertalabki"], ["14:00", "18:00", "Tushdan keyin"]].map(([a, b, l]) => {
+                  const on = form.work_start === a && form.work_end === b;
+                  return (
+                    <button type="button" key={a} onClick={() => { setF("work_start", a); setF("work_end", b); }}
+                      className="px-3.5 py-2 text-xs font-bold"
+                      style={{ borderRadius: 10, background: on ? "#3F8CFF" : "#FFFFFF", color: on ? "#FFFFFF" : "#3D4557", border: "1.5px solid " + (on ? "#3F8CFF" : "#E4EAF5") }}>
+                      {l}: {a}–{b}
+                    </button>
+                  );
+                })}
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                {([["work_start", "Boshlanishi"], ["work_end", "Tugashi"]] as const).map(([k, l]) => (
+                  <div key={k}>
+                    <span className="text-[11px] font-semibold block mb-1" style={{ color: "#91929E" }}>{l}</span>
+                    <input type="time" value={form[k]} onChange={e => setF(k, e.target.value)}
+                      className="w-full px-4 py-2.5 text-sm font-bold outline-none"
+                      style={{ background: "#FFFFFF", borderRadius: 12, border: "1.5px solid #EEF2FF", color: "#0A1629" }} />
+                  </div>
+                ))}
+              </div>
+              <p className="text-[11px] mt-2" style={{ color: "#7D8592" }}>Kechikish shu boshlanish vaqtidan hisoblanadi, tabelda kun — 4 soat.</p>
+            </div>
+          )}
 
           {!isEdit && (
             <div>

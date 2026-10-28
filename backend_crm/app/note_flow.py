@@ -4,6 +4,7 @@ Bosqichlar:
   oddiy xodim yozsa:       bolim_kutilmoqda -> (bo'lim boshlig'i) -> kutilmoqda -> (kadr)
                            -> kadr_tasdiqladi -> (zamdirektor) -> sababli
   bo'lim boshlig'i yozsa:  kutilmoqda dan boshlanadi (kadr -> zamdirektor)
+  "Ruxsat so'rayman" arizasi: zamdirektor bosqichi yo'q — kadr tasdiqlasa darhol "sababli".
   Rad etish istalgan bosqichda darhol "sababsiz" (yakuniy).
 
 Har bosqichda ko'rib chiquvchilarga Telegram'da inline tugmali (Tasdiqlash /
@@ -136,6 +137,11 @@ def reroute_to_heads(db: Session) -> list[int]:
 
 # ── Qaror ─────────────────────────────────────────────────────────────────────
 
+def needs_zamdirektor(note: models.AttendanceNote) -> bool:
+    """Ruxsat so'rash — faqat bo'lim boshlig'i va kadr; qolganlari zamdirektorgacha boradi."""
+    return note.note_type != "ruxsat"
+
+
 def apply_review(db: Session, note: models.AttendanceNote, actor: models.Employee, approve: bool) -> str:
     """Joriy bosqich bo'yicha qaror; commit qiladi. Avvalgi bosqichni qaytaradi."""
     if note.review_status not in PENDING:
@@ -149,7 +155,10 @@ def apply_review(db: Session, note: models.AttendanceNote, actor: models.Employe
         note.review_status = "kutilmoqda" if approve else "sababsiz"
     elif prev == "kutilmoqda":
         note.reviewed_by, note.reviewed_at = actor.id, now
-        note.review_status = "kadr_tasdiqladi" if approve else "sababsiz"
+        if not approve:
+            note.review_status = "sababsiz"
+        else:
+            note.review_status = "kadr_tasdiqladi" if needs_zamdirektor(note) else "sababli"
     else:
         note.zamdirektor_by, note.zamdirektor_at = actor.id, now
         note.review_status = "sababli" if approve else "sababsiz"
@@ -175,10 +184,9 @@ def _progress(note: models.AttendanceNote) -> list[str]:
     """Bosqichlar holati: ✅ tasdiqlagan, ❌ rad etgan, ⏳ hozir kutilmoqda, ▫️ navbatda."""
     has_bolim = note.bolim_by is not None or note.review_status == "bolim_kutilmoqda"
     steps = [("bolim_kutilmoqda", note.bolim_reviewer, note.bolim_at)] if has_bolim else []
-    steps += [
-        ("kutilmoqda", note.reviewer, note.reviewed_at),
-        ("kadr_tasdiqladi", note.zamdirektor_reviewer, note.zamdirektor_at),
-    ]
+    steps += [("kutilmoqda", note.reviewer, note.reviewed_at)]
+    if needs_zamdirektor(note) or note.zamdirektor_by is not None or note.review_status == "kadr_tasdiqladi":
+        steps.append(("kadr_tasdiqladi", note.zamdirektor_reviewer, note.zamdirektor_at))
     rejected = note.review_status == "sababsiz"
     lines, stopped = [], False
     for i, (stage, who, at) in enumerate(steps):

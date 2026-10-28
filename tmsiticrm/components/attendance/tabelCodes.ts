@@ -1,6 +1,7 @@
 // "Xodimlar davomati" jadvali kodlari va ranglari (jadval va tahrirlash oynasi uchun umumiy)
 export const CODE_CFG: Record<string, { color: string; bg: string; label: string }> = {
   "8":  { color: "#00A578", bg: "rgba(0,196,140,0.1)",    label: "Kelgan" },
+  "4":  { color: "#0B7285", bg: "rgba(21,192,230,0.12)",  label: "Kelgan (0,5 stavka — 4 soat)" },
   "X":  { color: "#B8C2D6", bg: "#F4F9FD",                label: "Dam olish kuni" },
   "MT": { color: "#B4780C", bg: "rgba(255,189,33,0.15)",  label: "Mehnat ta'tili" },
   "BS": { color: "#E07A1F", bg: "rgba(255,140,66,0.14)",  label: "Ish haqisiz ta'til" },

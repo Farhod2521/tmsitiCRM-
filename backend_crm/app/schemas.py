@@ -24,6 +24,8 @@ class EmployeeCreate(BaseModel):
     position: str
     department_id: Optional[int] = None
     work_rate: float = 1.0
+    work_start: Optional[str] = None   # "09:00" — bo'sh bo'lsa 09:00–18:00
+    work_end: Optional[str] = None
     phone: str
     password: str
     role: RoleEnum = RoleEnum.xodim
@@ -33,6 +35,8 @@ class EmployeeUpdate(BaseModel):
     position: Optional[str] = None
     department_id: Optional[int] = None
     work_rate: Optional[float] = None
+    work_start: Optional[str] = None
+    work_end: Optional[str] = None
     phone: Optional[str] = None
     password: Optional[str] = None
     role: Optional[RoleEnum] = None
@@ -44,6 +48,8 @@ class EmployeeOut(BaseModel):
     position: str
     department_id: Optional[int] = None
     work_rate: float
+    work_start: Optional[str] = None
+    work_end: Optional[str] = None
     phone: str
     role: RoleEnum
     status: EmployeeStatusEnum

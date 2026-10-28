@@ -48,9 +48,29 @@ def late_from_minutes(minutes_after_start: int, day: "date_cls | None" = None) -
     return max(0, minutes_after_start - late_grace_for(day))
 
 
-def late_minutes_for(ci_local: datetime) -> int:
-    """Mahalliy (UTC+5) kelish vaqti -> kechikish daqiqalari (09:00 + shu kungi imtiyoz)."""
-    work_start = ci_local.replace(hour=WORK_START_HOUR, minute=WORK_START_MIN, second=0, microsecond=0)
+DEFAULT_WORK_START = f"{WORK_START_HOUR:02d}:{WORK_START_MIN:02d}"
+DEFAULT_WORK_END = "18:00"
+
+
+def work_start_of(emp) -> str:
+    """Xodimning ish boshlanish vaqti "HH:MM" (0,5 stavkada — "09:00" yoki "14:00"; bo'sh — 09:00)."""
+    return (getattr(emp, "work_start", None) or DEFAULT_WORK_START) if emp is not None else DEFAULT_WORK_START
+
+
+def work_end_of(emp) -> str:
+    return (getattr(emp, "work_end", None) or DEFAULT_WORK_END) if emp is not None else DEFAULT_WORK_END
+
+
+def workday_minutes(emp) -> int:
+    """Bir ish kunining me'yori: 0,5 stavka — 4 soat, aks holda — 8 soat."""
+    return 4 * 60 if emp is not None and (emp.work_rate or 1) <= 0.5 else 8 * 60
+
+
+def late_minutes_for(ci_local: datetime, start: str | None = None) -> int:
+    """Mahalliy (UTC+5) kelish vaqti -> kechikish daqiqalari (ish boshlanishi + shu kungi imtiyoz).
+    start — xodimning ish boshlanishi ("14:00"); berilmasa 09:00."""
+    h, m = map(int, (start or DEFAULT_WORK_START).split(":"))
+    work_start = ci_local.replace(hour=h, minute=m, second=0, microsecond=0)
     return late_from_minutes(int(round((ci_local - work_start).total_seconds() / 60.0)), ci_local.date())
 
 
@@ -141,7 +161,7 @@ def _to_out(rec: models.Attendance, excused: bool = False) -> schemas.Attendance
     else:
         ci_local = ci  # allaqachon UTC+5 (naive)
 
-    late = late_minutes_for(ci_local)   # imtiyoz ichida kelsa 0
+    late = late_minutes_for(ci_local, work_start_of(rec.employee))   # imtiyoz ichida kelsa 0
 
     return schemas.AttendanceOut(
         id=rec.id,
@@ -247,7 +267,7 @@ def my_year_stats(
             if att is not None:
                 out["kelgan"] += 1
                 ci = att.check_in.astimezone(TZ_UZ) if att.check_in.tzinfo is not None else att.check_in
-                if late_minutes_for(ci) > 0 and (current.id, iso) not in excused:
+                if late_minutes_for(ci, work_start_of(current)) > 0 and (current.id, iso) not in excused:
                     out["kechikkan"] += 1
             elif (current.id, iso) not in excused and iso != today.isoformat():
                 out["kelmagan"] += 1
@@ -459,7 +479,13 @@ def get_absent_employees(db: Session, date: str) -> List[models.Employee]:
         .filter(models.AttendanceNote.date_from <= date, models.AttendanceNote.date_to >= date)
         .all()
     }
-    return [e for e in employees if e.id not in arrived_ids and e.id not in noted_ids]
+    # Ishi keyinroq boshlanadigan (masalan, 0,5 stavka 14:00 dan) xodimlar — vaqti kelmaguncha eslatilmaydi
+    now = datetime.now(TZ_UZ)
+    not_started = set()
+    if date == now.strftime("%Y-%m-%d"):
+        hhmm = now.strftime("%H:%M")
+        not_started = {e.id for e in employees if work_start_of(e) > hhmm}
+    return [e for e in employees if e.id not in arrived_ids and e.id not in noted_ids and e.id not in not_started]
 
 
 def build_pending_message_text(absent: List[models.Employee], date: str) -> str:
@@ -713,7 +739,8 @@ def office_info(
         "latitude": loc_lat,
         "longitude": loc_lng,
         "radius_m": loc_radius,
-        "work_start": f"{WORK_START_HOUR:02d}:{WORK_START_MIN:02d}",
+        "work_start": work_start_of(current),
+        "work_end": work_end_of(current),
         "late_grace_min": late_grace_for(),
         "work_location": current.work_location,
     }
