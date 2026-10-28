@@ -2,7 +2,6 @@ import secrets
 from datetime import datetime, timedelta, date
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
-from sqlalchemy.exc import IntegrityError
 from typing import List
 from ..database import get_db
 from ..schemas import (
@@ -114,7 +113,13 @@ def create_employee(
     db: Session = Depends(get_db),
     _: models.Employee = Depends(require_superadmin),
 ):
-    if db.query(models.Employee).filter(models.Employee.phone == data.phone).first():
+    existing = (
+        db.query(models.Employee).execution_options(include_archived=True)
+        .filter(models.Employee.phone == data.phone).first()
+    )
+    if existing:
+        if existing.is_archived:
+            raise HTTPException(status_code=400, detail=f"Bu telefon raqam arxivdagi xodimga tegishli ({existing.full_name}) — uni \"Arxiv\" bo'limidan tiklang")
         raise HTTPException(status_code=400, detail="Bu telefon raqam allaqachon ro'yxatda bor")
 
     emp = models.Employee(
@@ -309,12 +314,23 @@ def update_employee(
         raise HTTPException(status_code=403, detail="Ruxsat yo'q")
 
     update_data = data.model_dump(exclude_unset=True)
+<<<<<<< HEAD
     # Ish vaqtini faqat superadmin o'zgartiradi (xodim o'z profilini tahrirlaganda emas)
     if current.role != models.RoleEnum.superadmin:
         update_data.pop("work_start", None); update_data.pop("work_end", None)
     for k in ("work_start", "work_end"):
         if k in update_data:
             update_data[k] = _hhmm_or_none(update_data[k])
+=======
+    if update_data.get("phone") and update_data["phone"] != emp.phone:
+        taken = (
+            db.query(models.Employee).execution_options(include_archived=True)
+            .filter(models.Employee.phone == update_data["phone"], models.Employee.id != emp_id).first()
+        )
+        if taken:
+            where = "arxivdagi xodimga" if taken.is_archived else "boshqa xodimga"
+            raise HTTPException(status_code=400, detail=f"Bu telefon raqam {where} tegishli ({taken.full_name})")
+>>>>>>> 97b367c13bb64de028444c43c81b061bb09cf770
     if "password" in update_data:
         plain = update_data.pop("password")
         update_data["hashed_password"] = get_password_hash(plain)
@@ -596,42 +612,92 @@ def set_employee_work_location(
 
 
 @router.delete("/{emp_id}", status_code=204)
-def delete_employee(
+def archive_employee(
+    emp_id: int,
+    db: Session = Depends(get_db),
+    current: models.Employee = Depends(require_superadmin),
+):
+    """Ishdan bo'shagan xodimni arxivga o'tkazish (butunlay o'chirilmaydi): barcha
+    ro'yxatlardan yo'qoladi va tizimga kira olmaydi, lekin davomati, KPI, tabel,
+    ijro topshiriqlari va boshqa tarixi saqlanib qoladi. Arxivdan tiklash mumkin."""
+    emp = db.query(models.Employee).filter(models.Employee.id == emp_id).first()
+    if not emp:
+        raise HTTPException(status_code=404, detail="Xodim topilmadi")
+    if emp.id == current.id:
+        raise HTTPException(status_code=400, detail="O'zingizni arxivga o'tkaza olmaysiz")
+    emp.is_archived = True
+    emp.archived_at = datetime.utcnow()
+    emp.is_active = False
+    # Telegram bog'lanishi uziladi — bot endi unga xabar yubormaydi
+    emp.telegram_id = None
+    emp.telegram_username = None
+    db.query(models.TelegramLinkToken).filter(models.TelegramLinkToken.employee_id == emp_id).delete()
+    db.query(models.PasswordResetCode).filter(models.PasswordResetCode.employee_id == emp_id).delete()
+    db.commit()
+
+
+def _archived_query(db: Session):
+    return (
+        db.query(models.Employee)
+        .execution_options(include_archived=True)
+        .filter(models.Employee.is_archived.is_(True))
+    )
+
+
+def _get_archived(db: Session, emp_id: int) -> models.Employee:
+    emp = _archived_query(db).filter(models.Employee.id == emp_id).first()
+    if not emp:
+        raise HTTPException(status_code=404, detail="Arxivda bunday xodim topilmadi")
+    return emp
+
+
+@router.get("/archive/list", response_model=List[schemas.ArchivedEmployeeOut])
+def list_archived(
+    db: Session = Depends(get_db),
+    _: models.Employee = Depends(require_superadmin),
+):
+    return _archived_query(db).order_by(models.Employee.archived_at.desc()).all()
+
+
+@router.get("/archive/{emp_id}/history", response_model=List[schemas.ArchiveMonthOut])
+def archived_history(
     emp_id: int,
     db: Session = Depends(get_db),
     _: models.Employee = Depends(require_superadmin),
 ):
-    emp = db.query(models.Employee).filter(models.Employee.id == emp_id).first()
-    if not emp:
-        raise HTTPException(status_code=404, detail="Xodim topilmadi")
+    """Arxivdagi xodimning oyma-oy davomati (kelgan kunlar) va KPI ballari."""
+    _get_archived(db, emp_id)
+    months: dict[tuple[int, int], schemas.ArchiveMonthOut] = {}
 
-    # Xodimga tegishli yozuvlarni tozalash (FK cheklovi sabab o'chirish
-    # muvaffaqiyatsiz bo'lmasligi uchun). Xodim mualliflik qilgan (lekin
-    # boshqa birovga tegishli) yozuvlarda esa faqat muallif ko'rsatkichi
-    # bo'shatiladi — begona ma'lumot o'chirilmaydi.
-    db.query(models.TabelRecord).filter(models.TabelRecord.employee_id == emp_id).delete()
-    db.query(models.TabelRecord).filter(models.TabelRecord.created_by == emp_id).update({"created_by": None})
-    db.query(models.Attendance).filter(models.Attendance.employee_id == emp_id).delete()
-    db.query(models.Score).filter(models.Score.employee_id == emp_id).delete()
-    db.query(models.Score).filter(models.Score.created_by == emp_id).update({"created_by": None})
-    db.query(models.IjroDocument).filter(models.IjroDocument.masul_orinbosar_id == emp_id).update({"masul_orinbosar_id": None})
-    db.query(models.IjroDocument).filter(models.IjroDocument.created_by == emp_id).update({"created_by": None})
-    db.query(models.IjroDocBolim).filter(models.IjroDocBolim.qaror_by == emp_id).update({"qaror_by": None})
-    db.query(models.IjroDocBolim).filter(models.IjroDocBolim.xodim_id == emp_id).update({"xodim_id": None, "xodim_assigned_at": None})
-    db.query(models.IjroDocBolim).filter(models.IjroDocBolim.yakunlagan_by == emp_id).update({"yakunlagan_by": None})
-    db.query(models.IjroDocBolimAssignLog).filter(models.IjroDocBolimAssignLog.xodim_id == emp_id).delete()
-    db.query(models.IjroDocBolimAssignLog).filter(models.IjroDocBolimAssignLog.assigned_by == emp_id).update({"assigned_by": None})
-    db.query(models.WeeklyReport).filter(models.WeeklyReport.employee_id == emp_id).delete()
-    db.query(models.WeeklyReport).filter(models.WeeklyReport.confirmed_by == emp_id).update({"confirmed_by": None})
-    db.query(models.TelegramLinkToken).filter(models.TelegramLinkToken.employee_id == emp_id).delete()
-    db.query(models.AttendanceNote).filter(models.AttendanceNote.employee_id == emp_id).delete()
-    db.query(models.AttendanceNote).filter(models.AttendanceNote.reviewed_by == emp_id).update({"reviewed_by": None})
-    db.query(models.PasswordResetCode).filter(models.PasswordResetCode.employee_id == emp_id).delete()
+    def month(y: int, m: int) -> schemas.ArchiveMonthOut:
+        return months.setdefault((y, m), schemas.ArchiveMonthOut(year=y, month=m))
 
-    db.delete(emp)
-    try:
-        db.commit()
-    except IntegrityError as exc:
-        db.rollback()
-        print(f"[delete_employee] IntegrityError for emp_id={emp_id}: {exc}")
-        raise HTTPException(status_code=400, detail="Xodimni o'chirib bo'lmadi — unga bog'liq ma'lumotlar mavjud")
+    for (d,) in db.query(models.Attendance.date).filter(models.Attendance.employee_id == emp_id).all():
+        month(int(d[:4]), int(d[5:7])).attendance_days += 1
+    for sc in db.query(models.Score).filter(models.Score.employee_id == emp_id).all():
+        row = month(sc.year, sc.month)
+        row.bolim_ball, row.kadr_ball = sc.bolim_ball, sc.kadr_ball
+        row.ijro_edo_ball, row.ijro_ichki_ball = sc.ijro_edo_ball, sc.ijro_ichki_ball
+        row.direktor_ball = sc.direktor_ball
+        row.kpi_total = round((sc.bolim_ball or 0) + (sc.kadr_ball or 0)
+                              + (sc.ijro_edo_ball or 0) + (sc.ijro_ichki_ball or 0), 2)
+    return [months[k] for k in sorted(months, reverse=True)]
+
+
+@router.post("/archive/{emp_id}/restore", response_model=EmployeeOut)
+def restore_employee(
+    emp_id: int,
+    db: Session = Depends(get_db),
+    _: models.Employee = Depends(require_superadmin),
+):
+    """Arxivdagi xodimni qayta faollashtirish (masalan, ishga qaytganda)."""
+    emp = _get_archived(db, emp_id)
+    emp.is_archived = False
+    emp.archived_at = None
+    emp.status = models.EmployeeStatusEnum.faol
+    emp.status_date_from = None
+    emp.status_date_to = None
+    emp.is_active = True
+    db.commit()
+    db.refresh(emp)
+    return emp

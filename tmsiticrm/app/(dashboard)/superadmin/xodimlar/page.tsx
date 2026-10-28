@@ -4,15 +4,16 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import Header from "@/components/layout/Header";
 import Badge from "@/components/ui/Badge";
 import {
-  Users, Plus, Search, Phone, Pencil, Trash2, X, Loader2,
+  Users, Plus, Search, Phone, Pencil, X, Loader2,
   Download, KeyRound, ChevronDown, CheckCircle2, Palmtree, Baby, UserCheck,
   Building2, FlaskConical, Car, Plane, GraduationCap, Stethoscope, Infinity as InfinityIcon,
-  ArrowLeft, Laptop, Paperclip, WalletMinimal,
+  ArrowLeft, Laptop, Paperclip, WalletMinimal, Archive,
 } from "lucide-react";
 import { apiFetch } from "@/lib/api";
 import PlannedStatusNote from "@/components/employees/PlannedStatusNote";
 import { isFutureDate, applyStatusResult, type StatusResult } from "@/lib/employeeStatus";
 import EmployeeFilesModal from "@/components/employees/EmployeeFilesModal";
+import ArchiveModal from "@/components/employees/ArchiveModal";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -465,6 +466,70 @@ function EmpFormModal({ emp, depts, onClose, onSaved }: {
 
 // ─── Asosiy sahifa ─────────────────────────────────────────────────────────────
 
+// ─── Delete confirm modal ────────────────────────────────────────────────────
+
+function ConfirmDeleteModal({ emp, deleting, error, onCancel, onConfirm }: {
+  emp: ApiEmp; deleting: boolean; error: string | null;
+  onCancel: () => void; onConfirm: () => void;
+}) {
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onCancel(); };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onCancel]);
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      style={{ background: "rgba(10,22,41,0.5)", backdropFilter: "blur(3px)" }}
+      onClick={onCancel}>
+      <div className="w-full max-w-md"
+        style={{ background: "#FFFFFF", borderRadius: 20, boxShadow: "0 20px 60px rgba(10,22,41,0.25)" }}
+        onClick={e => e.stopPropagation()}>
+        <div className="px-6 pt-6 pb-2 flex flex-col items-center text-center">
+          <div className="w-14 h-14 flex items-center justify-center mb-4"
+            style={{ background: "rgba(255,92,92,0.12)", borderRadius: 16 }}>
+            <Archive size={26} style={{ color: "#FF5C5C" }} />
+          </div>
+          <h2 className="font-bold text-lg" style={{ color: "#0A1629" }}>
+            Haqiqatan ham o&apos;chirasizmi?
+          </h2>
+          <p className="text-sm mt-2" style={{ color: "#7D8592" }}>
+            <span className="font-bold" style={{ color: "#0A1629" }}>{emp.full_name}</span>
+            {emp.position ? <> — {emp.position}</> : null} xodimlar ro&apos;yxatidan olinib, arxivga o&apos;tkaziladi.
+          </p>
+        </div>
+
+        <div className="mx-6 mt-3 px-4 py-3 text-xs space-y-1.5"
+          style={{ background: "#F4F9FD", borderRadius: 12, color: "#7D8592" }}>
+          <p><b style={{ color: "#FF5C5C" }}>Yopiladi:</b> tizimga kirish, Telegram bot, ro&apos;yxatlar va ish staji jadvali.</p>
+          <p><b style={{ color: "#00C48C" }}>Saqlanib qoladi:</b> davomat, KPI ballari, tabel, ijro topshiriqlari va hujjatlar — &quot;Arxiv&quot; bo&apos;limida ko&apos;rinadi, kerak bo&apos;lsa tiklanadi.</p>
+        </div>
+
+        {error && (
+          <div className="mx-6 mt-3 px-4 py-2.5 text-sm"
+            style={{ background: "rgba(255,92,92,0.1)", color: "#FF5C5C", borderRadius: 12 }}>
+            {error}
+          </div>
+        )}
+
+        <div className="flex gap-3 p-6">
+          <button onClick={onCancel} disabled={deleting}
+            className="flex-1 h-11 text-sm font-bold hover:opacity-80 transition-opacity disabled:opacity-50"
+            style={{ background: "#F4F9FD", color: "#0A1629", borderRadius: 12 }}>
+            Bekor qilish
+          </button>
+          <button onClick={onConfirm} disabled={deleting}
+            className="flex-1 h-11 text-sm font-bold text-white flex items-center justify-center gap-2 hover:opacity-90 transition-opacity disabled:opacity-60"
+            style={{ background: "#FF5C5C", borderRadius: 12, boxShadow: "0 8px 20px rgba(255,92,92,0.3)" }}>
+            {deleting ? <Loader2 size={16} className="animate-spin" /> : <Archive size={16} />}
+            Ha, arxivga o&apos;tkazish
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function XodimlarPage() {
   const [employees, setEmployees] = useState<ApiEmp[]>([]);
   const [depts,      setDepts]    = useState<ApiDept[]>([]);
@@ -475,6 +540,9 @@ export default function XodimlarPage() {
   const [exporting,  setExporting]  = useState(false);
   const [toast,      setToast]      = useState<string | null>(null);
   const [filesFor,   setFilesFor]   = useState<ApiEmp | null>(null);
+  const [deleteFor,  setDeleteFor]  = useState<ApiEmp | null>(null);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [archiveOpen, setArchiveOpen] = useState(false);
   // Xodimlarning joriy (qaytarib olingan) parollari — faqat superadmin ko'radi.
   // Faqat migratsiyadan keyin yaratilgan/paroli o'zgartirilgan xodimlarda mavjud bo'ladi.
   const [passwords,  setPasswords]  = useState<Record<number, string | null>>({});
@@ -518,14 +586,15 @@ export default function XodimlarPage() {
   useEffect(() => { load(); }, [load]);
 
   async function handleDelete(id: number) {
-    if (!confirm("Xodimni o'chirishni tasdiqlaysizmi? Bu amalni orqaga qaytarib bo'lmaydi.")) return;
     setDeletingId(id);
+    setDeleteError(null);
     try {
       await apiFetch(`/employees/${id}`, { method: "DELETE" });
       setEmployees(prev => prev.filter(e => e.id !== id));
-      setToast("Xodim muvaffaqiyatli o'chirildi");
+      setDeleteFor(null);
+      setToast("Xodim arxivga o'tkazildi");
     } catch (err) {
-      alert(err instanceof Error ? err.message : "O'chirishda xatolik");
+      setDeleteError(err instanceof Error ? err.message : "Arxivlashda xatolik");
     } finally {
       setDeletingId(null);
     }
@@ -664,6 +733,12 @@ export default function XodimlarPage() {
               className="bg-transparent outline-none text-sm flex-1" style={{ color: "#0A1629" }} />
           </div>
           <div className="flex items-center gap-2">
+            <button onClick={() => setArchiveOpen(true)}
+              className="flex items-center gap-2 px-4 py-2.5 text-sm font-bold hover:opacity-80"
+              style={{ background: "#F4F9FD", color: "#7D8592", borderRadius: 12 }}>
+              <Archive size={16} />
+              Arxiv
+            </button>
             <button onClick={exportDocx} disabled={exporting}
               className="flex items-center gap-2 px-4 py-2.5 text-sm font-bold disabled:opacity-60"
               style={{ background: "#F4F9FD", color: "#7D8592", borderRadius: 12 }}>
@@ -792,12 +867,12 @@ export default function XodimlarPage() {
                         style={{ background: "rgba(63,140,255,0.1)", borderRadius: 8 }}>
                         <Pencil size={14} style={{ color: "#3F8CFF" }} />
                       </button>
-                      <button onClick={() => handleDelete(emp.id)} title="O'chirish" disabled={deletingId === emp.id}
+                      <button onClick={() => { setDeleteError(null); setDeleteFor(emp); }} title="Arxivga o'tkazish" disabled={deletingId === emp.id}
                         className="w-8 h-8 flex items-center justify-center hover:opacity-80 transition-opacity disabled:opacity-40"
                         style={{ background: "rgba(255,92,92,0.1)", borderRadius: 8 }}>
                         {deletingId === emp.id
                           ? <Loader2 size={14} className="animate-spin" style={{ color: "#FF5C5C" }} />
-                          : <Trash2 size={14} style={{ color: "#FF5C5C" }} />}
+                          : <Archive size={14} style={{ color: "#FF5C5C" }} />}
                       </button>
                     </div>
                   </td>
@@ -823,6 +898,23 @@ export default function XodimlarPage() {
 
       {filesFor && (
         <EmployeeFilesModal employeeId={filesFor.id} employeeName={filesFor.full_name} onClose={() => setFilesFor(null)} />
+      )}
+
+      {archiveOpen && (
+        <ArchiveModal
+          onClose={() => setArchiveOpen(false)}
+          onRestored={() => { load(); setToast("Xodim arxivdan tiklandi"); }}
+        />
+      )}
+
+      {deleteFor && (
+        <ConfirmDeleteModal
+          emp={deleteFor}
+          deleting={deletingId === deleteFor.id}
+          error={deleteError}
+          onCancel={() => { if (deletingId === null) setDeleteFor(null); }}
+          onConfirm={() => handleDelete(deleteFor.id)}
+        />
       )}
 
       {toast && (

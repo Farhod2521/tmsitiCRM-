@@ -5,6 +5,7 @@ o'sha oy uchun foiz 0."""
 import io
 import re
 from calendar import monthrange
+from difflib import SequenceMatcher
 from datetime import date, datetime
 from typing import List, Optional
 
@@ -23,7 +24,7 @@ from sqlalchemy.orm import Session
 from .. import models
 from ..database import get_db
 from ..deps import get_current_employee
-from ..name_match import match_employee
+from ..name_match import match_employee, normalize
 from ..status_periods import status_code_map
 from .holidays import month_holidays
 
@@ -137,12 +138,110 @@ def _full_month_mt(db: Session, rows: list, year: int, month: int) -> set[int]:
     return result
 
 
-def _build(db: Session, year: int, month: int) -> ExperienceOut:
-    rows = (
+def _loose(name: Optional[str]) -> tuple[str, str]:
+    """Ismni yumshoq solishtirish uchun (familiya, ism bosh harfi): krill/lotin
+    farqlari (х/h, е/ye, apostroflar) yo'qotiladi — "Эргашев Ҳ." == "Ergashev X."."""
+    words = normalize(name).replace("'", "").replace("h", "x").split()
+    if not words:
+        return "", ""
+    surname = re.sub(r"^ye", "e", words[0])
+    return surname, (re.sub(r"^ye", "e", words[1])[:1] if len(words) > 1 else "")
+
+
+def _same_person(a: Optional[str], b: Optional[str]) -> bool:
+    (sa, ia), (sb, ib) = _loose(a), _loose(b)
+    if not sa or not sb or (ia and ib and ia != ib):
+        return False
+    return sa == sb or SequenceMatcher(None, sa, sb).ratio() >= 0.85
+
+
+def _is_auto(r: models.WorkExperience) -> bool:
+    """CRM'dan avtomatik qo'shilgan (xlsx'dan ham, kadr tahriridan ham kelmagan) qator."""
+    return r.updated_by is None
+
+
+def _sync_new_employees(db: Session, rows: list) -> bool:
+    """Xlsx yuklangandan keyin CRM'ga qo'shilgan xodimlar jadvalda yo'q bo'lib qolardi —
+    ular avtomatik qo'shiladi (staji joriy oy holatida 0, kadr keyin tuzatadi). Avval
+    ism bo'yicha mos keladigan, lekin bog'lanmay qolgan xlsx qatori qidiriladi — shunda
+    bir odam ikki marta chiqmaydi. Qaytaradi: biror narsa o'zgardimi."""
+    changed = False
+    unlinked = [r for r in rows if r.employee_id is None]
+
+    # 1) Oldin avtomatik qo'shilgan qator xlsx'dagi bog'lanmagan qatorning takrori bo'lsa —
+    #    xlsx qatori (haqiqiy staj bilan) xodimga bog'lanadi, avtomatik qator o'chiriladi.
+    for auto in [r for r in rows if _is_auto(r) and r.employee is not None]:
+        cands = [u for u in unlinked if _same_person(u.full_name, auto.employee.full_name)]
+        if len(cands) == 1:
+            cands[0].employee_id = auto.employee_id
+            unlinked.remove(cands[0])
+            db.delete(auto)
+            rows.remove(auto)
+            changed = True
+
+    # 2) Bir xodimga bir nechta qator bog'langan bo'lsa — avtomatik qo'shilganlari o'chiriladi.
+    by_emp: dict[int, list] = {}
+    for r in rows:
+        if r.employee_id:
+            by_emp.setdefault(r.employee_id, []).append(r)
+    for same in by_emp.values():
+        if len(same) > 1 and any(not _is_auto(r) for r in same):
+            for r in same:
+                if _is_auto(r):
+                    db.delete(r)
+                    rows.remove(r)
+                    changed = True
+
+    # 3) Jadvalda umuman yo'q xodimlar: avval bog'lanmagan xlsx qatoriga bog'lanadi,
+    #    topilmasa — yangi qator qo'shiladi.
+    linked = {r.employee_id for r in rows if r.employee_id}
+    new_emps = [
+        e for e in db.query(models.Employee)
+        .filter(models.Employee.role != models.RoleEnum.superadmin)
+        .order_by(models.Employee.id).all()
+        if e.id not in linked
+    ]
+    for e in list(new_emps):
+        cands = [u for u in unlinked if _same_person(u.full_name, e.full_name)]
+        if len(cands) == 1:
+            cands[0].employee_id = e.id
+            unlinked.remove(cands[0])
+            new_emps.remove(e)
+            changed = True
+    if rows and new_emps:
+        base_year, base_month = rows[0].base_year, rows[0].base_month
+        today = date.today()
+        next_num = max((r.order_num or 0 for r in rows), default=0) + 1
+        for e in new_emps:
+            db.add(models.WorkExperience(
+                order_num=next_num, employee_id=e.id, full_name=e.full_name, position=e.position,
+                base_year=base_year, base_month=base_month,
+                base_total_months=-(_month_index(today.year, today.month) - _month_index(base_year, base_month)),
+            ))
+            next_num += 1
+        changed = True
+    if changed:
+        db.commit()
+    return changed
+
+
+def _load_rows(db: Session) -> list:
+    return (
         db.query(models.WorkExperience)
         .order_by(models.WorkExperience.order_num.nullslast(), models.WorkExperience.id)
         .all()
     )
+
+
+def _build(db: Session, year: int, month: int) -> ExperienceOut:
+    rows = _load_rows(db)
+    if not rows:
+        return ExperienceOut(year=year, month=month, rows=[])
+    if _sync_new_employees(db, rows):
+        rows = _load_rows(db)
+    # Arxivdagi (ishdan bo'shagan) va dekretdagi xodimlar ish staji ro'yxatida ko'rinmaydi
+    rows = [r for r in rows if not (r.employee and (
+        r.employee.is_archived or r.employee.status == models.EmployeeStatusEnum.dekret))]
     if not rows:
         return ExperienceOut(year=year, month=month, rows=[])
     mt = _full_month_mt(db, rows, year, month)

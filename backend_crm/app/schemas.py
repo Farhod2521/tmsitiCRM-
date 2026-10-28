@@ -68,6 +68,23 @@ class EmployeeOut(BaseModel):
     roles: List[str] = []             # barcha rollari, birinchisi — asosiy rol
     model_config = {"from_attributes": True}
 
+
+class ArchivedEmployeeOut(EmployeeOut):
+    archived_at: Optional[datetime] = None
+
+
+class ArchiveMonthOut(BaseModel):
+    """Arxivdagi xodimning bir oylik tarixi — davomat kunlari va KPI ballari."""
+    year: int
+    month: int
+    attendance_days: int = 0
+    bolim_ball: Optional[float] = None
+    kadr_ball: Optional[int] = None
+    ijro_edo_ball: Optional[int] = None
+    ijro_ichki_ball: Optional[int] = None
+    direktor_ball: Optional[int] = None
+    kpi_total: Optional[float] = None
+
 class SetStatusIn(BaseModel):
     status: EmployeeStatusEnum
     date_from: Optional[str] = None
