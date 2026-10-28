@@ -314,14 +314,12 @@ def update_employee(
         raise HTTPException(status_code=403, detail="Ruxsat yo'q")
 
     update_data = data.model_dump(exclude_unset=True)
-<<<<<<< HEAD
     # Ish vaqtini faqat superadmin o'zgartiradi (xodim o'z profilini tahrirlaganda emas)
     if current.role != models.RoleEnum.superadmin:
         update_data.pop("work_start", None); update_data.pop("work_end", None)
     for k in ("work_start", "work_end"):
         if k in update_data:
             update_data[k] = _hhmm_or_none(update_data[k])
-=======
     if update_data.get("phone") and update_data["phone"] != emp.phone:
         taken = (
             db.query(models.Employee).execution_options(include_archived=True)
@@ -330,7 +328,6 @@ def update_employee(
         if taken:
             where = "arxivdagi xodimga" if taken.is_archived else "boshqa xodimga"
             raise HTTPException(status_code=400, detail=f"Bu telefon raqam {where} tegishli ({taken.full_name})")
->>>>>>> 97b367c13bb64de028444c43c81b061bb09cf770
     if "password" in update_data:
         plain = update_data.pop("password")
         update_data["hashed_password"] = get_password_hash(plain)
