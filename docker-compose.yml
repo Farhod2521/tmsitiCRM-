@@ -1,5 +1,3 @@
-version: "3.9"
-
 services:
 
   # ── PostgreSQL ─────────────────────────────────────────────────────────────
@@ -34,8 +32,10 @@ services:
       TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN}
       TELEGRAM_CHAT_ID: ${TELEGRAM_CHAT_ID}
       BOT_INTERNAL_SECRET: ${BOT_INTERNAL_SECRET}
+    # Serverdagi 8000-port boshqa loyihada band — tashqariga 8010 orqali chiqariladi.
+    # Frontend backend'ga ichki tarmoq orqali (backend:8000) ulanadi.
     ports:
-      - "8000:8000"
+      - "8010:8000"
     depends_on:
       db:
         condition: service_healthy
@@ -48,11 +48,12 @@ services:
       context: ./tmsiticrm
       dockerfile: Dockerfile
       args:
+        NEXT_PUBLIC_API_URL: /backend
+        BACKEND_INTERNAL_URL: http://backend:8000
         NEXT_PUBLIC_TELEGRAM_BOT_USERNAME: ${TELEGRAM_BOT_USERNAME}
     container_name: crm_frontend
     restart: unless-stopped
     environment:
-      NEXT_PUBLIC_API_URL: http://192.168.20.3:8000
       NEXT_PUBLIC_TELEGRAM_BOT_USERNAME: ${TELEGRAM_BOT_USERNAME}
     ports:
       - "3500:3000"
