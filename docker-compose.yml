@@ -32,10 +32,8 @@ services:
       TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN}
       TELEGRAM_CHAT_ID: ${TELEGRAM_CHAT_ID}
       BOT_INTERNAL_SECRET: ${BOT_INTERNAL_SECRET}
-    # Serverdagi 8000-port boshqa loyihada band — tashqariga 8010 orqali chiqariladi.
-    # Frontend backend'ga ichki tarmoq orqali (backend:8000) ulanadi.
-    ports:
-      - "8010:8000"
+    # Host porti ochilmaydi (serverda 8000/8010 boshqa loyihalarda band).
+    # Frontend (/backend rewrite) va telegram bot ichki tarmoq orqali backend:8000 ga ulanadi.
     depends_on:
       db:
         condition: service_healthy
