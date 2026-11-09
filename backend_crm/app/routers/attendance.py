@@ -479,13 +479,19 @@ def get_absent_employees(db: Session, date: str) -> List[models.Employee]:
         .filter(models.AttendanceNote.date_from <= date, models.AttendanceNote.date_to >= date)
         .all()
     }
+    # Shu sana uchun muddatli holati bor xodimlar (xizmat safari, mehnat/o'quv ta'tili,
+    # bolnichniy, ish haqisiz ta'til) — joriy status hali "faol" bo'lib qolgan bo'lsa ham
+    # (masalan, rejalashtirilgan holat hali faollashmagan) eslatmaga kirmaydi.
+    from ..status_periods import status_code_map
+    on_leave_ids = {emp_id for (emp_id, _d) in status_code_map(db, employees, date, date)}
     # Ishi keyinroq boshlanadigan (masalan, 0,5 stavka 14:00 dan) xodimlar — vaqti kelmaguncha eslatilmaydi
     now = datetime.now(TZ_UZ)
     not_started = set()
     if date == now.strftime("%Y-%m-%d"):
         hhmm = now.strftime("%H:%M")
         not_started = {e.id for e in employees if work_start_of(e) > hhmm}
-    return [e for e in employees if e.id not in arrived_ids and e.id not in noted_ids and e.id not in not_started]
+    skip = arrived_ids | noted_ids | on_leave_ids | not_started
+    return [e for e in employees if e.id not in skip]
 
 
 def build_pending_message_text(absent: List[models.Employee], date: str) -> str:
