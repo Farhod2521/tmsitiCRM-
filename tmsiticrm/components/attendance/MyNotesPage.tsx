@@ -60,14 +60,14 @@ function fmtDay(s: string) {
 type StepState = "done" | "rejected" | "waiting" | "next";
 interface Step { title: string; state: StepState; who?: string | null; at?: string | null }
 
-/** Bosqichlar: bo'lim boshlig'i (bo'lsa) → kadr → zamdirektor — backend'dagi note_flow._progress bilan bir xil. */
+/** Bosqichlar: bo'lim boshlig'i (bo'lsa) → kadr — backend'dagi note_flow._progress bilan bir xil. */
 function stepsOf(n: MyNote): Step[] {
   const hasBolim = !!n.bolim_by_nomi || n.review_status === "bolim_kutilmoqda";
   const raw: { stage: ReviewStatus; title: string; who: string | null; at: string | null }[] = [
     ...(hasBolim ? [{ stage: "bolim_kutilmoqda" as ReviewStatus, title: "Bo'lim boshlig'i", who: n.bolim_by_nomi, at: n.bolim_at }] : []),
     { stage: "kutilmoqda", title: "Kadrlar bo'limi", who: n.reviewed_by_nomi, at: n.reviewed_at },
-    // Ruxsat so'rash — zamdirektor bosqichi yo'q (eski, zamdirektorga borganlari bundan mustasno)
-    ...(n.note_type !== "ruxsat" || n.zamdirektor_by_nomi || n.review_status === "kadr_tasdiqladi"
+    // Zamdirektor bosqichi olib tashlangan — faqat eski, zamdirektorga borgan arizalarda ko'rinadi
+    ...(n.zamdirektor_by_nomi || n.review_status === "kadr_tasdiqladi"
       ? [{ stage: "kadr_tasdiqladi" as ReviewStatus, title: "Zamdirektor", who: n.zamdirektor_by_nomi, at: n.zamdirektor_at }] : []),
   ];
   const rejected = n.review_status === "sababsiz";

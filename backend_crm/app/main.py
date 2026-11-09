@@ -46,6 +46,8 @@ from .database import SessionLocal
 from .status_periods import backfill_status_periods
 with SessionLocal() as _db:
     backfill_status_periods(_db)
+    # Zamdirektor bosqichi olib tashlangan — uni kutib qolgan tuzatish/arizalar yakunlanadi
+    daily.finalize_pending(_db)
 
 app = FastAPI(
     title="TMSITI CRM API",

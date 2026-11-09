@@ -374,6 +374,24 @@ def applied_filter():
     return or_(C.status.is_(None), C.status == "tasdiqlandi")
 
 
+def finalize_pending(db: Session) -> None:
+    """Zamdirektor bosqichi olib tashlangan: avval zamdirektorni kutib qolgan
+    tuzatishlar tasdiqlanib davomatga yoziladi, "kadr_tasdiqladi" arizalar esa
+    "sababli" bo'ladi (kadr allaqachon tasdiqlagan). Ilova ishga tushganda chaqiriladi."""
+    C = models.AttendanceCorrection
+    pend = db.query(C).filter(C.status == "kutilmoqda").order_by(C.created_at).all()
+    for c in pend:
+        c.status, c.reviewed_by, c.reviewed_at = "tasdiqlandi", c.corrected_by, datetime.utcnow()
+        apply_correction(db, c)
+    n = (db.query(models.AttendanceNote)
+         .filter(models.AttendanceNote.review_status == "kadr_tasdiqladi")
+         .update({"review_status": "sababli"}, synchronize_session=False))
+    if pend or n:
+        db.commit()
+        import logging
+        logging.getLogger("daily").info("Zamdirektorsiz yakunlandi: %s tuzatish, %s ariza", len(pend), n)
+
+
 def apply_correction(db: Session, c: models.AttendanceCorrection) -> None:
     """Tuzatishni davomatga yozadi (yozuv bo'lmasa — yaratadi)."""
     new_dt = datetime.strptime(f"{c.date} {c.new_check_in}", "%Y-%m-%d %H:%M")

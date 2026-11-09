@@ -66,7 +66,7 @@ export default function CorrectionsPage() {
   const [error, setError] = useState<string | null>(null);
   const [q, setQ] = useState("");
   const [onlyNew, setOnlyNew] = useState(false);
-  const [tab, setTab] = useState<Tab>("kutilmoqda");
+  const [tab, setTab] = useState<Tab>("barchasi");
   const [busy, setBusy] = useState<number | null>(null);
 
   async function decide(r: CorrectionRow, approve: boolean) {
@@ -108,7 +108,7 @@ export default function CorrectionsPage() {
 
   return (
     <div>
-      <Header title="Davomat tuzatishlari" subtitle="Kadr to'g'rilagan kelish vaqtlari — tasdiqlaganingizdan keyingina kuchga kiradi" />
+      <Header title="Davomat tuzatishlari" subtitle="Kadr to'g'rilagan kelish vaqtlari jurnali — tuzatishlar darhol kuchga kiradi" />
 
       {/* Yuqori panel */}
       <div className="flex flex-wrap items-center gap-3 mb-4">
@@ -119,7 +119,6 @@ export default function CorrectionsPage() {
         </div>
         {[
           { label: "Jami tuzatish", v: stats.jami, c: "#3F8CFF" },
-          { label: "Tasdiq kutilmoqda", v: rows.filter(r => r.status === "kutilmoqda").length, c: "#B4780C" },
           { label: "Kechikish olib tashlangan", v: stats.olib, c: "#E5484D" },
           { label: "Xodimlar", v: stats.xodim, c: "#00A578" },
         ].map(s => (
@@ -141,7 +140,7 @@ export default function CorrectionsPage() {
       </div>
 
       <div className="flex flex-wrap gap-2 mb-4">
-        {([["kutilmoqda", "Tasdiq kutilmoqda"], ["tasdiqlandi", "Tasdiqlangan"], ["rad_etildi", "Bekor qilingan"], ["barchasi", "Barchasi"]] as [Tab, string][]).map(([k, l]) => {
+        {([["barchasi", "Barchasi"], ["tasdiqlandi", "Tasdiqlangan"], ["rad_etildi", "Bekor qilingan"]] as [Tab, string][]).map(([k, l]) => {
           const n = k === "barchasi" ? rows.length : rows.filter(r => r.status === k).length;
           const on = tab === k;
           return (

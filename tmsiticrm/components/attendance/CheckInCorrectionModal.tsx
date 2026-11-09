@@ -47,7 +47,7 @@ function fmtDay(iso: string) {
   return `${d}.${m}.${y}`;
 }
 
-/** Superadmin va kadr: xodimning kelish vaqtini tuzatish (kadr — sabab majburiy, zamdirektorga xabar boradi) (masalan, turniket bo'yicha —
+/** Superadmin va kadr: xodimning kelish vaqtini tuzatish (kadr — sabab majburiy; tuzatish darhol kuchga kiradi) (masalan, turniket bo'yicha —
  *  ishga kelgan, lekin "Ishga keldim"ni bosishni unutgan). Har bir o'zgarish jurnalga yoziladi. */
 export default function CheckInCorrectionModal({ employeeId, date, onClose, onSaved }: {
   employeeId: number;
@@ -151,12 +151,6 @@ export default function CheckInCorrectionModal({ employeeId, date, onClose, onSa
               </div>
             </div>
 
-            {info.pending && (
-              <div className="mt-3 p-3 text-[13px]" style={{ background: "rgba(255,189,33,0.14)", border: "1px solid #FCE3A8", borderRadius: 12, color: "#8A5A00" }}>
-                ⏳ <b>{info.current ?? "—"} → {info.pending}</b> o&apos;zgarishi zamdirektor tasdig&apos;ini kutmoqda.
-                Tasdiqlanmaguncha vaqt o&apos;zgarmaydi.
-              </div>
-            )}
 
             {/* Xodimning shu kungi izohi (ariza) */}
             <div className="mt-3 p-3" style={{ background: info.note ? "#FFF8E8" : "#FAFCFF", border: `1px solid ${info.note ? "#FCE3A8" : "#F0F3F8"}`, borderRadius: 12 }}>
@@ -205,7 +199,7 @@ export default function CheckInCorrectionModal({ employeeId, date, onClose, onSa
 
         <div className="flex items-center justify-end gap-2 px-6 py-4" style={{ borderTop: "1px solid #F4F9FD" }}>
           <button onClick={onClose} className="px-4 py-2.5 text-sm font-bold" style={{ background: "#F4F9FD", color: "#7D8592", borderRadius: 12 }}>Bekor qilish</button>
-          <button onClick={save} disabled={saving || !changed || !!info?.pending}
+          <button onClick={save} disabled={saving || !changed}
             className="flex items-center gap-2 px-5 py-2.5 text-sm font-bold text-white disabled:opacity-50"
             style={{ background: "#6D5DD3", borderRadius: 12 }}>
             {saving ? <Loader2 size={15} className="animate-spin" /> : <Save size={15} />} Saqlash

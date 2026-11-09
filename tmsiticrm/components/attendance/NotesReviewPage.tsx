@@ -112,8 +112,11 @@ function History({ n }: { n: AttendanceNote }) {
   }
   steps.push({ who: "Kadrlar bo'limi", name: n.reviewed_by_nomi, at: n.reviewed_at,
     state: n.reviewed_by_nomi ? (rejected && !n.zamdirektor_by_nomi ? "no" : "ok") : "wait" });
-  steps.push({ who: "Zamdirektor", name: n.zamdirektor_by_nomi, at: n.zamdirektor_at,
-    state: n.zamdirektor_by_nomi ? (rejected ? "no" : "ok") : "wait" });
+  // Zamdirektor bosqichi olib tashlangan — faqat eski, zamdirektorga borgan arizalarda
+  if (n.zamdirektor_by_nomi || n.review_status === "kadr_tasdiqladi") {
+    steps.push({ who: "Zamdirektor", name: n.zamdirektor_by_nomi, at: n.zamdirektor_at,
+      state: n.zamdirektor_by_nomi ? (rejected ? "no" : "ok") : "wait" });
+  }
   const stop = steps.findIndex(s => s.state !== "ok");
   return (
     <div className="flex flex-wrap items-start gap-x-6 gap-y-2">

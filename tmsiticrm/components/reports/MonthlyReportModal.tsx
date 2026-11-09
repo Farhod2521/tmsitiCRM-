@@ -158,14 +158,16 @@ function ScoreGauge({ item, size = 110, compact = false }: { item: ScoreItem; si
 /* ── Kunlik izoh + tasdiqlash zanjiri modali ── */
 function NoteDetailModal({ note, onClose }: { note: NoteDetail; onClose: () => void }) {
   const rc = REVIEW_CFG[note.review_status];
-  // Bosqichlar: [bo'lim boshlig'i] -> kadr -> zamdirektor. Qaror qilgan oxirgi
+  // Bosqichlar: [bo'lim boshlig'i] -> kadr (zamdirektor — faqat eski arizalarda). Qaror qilgan oxirgi
   // bosqich "sababsiz" bo'lsa — o'sha bosqich rad etgan hisoblanadi.
   const raw: { key: ReviewStatus; label: string; by: string | null; at: string | null }[] = [
     ...(note.bolim_by_nomi || note.review_status === "bolim_kutilmoqda"
       ? [{ key: "bolim_kutilmoqda" as ReviewStatus, label: "Bo'lim boshlig'i tasdiqladi", by: note.bolim_by_nomi ?? null, at: note.bolim_at ?? null }]
       : []),
     { key: "kutilmoqda", label: "Kadr tasdiqladi", by: note.reviewed_by_nomi, at: note.reviewed_at },
-    { key: "kadr_tasdiqladi", label: "Zamdirektor tasdiqladi", by: note.zamdirektor_by_nomi, at: note.zamdirektor_at },
+    ...(note.zamdirektor_by_nomi || note.review_status === "kadr_tasdiqladi"
+      ? [{ key: "kadr_tasdiqladi" as ReviewStatus, label: "Zamdirektor tasdiqladi", by: note.zamdirektor_by_nomi, at: note.zamdirektor_at }]
+      : []),
   ];
   const steps: { label: string; done: boolean; by: string | null; at: string | null; state: "done" | "waiting" | "rejected" | "pending" }[] =
     raw.map((st, i) => {

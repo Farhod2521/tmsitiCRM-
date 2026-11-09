@@ -1,4 +1,4 @@
-// Davomat arizasi bosqichlari: bo'lim boshlig'i -> kadr -> zamdirektor.
+// Davomat arizasi bosqichlari: bo'lim boshlig'i -> kadr (kadr_tasdiqladi — faqat eski arizalar).
 const STAGE_ORDER: Record<string, number> = {
   bolim_kutilmoqda: 0,
   kutilmoqda: 1,
