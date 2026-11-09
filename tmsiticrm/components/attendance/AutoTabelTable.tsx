@@ -199,7 +199,7 @@ export default function AutoTabelTable() {
   const [ballInfoOpen, setBallInfoOpen] = useState(false);
   // Qo'lda tuzatish — faqat kadr va superadmin (backendda ham shunday)
   const [canEdit, setCanEdit] = useState(false);
-  // Kelish vaqtini tuzatish (o'tgan kunlar ham) — superadmin, zamdirektor va kadr (kadr tuzatishi zamdirektor tasdig'idan keyin kuchga kiradi)
+  // Kelish vaqtini tuzatish (o'tgan kunlar ham) — superadmin, zamdirektor va kadr (barcha tuzatishlar darhol kuchga kiradi)
   const [isSuperadmin, setIsSuperadmin] = useState(false);
   const [correcting, setCorrecting] = useState<{ employeeId: number; date: string } | null>(null);
   useEffect(() => {

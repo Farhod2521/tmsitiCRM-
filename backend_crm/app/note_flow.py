@@ -1,10 +1,9 @@
 """Davomat arizalari (AttendanceNote) tasdiqlash oqimi va Telegram xabarlari.
 
 Bosqichlar:
-  oddiy xodim yozsa:       bolim_kutilmoqda -> (bo'lim boshlig'i) -> kutilmoqda -> (kadr)
-                           -> kadr_tasdiqladi -> (zamdirektor) -> sababli
-  bo'lim boshlig'i yozsa:  kutilmoqda dan boshlanadi (kadr -> zamdirektor)
-  "Ruxsat so'rayman" arizasi: zamdirektor bosqichi yo'q — kadr tasdiqlasa darhol "sababli".
+  oddiy xodim yozsa:       bolim_kutilmoqda -> (bo'lim boshlig'i) -> kutilmoqda -> (kadr) -> sababli
+  bo'lim boshlig'i yozsa:  kutilmoqda dan boshlanadi (kadr -> sababli)
+  Zamdirektor bosqichi yo'q — kadr tasdiqlasa darhol "sababli" (barcha turdagi arizalar).
   Rad etish istalgan bosqichda darhol "sababsiz" (yakuniy).
 
 Har bosqichda ko'rib chiquvchilarga Telegram'da inline tugmali (Tasdiqlash /
@@ -94,8 +93,8 @@ def can_review(actor: models.Employee, note: models.AttendanceNote) -> bool:
         )
     if st == "kutilmoqda":
         return actor.has_role(R.kadr)
-    if st == "kadr_tasdiqladi":
-        return actor.has_role(*ADMIN_REVIEW_ROLES)
+    if st == "kadr_tasdiqladi":   # eski arizalar — kadr ham yakunlay oladi
+        return actor.has_role(R.kadr, *ADMIN_REVIEW_ROLES)
     return False
 
 
@@ -138,8 +137,9 @@ def reroute_to_heads(db: Session) -> list[int]:
 # ── Qaror ─────────────────────────────────────────────────────────────────────
 
 def needs_zamdirektor(note: models.AttendanceNote) -> bool:
-    """Ruxsat so'rash — faqat bo'lim boshlig'i va kadr; qolganlari zamdirektorgacha boradi."""
-    return note.note_type != "ruxsat"
+    """Zamdirektor bosqichi olib tashlangan — barcha arizalar kadr tasdiqlasa yakunlanadi.
+    (Eski "kadr_tasdiqladi" holatidagi arizalar hali ham yopilishi mumkin — can_review.)"""
+    return False
 
 
 def apply_review(db: Session, note: models.AttendanceNote, actor: models.Employee, approve: bool) -> str:

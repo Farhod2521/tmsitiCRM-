@@ -544,7 +544,7 @@ def set_correction(
     if data.source not in ("turniket", "qolda"):
         raise HTTPException(status_code=400, detail="Noto'g'ri manba")
     if current.role == R.kadr and not (data.reason or "").strip():
-        raise HTTPException(status_code=400, detail="Vaqtni to'g'rilash sababini yozing — u zamdirektorga yuboriladi")
+        raise HTTPException(status_code=400, detail="Vaqtni to'g'rilash sababini yozing — u jurnalga yoziladi")
 
     att = db.query(models.Attendance).filter(models.Attendance.employee_id == emp.id,
                                              models.Attendance.date == data.date).first()
@@ -554,22 +554,19 @@ def set_correction(
     C = models.AttendanceCorrection
     if db.query(C).filter(C.employee_id == emp.id, C.date == data.date, C.status == "kutilmoqda").first():
         raise HTTPException(status_code=400, detail="Bu kun uchun zamdirektor tasdig'ini kutayotgan tuzatish bor")
-    needs_ok = current.role == R.kadr   # kadr tuzatishi — zamdirektor tasdiqlagach kuchga kiradi
+    # Har qanday tuzatish (kadr ham) darhol kuchga kiradi — zamdirektor tasdig'i talab qilinmaydi
     corr = models.AttendanceCorrection(
-        status="kutilmoqda" if needs_ok else "tasdiqlandi",
-        reviewed_by=None if needs_ok else current.id, reviewed_at=None if needs_ok else datetime.utcnow(),
+        status="tasdiqlandi",
+        reviewed_by=current.id, reviewed_at=datetime.utcnow(),
         employee_id=emp.id, date=data.date, old_check_in=old, new_check_in=t.strftime("%H:%M"),
         source=data.source, reason=(data.reason or "").strip() or None, corrected_by=current.id,
         late_before=_late(data.date, old, emp), late_after=_late(data.date, t.strftime("%H:%M"), emp),
         note_text=_day_note(db, emp.id, data.date), corrector_role=current.role.value,
     )
     db.add(corr)
-    if not needs_ok:
-        apply_correction(db, corr)
+    apply_correction(db, corr)
     db.commit()
-    # Zamdirektor tuzatishi — darhol kuchga kiradi, hech kimga xabar ketmaydi (faqat jurnalda)
-    if current.role != R.zamdirektor:
-        background.add_task(_notify_zam, corr.id)
+    # Zamdirektorga xabar yuborilmaydi — tuzatish faqat jurnalda ("Davomat tuzatishlari")
     return _correction_info(db, emp, data.date)
 
 

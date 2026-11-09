@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { apiFetch } from "@/lib/api";
 import { fmtDateTimeUz } from "@/lib/datetime";
-import { X, Loader2, Clock3, DoorOpen, History, Save, MessageSquareText, Send } from "lucide-react";
+import { X, Loader2, Clock3, DoorOpen, History, Save, MessageSquareText } from "lucide-react";
 
 interface CorrectionLog {
   old_check_in: string | null;
@@ -62,7 +62,6 @@ export default function CheckInCorrectionModal({ employeeId, date, onClose, onSa
   const [reason, setReason] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [sent, setSent] = useState(false);   // kadr: zamdirektor tasdig'iga yuborildi
 
   useEffect(() => {
     apiFetch<CorrectionInfo>(`/attendance/daily/correction?employee_id=${employeeId}&date=${date}`)
@@ -90,7 +89,7 @@ export default function CheckInCorrectionModal({ employeeId, date, onClose, onSa
 
   async function save() {
     if (!/^\d{2}:\d{2}$/.test(time)) { setError("Vaqtni kiriting (SS:DD)"); return; }
-    if (info?.reason_required && !reason.trim()) { setError("Sababni yozing — u zamdirektorga yuboriladi"); return; }
+    if (info?.reason_required && !reason.trim()) { setError("Sababni yozing — u jurnalga yoziladi"); return; }
     setSaving(true); setError(null);
     try {
       await apiFetch<CorrectionInfo>("/attendance/daily/correction", {
@@ -98,7 +97,7 @@ export default function CheckInCorrectionModal({ employeeId, date, onClose, onSa
         body: JSON.stringify({ employee_id: employeeId, date, time, source, reason: reason.trim() || null }),
       });
       onSaved();
-      if (info?.reason_required) setSent(true); else onClose();
+      onClose();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Xatolik");
     } finally {
@@ -158,11 +157,6 @@ export default function CheckInCorrectionModal({ employeeId, date, onClose, onSa
                 Tasdiqlanmaguncha vaqt o&apos;zgarmaydi.
               </div>
             )}
-            {sent && (
-              <div className="mt-3 p-3 text-[13px]" style={{ background: "rgba(0,165,120,0.1)", border: "1px solid #A6EBC5", borderRadius: 12, color: "#027A48" }}>
-                ✅ Zamdirektor tasdig&apos;iga yuborildi. Tasdiqlansa — vaqt o&apos;zgaradi va sizga Telegram&apos;da xabar keladi.
-              </div>
-            )}
 
             {/* Xodimning shu kungi izohi (ariza) */}
             <div className="mt-3 p-3" style={{ background: info.note ? "#FFF8E8" : "#FAFCFF", border: `1px solid ${info.note ? "#FCE3A8" : "#F0F3F8"}`, borderRadius: 12 }}>
@@ -185,11 +179,6 @@ export default function CheckInCorrectionModal({ employeeId, date, onClose, onSa
               className="w-full px-4 py-3 text-sm outline-none resize-none"
               style={{ background: "#F4F9FD", borderRadius: 12, border: "1px solid #D9E3F0", color: "#0A1629" }} />
 
-            {info.reason_required && (
-              <p className="text-[11px] mt-1.5 flex items-center gap-1" style={{ color: "#6D5DD3" }}>
-                <Send size={11} /> Zamdirektor tasdiqlagandan keyingina vaqt o&apos;zgaradi (sayt va Telegram orqali)
-              </p>
-            )}
             {error && <p className="text-xs font-bold mt-2" style={{ color: "#FF5C5C" }}>{error}</p>}
 
             {info.history.length > 0 && (
