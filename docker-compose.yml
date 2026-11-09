@@ -32,7 +32,7 @@ services:
       TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN}
       TELEGRAM_CHAT_ID: ${TELEGRAM_CHAT_ID}
       BOT_INTERNAL_SECRET: ${BOT_INTERNAL_SECRET}
-    # nginx: tmsiti.testyarat.uz → 127.0.0.1:1111. Frontend (/backend rewrite) va
+    # nginx: tmsiti.testyarat.uz → 127.0.0.1:1111. Frontend (/crm-api rewrite) va
     # telegram bot esa ichki tarmoq orqali backend:8000 ga ulanadi.
     ports:
       - "1111:8000"
@@ -48,7 +48,7 @@ services:
       context: ./tmsiticrm
       dockerfile: Dockerfile
       args:
-        NEXT_PUBLIC_API_URL: /backend
+        NEXT_PUBLIC_API_URL: /crm-api
         BACKEND_INTERNAL_URL: http://backend:8000
         NEXT_PUBLIC_TELEGRAM_BOT_USERNAME: ${TELEGRAM_BOT_USERNAME}
     container_name: crm_frontend

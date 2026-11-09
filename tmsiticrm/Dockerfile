@@ -8,8 +8,8 @@ RUN npm ci
 COPY . .
 
 # Build vaqtida API URL va Telegram bot username'ni qabul qiladi
-# /backend — Next.js o'zi ichki backend'ga uzatadi (next.config.ts rewrites)
-ARG NEXT_PUBLIC_API_URL=/backend
+# /crm-api — Next.js o'zi ichki backend'ga uzatadi (next.config.ts rewrites)
+ARG NEXT_PUBLIC_API_URL=/crm-api
 ARG BACKEND_INTERNAL_URL=http://backend:8000
 ARG NEXT_PUBLIC_TELEGRAM_BOT_USERNAME
 ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
