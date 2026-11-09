@@ -205,10 +205,10 @@ export default function CheckInCorrectionModal({ employeeId, date, onClose, onSa
 
         <div className="flex items-center justify-end gap-2 px-6 py-4" style={{ borderTop: "1px solid #F4F9FD" }}>
           <button onClick={onClose} className="px-4 py-2.5 text-sm font-bold" style={{ background: "#F4F9FD", color: "#7D8592", borderRadius: 12 }}>Bekor qilish</button>
-          <button onClick={save} disabled={saving || !changed || !!info?.pending || sent}
+          <button onClick={save} disabled={saving || !changed || !!info?.pending}
             className="flex items-center gap-2 px-5 py-2.5 text-sm font-bold text-white disabled:opacity-50"
             style={{ background: "#6D5DD3", borderRadius: 12 }}>
-            {saving ? <Loader2 size={15} className="animate-spin" /> : <Save size={15} />} {info?.reason_required ? "Tasdiqqa yuborish" : "Saqlash"}
+            {saving ? <Loader2 size={15} className="animate-spin" /> : <Save size={15} />} Saqlash
           </button>
         </div>
       </div>
